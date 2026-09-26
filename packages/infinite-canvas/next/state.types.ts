@@ -79,7 +79,7 @@ export type WindowDefinition = {
   minSize: Size;
   maxSize?: { width?: number; height?: number };
   aspectRatio?: number;
-  section: boolean;
+  navigable: boolean;
   capabilities: WindowCapabilities;
   bodyDragThreshold: number;
   headerDragThreshold: number;

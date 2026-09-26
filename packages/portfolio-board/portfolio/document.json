@@ -151,33 +151,30 @@
           "gap": 6
         },
         "children": [
-          "claudecode",
-          "codex",
-          "python",
-          "graphql",
-          "googlecloud",
-          "drizzle",
-          "prisma",
           "typescript",
           "react",
-          "nodedotjs",
-          "tanstack",
+          "drizzle",
+          "python",
           "effect",
+          "googlecloud",
+          "prisma",
           "postgresql",
           "redux",
+          "graphql",
+          "nodedotjs",
+          "claudecode",
           "javascript",
           "tailwindcss",
+          "codex",
           "webgpu",
           "threedotjs",
-          "surrealdb",
-          "modelcontextprotocol",
+          "tanstack",
           "docker",
           "vercel",
+          "surrealdb",
+          "modelcontextprotocol",
           "vite",
-          "vitest",
-          "turborepo",
-          "pnpm",
-          "github"
+          "vitest"
         ]
       },
       "profile": {
@@ -1782,11 +1779,151 @@
           }
         }
       },
-      "claudecode": {
-        "id": "claudecode",
+      "typescript": {
+        "id": "typescript",
         "item": {
           "column": 0,
           "row": 0,
+          "columnSpan": 2,
+          "rowSpan": 2
+        },
+        "kind": "icon-square",
+        "title": "TypeScript",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "typescript",
+          "color": "brand"
+        }
+      },
+      "react": {
+        "id": "react",
+        "item": {
+          "column": 2,
+          "row": 0,
+          "columnSpan": 2,
+          "rowSpan": 2
+        },
+        "kind": "icon-square",
+        "title": "React",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "react",
+          "color": "brand"
+        }
+      },
+      "effect": {
+        "id": "effect",
+        "item": {
+          "column": 6,
+          "row": 0,
+          "columnSpan": 2,
+          "rowSpan": 2
+        },
+        "kind": "icon-square",
+        "title": "Effect",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "effect",
+          "color": "brand"
+        }
+      },
+      "graphql": {
+        "id": "graphql",
+        "item": {
+          "column": 2,
+          "row": 2,
+          "columnSpan": 2,
+          "rowSpan": 2
+        },
+        "kind": "icon-square",
+        "title": "GraphQL",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "graphql",
+          "color": "brand"
+        }
+      },
+      "nodedotjs": {
+        "id": "nodedotjs",
+        "item": {
+          "column": 4,
+          "row": 2,
+          "columnSpan": 2,
+          "rowSpan": 2
+        },
+        "kind": "icon-square",
+        "title": "Node.js",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "nodedotjs",
+          "color": "brand"
+        }
+      },
+      "claudecode": {
+        "id": "claudecode",
+        "item": {
+          "column": 6,
+          "row": 2,
           "columnSpan": 2,
           "rowSpan": 2
         },
@@ -1813,8 +1950,8 @@
       "codex": {
         "id": "codex",
         "item": {
-          "column": 2,
-          "row": 0,
+          "column": 0,
+          "row": 4,
           "columnSpan": 2,
           "rowSpan": 2
         },
@@ -1838,237 +1975,13 @@
           "color": "brand"
         }
       },
-      "python": {
-        "id": "python",
-        "item": {
-          "column": 4,
-          "row": 0,
-          "columnSpan": 2,
-          "rowSpan": 2
-        },
-        "kind": "icon-square",
-        "title": "Python",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": {
-          "maximizable": false,
-          "minimizable": false
-        },
-        "rect": {
-          "x": 0,
-          "y": 0,
-          "width": 80,
-          "height": 80
-        },
-        "data": {
-          "icon": "python",
-          "color": "brand"
-        }
-      },
-      "graphql": {
-        "id": "graphql",
-        "item": {
-          "column": 6,
-          "row": 0,
-          "columnSpan": 2,
-          "rowSpan": 2
-        },
-        "kind": "icon-square",
-        "title": "GraphQL",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": {
-          "maximizable": false,
-          "minimizable": false
-        },
-        "rect": {
-          "x": 0,
-          "y": 0,
-          "width": 80,
-          "height": 80
-        },
-        "data": {
-          "icon": "graphql",
-          "color": "brand"
-        }
-      },
-      "googlecloud": {
-        "id": "googlecloud",
-        "item": {
-          "column": 0,
-          "row": 2,
-          "columnSpan": 2,
-          "rowSpan": 2
-        },
-        "kind": "icon-square",
-        "title": "Google Cloud Platform (GCP)",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": {
-          "maximizable": false,
-          "minimizable": false
-        },
-        "rect": {
-          "x": 0,
-          "y": 0,
-          "width": 80,
-          "height": 80
-        },
-        "data": {
-          "icon": "googlecloud",
-          "color": "brand"
-        }
-      },
-      "drizzle": {
-        "id": "drizzle",
-        "item": {
-          "column": 2,
-          "row": 2,
-          "columnSpan": 2,
-          "rowSpan": 2
-        },
-        "kind": "icon-square",
-        "title": "Drizzle ORM",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": {
-          "maximizable": false,
-          "minimizable": false
-        },
-        "rect": {
-          "x": 0,
-          "y": 0,
-          "width": 80,
-          "height": 80
-        },
-        "data": {
-          "icon": "drizzle",
-          "color": "brand"
-        }
-      },
-      "prisma": {
-        "id": "prisma",
-        "item": {
-          "column": 4,
-          "row": 2,
-          "columnSpan": 2,
-          "rowSpan": 2
-        },
-        "kind": "icon-square",
-        "title": "Prisma",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": {
-          "maximizable": false,
-          "minimizable": false
-        },
-        "rect": {
-          "x": 0,
-          "y": 0,
-          "width": 80,
-          "height": 80
-        },
-        "data": {
-          "icon": "prisma",
-          "color": "monochrome"
-        }
-      },
-      "typescript": {
-        "id": "typescript",
-        "item": {
-          "column": 6,
-          "row": 2,
-          "columnSpan": 1,
-          "rowSpan": 1
-        },
-        "kind": "icon-square",
-        "title": "TypeScript",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": {
-          "maximizable": false,
-          "minimizable": false
-        },
-        "rect": {
-          "x": 0,
-          "y": 0,
-          "width": 80,
-          "height": 80
-        },
-        "data": {
-          "icon": "typescript",
-          "color": "brand"
-        }
-      },
-      "react": {
-        "id": "react",
-        "item": {
-          "column": 7,
-          "row": 2,
-          "columnSpan": 1,
-          "rowSpan": 1
-        },
-        "kind": "icon-square",
-        "title": "React",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": {
-          "maximizable": false,
-          "minimizable": false
-        },
-        "rect": {
-          "x": 0,
-          "y": 0,
-          "width": 80,
-          "height": 80
-        },
-        "data": {
-          "icon": "react",
-          "color": "brand"
-        }
-      },
-      "nodedotjs": {
-        "id": "nodedotjs",
-        "item": {
-          "column": 6,
-          "row": 3,
-          "columnSpan": 1,
-          "rowSpan": 1
-        },
-        "kind": "icon-square",
-        "title": "Node.js",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": {
-          "maximizable": false,
-          "minimizable": false
-        },
-        "rect": {
-          "x": 0,
-          "y": 0,
-          "width": 80,
-          "height": 80
-        },
-        "data": {
-          "icon": "nodedotjs",
-          "color": "brand"
-        }
-      },
       "tanstack": {
         "id": "tanstack",
         "item": {
-          "column": 7,
-          "row": 3,
-          "columnSpan": 1,
-          "rowSpan": 1
+          "column": 4,
+          "row": 4,
+          "columnSpan": 2,
+          "rowSpan": 2
         },
         "kind": "icon-square",
         "title": "TanStack Start",
@@ -2090,16 +2003,16 @@
           "color": "brand"
         }
       },
-      "effect": {
-        "id": "effect",
+      "drizzle": {
+        "id": "drizzle",
         "item": {
-          "column": 0,
-          "row": 4,
+          "column": 4,
+          "row": 0,
           "columnSpan": 1,
           "rowSpan": 1
         },
         "kind": "icon-square",
-        "title": "Effect",
+        "title": "Drizzle ORM",
         "isPinned": false,
         "mode": "normal",
         "heightMode": "content",
@@ -2114,15 +2027,99 @@
           "height": 80
         },
         "data": {
-          "icon": "effect",
+          "icon": "drizzle",
           "color": "brand"
+        }
+      },
+      "python": {
+        "id": "python",
+        "item": {
+          "column": 5,
+          "row": 0,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "Python",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "python",
+          "color": "brand"
+        }
+      },
+      "googlecloud": {
+        "id": "googlecloud",
+        "item": {
+          "column": 4,
+          "row": 1,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "Google Cloud Platform (GCP)",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "googlecloud",
+          "color": "brand"
+        }
+      },
+      "prisma": {
+        "id": "prisma",
+        "item": {
+          "column": 5,
+          "row": 1,
+          "columnSpan": 1,
+          "rowSpan": 1
+        },
+        "kind": "icon-square",
+        "title": "Prisma",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": {
+          "maximizable": false,
+          "minimizable": false
+        },
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 80,
+          "height": 80
+        },
+        "data": {
+          "icon": "prisma",
+          "color": "monochrome"
         }
       },
       "postgresql": {
         "id": "postgresql",
         "item": {
-          "column": 1,
-          "row": 4,
+          "column": 0,
+          "row": 2,
           "columnSpan": 1,
           "rowSpan": 1
         },
@@ -2149,8 +2146,8 @@
       "redux": {
         "id": "redux",
         "item": {
-          "column": 2,
-          "row": 4,
+          "column": 1,
+          "row": 2,
           "columnSpan": 1,
           "rowSpan": 1
         },
@@ -2177,8 +2174,8 @@
       "javascript": {
         "id": "javascript",
         "item": {
-          "column": 3,
-          "row": 4,
+          "column": 0,
+          "row": 3,
           "columnSpan": 1,
           "rowSpan": 1
         },
@@ -2205,8 +2202,8 @@
       "tailwindcss": {
         "id": "tailwindcss",
         "item": {
-          "column": 4,
-          "row": 4,
+          "column": 1,
+          "row": 3,
           "columnSpan": 1,
           "rowSpan": 1
         },
@@ -2233,7 +2230,7 @@
       "webgpu": {
         "id": "webgpu",
         "item": {
-          "column": 5,
+          "column": 2,
           "row": 4,
           "columnSpan": 1,
           "rowSpan": 1
@@ -2261,7 +2258,7 @@
       "threedotjs": {
         "id": "threedotjs",
         "item": {
-          "column": 6,
+          "column": 3,
           "row": 4,
           "columnSpan": 1,
           "rowSpan": 1
@@ -2289,8 +2286,8 @@
       "surrealdb": {
         "id": "surrealdb",
         "item": {
-          "column": 7,
-          "row": 4,
+          "column": 2,
+          "row": 5,
           "columnSpan": 1,
           "rowSpan": 1
         },
@@ -2317,7 +2314,7 @@
       "modelcontextprotocol": {
         "id": "modelcontextprotocol",
         "item": {
-          "column": 0,
+          "column": 3,
           "row": 5,
           "columnSpan": 1,
           "rowSpan": 1
@@ -2345,8 +2342,8 @@
       "docker": {
         "id": "docker",
         "item": {
-          "column": 1,
-          "row": 5,
+          "column": 6,
+          "row": 4,
           "columnSpan": 1,
           "rowSpan": 1
         },
@@ -2373,8 +2370,8 @@
       "vercel": {
         "id": "vercel",
         "item": {
-          "column": 2,
-          "row": 5,
+          "column": 7,
+          "row": 4,
           "columnSpan": 1,
           "rowSpan": 1
         },
@@ -2401,7 +2398,7 @@
       "vite": {
         "id": "vite",
         "item": {
-          "column": 3,
+          "column": 6,
           "row": 5,
           "columnSpan": 1,
           "rowSpan": 1
@@ -2429,7 +2426,7 @@
       "vitest": {
         "id": "vitest",
         "item": {
-          "column": 4,
+          "column": 7,
           "row": 5,
           "columnSpan": 1,
           "rowSpan": 1
@@ -2452,90 +2449,6 @@
         "data": {
           "icon": "vitest",
           "color": "brand"
-        }
-      },
-      "turborepo": {
-        "id": "turborepo",
-        "item": {
-          "column": 5,
-          "row": 5,
-          "columnSpan": 1,
-          "rowSpan": 1
-        },
-        "kind": "icon-square",
-        "title": "Turborepo",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": {
-          "maximizable": false,
-          "minimizable": false
-        },
-        "rect": {
-          "x": 0,
-          "y": 0,
-          "width": 80,
-          "height": 80
-        },
-        "data": {
-          "icon": "turborepo",
-          "color": "brand"
-        }
-      },
-      "pnpm": {
-        "id": "pnpm",
-        "item": {
-          "column": 6,
-          "row": 5,
-          "columnSpan": 1,
-          "rowSpan": 1
-        },
-        "kind": "icon-square",
-        "title": "pnpm",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": {
-          "maximizable": false,
-          "minimizable": false
-        },
-        "rect": {
-          "x": 0,
-          "y": 0,
-          "width": 80,
-          "height": 80
-        },
-        "data": {
-          "icon": "pnpm",
-          "color": "brand"
-        }
-      },
-      "github": {
-        "id": "github",
-        "item": {
-          "column": 7,
-          "row": 5,
-          "columnSpan": 1,
-          "rowSpan": 1
-        },
-        "kind": "icon-square",
-        "title": "GitHub",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": {
-          "maximizable": false,
-          "minimizable": false
-        },
-        "rect": {
-          "x": 0,
-          "y": 0,
-          "width": 80,
-          "height": 80
-        },
-        "data": {
-          "icon": "github",
-          "color": "monochrome"
         }
       }
     },

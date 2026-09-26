@@ -39,9 +39,9 @@ function BoardRoute() {
           ? (mode) => void navigate({ search: { mode }, replace: true })
           : undefined
       }
-      section={hash || undefined}
-      onSectionChange={(section) =>
-        void navigate({ hash: section, search: true, replace: true, resetScroll: false })
+      focusedWindowId={hash || undefined}
+      onFocusedWindowChange={(focusedWindowId) =>
+        void navigate({ hash: focusedWindowId, search: true, replace: true, resetScroll: false })
       }
     />
   );

@@ -1,8 +1,5 @@
 // @refresh reset
-import {
-  type Canvas,
-  type WindowState,
-} from "@hyphened/infinite-canvas/next";
+import { type Canvas, type WindowState } from "@hyphened/infinite-canvas/next";
 import {
   CanvasScroll,
   CanvasTools,
@@ -24,7 +21,7 @@ import {
   CanvasInspector,
   CanvasLauncher,
   CanvasPresentation,
-  CanvasSectionRail,
+  CanvasWindowNavigation,
   CanvasSelectionToolbar,
   CanvasSettings,
   Label,
@@ -92,8 +89,13 @@ const BoardWindow = observer(function BoardWindow({ window }: { window: Observab
     ) : null;
   return (
     <WindowDragHandle className={styles().card()}>
-      <Surface container padding="none" tone={hasDetails ? "rim" : tones[kind] ?? "card"}
-        rim={kind === "profile" ? "iridescent" : undefined} className={styles().window()}>
+      <Surface
+        container
+        padding="none"
+        tone={hasDetails ? "rim" : (tones[kind] ?? "card")}
+        rim={kind === "profile" ? "iridescent" : undefined}
+        className={styles().window()}
+      >
         <WindowContent nativeScroll={kind === "career-detail"}>
           <ComponentView canvas={canvas} window={window} components={components} />
         </WindowContent>
@@ -168,16 +170,16 @@ export function PortfolioBoard({
   mode,
   onModeChange,
   onReset,
-  section,
-  onSectionChange,
+  focusedWindowId,
+  onFocusedWindowChange,
   controls,
 }: {
   canvas: Canvas;
   mode: BoardMode;
   onModeChange?: (mode: BoardMode) => void;
   onReset?: () => void;
-  section?: string;
-  onSectionChange?: (section: string) => void;
+  focusedWindowId?: string;
+  onFocusedWindowChange?: (focusedWindowId: string) => void;
   controls?: ReactNode;
 }) {
   const [exploring, setExploring] = useState(false);
@@ -195,7 +197,7 @@ export function PortfolioBoard({
         {controls}
       </BoardControls>
       <CanvasSelectionToolbar canvas={canvas} />
-      {mode === "read" && <CanvasSectionRail />}
+      {mode === "read" && <CanvasWindowNavigation />}
       <PaletteHost>
         <CanvasInspector canvas={canvas} />
         <CanvasPresentation canvas={canvas} />
@@ -203,13 +205,11 @@ export function PortfolioBoard({
         <header className={styles().paletteHeading()}>
           <Row justify="between">
             <Label>Components</Label>
-            {onReset && <Button
-              size="sm"
-              tone="ghost"
-              onClick={onReset}
-            >
-              Reset
-            </Button>}
+            {onReset && (
+              <Button size="sm" tone="ghost" onClick={onReset}>
+                Reset
+              </Button>
+            )}
           </Row>
           <p className={styles().paletteDescription()}>Add or drag onto the canvas.</p>
         </header>
@@ -237,8 +237,8 @@ export function PortfolioBoard({
         <CanvasScroll
           canvas={canvas}
           attached={!exploring}
-          section={section}
-          onSectionChange={onSectionChange}
+          focusedWindowId={focusedWindowId}
+          onFocusedWindowChange={onFocusedWindowChange}
           scrollbar={mode === "read" ? <ScrollAreaScrollbar /> : undefined}
         >
           {viewport}

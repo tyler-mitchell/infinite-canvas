@@ -6,7 +6,7 @@ import type { Canvas } from "../state.types";
 import type { CameraMotion } from "../camera";
 import { CanvasPortal } from "./context";
 import { CanvasScroll } from "./scroll";
-import { Sections } from "./sections";
+import { WindowNavigation } from "./window-navigation";
 import { CanvasViewport, useCanvasOccluder } from "./viewport";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -33,8 +33,14 @@ const settle = (change?: () => unknown) =>
   });
 
 const mount = async ({
-  canvas = createReading(), content, section = "a",
-}: { canvas?: Canvas; content?: ReactNode; section?: string | null }) => {
+  canvas = createReading(),
+  content,
+  focusedWindowId = "a",
+}: {
+  canvas?: Canvas;
+  content?: ReactNode;
+  focusedWindowId?: string | null;
+}) => {
   const host = document.createElement("div");
   host.style.cssText = "position:fixed;left:0;top:0;width:800px;height:600px";
   document.body.append(host);
@@ -48,13 +54,13 @@ const mount = async ({
     reading = true,
     editing = false,
     attached = true,
-    onSectionChange,
+    onFocusedWindowChange,
   }: {
     children?: ReactNode;
     reading?: boolean;
     editing?: boolean;
     attached?: boolean;
-    onSectionChange?: (section: string) => void;
+    onFocusedWindowChange?: (focusedWindowId: string) => void;
   }) => {
     const viewport = (
       <CanvasViewport
@@ -71,13 +77,15 @@ const mount = async ({
           {reading ? (
             <CanvasScroll
               canvas={canvas}
-              section={section ?? undefined}
+              focusedWindowId={focusedWindowId ?? undefined}
               attached={attached}
-              onSectionChange={onSectionChange}
+              onFocusedWindowChange={onFocusedWindowChange}
             >
               {viewport}
             </CanvasScroll>
-          ) : viewport}
+          ) : (
+            viewport
+          )}
         </StrictMode>,
       ),
     );
@@ -115,10 +123,10 @@ test("reading puts the camera on the route when it opens and whenever a panel ch
   expect(first().top).toBeCloseTo(96, 1);
 });
 
-test("opening without a section places the camera without a navigation animation", async () => {
+test("opening without a focusedWindowId places the camera without a navigation animation", async () => {
   const canvas = createReading({ reducedMotion: "never", transition: { duration: 1 } });
   const navigate = vi.spyOn(canvas.commands.navigateCamera, "run");
-  await mount({ canvas, section: null });
+  await mount({ canvas, focusedWindowId: null });
   expect(navigate).not.toHaveBeenCalled();
   expect(canvas.computed.camera.peek()).toEqual(canvas.computed.cameraTrack.peek()!.at(0));
   navigate.mockRestore();
@@ -145,7 +153,7 @@ test("scrolling returns an off-route camera through navigation to the latest scr
   act(() => scroll(track.length / 3));
   expect(canvas.computed.camera.peek().center.x).toBeGreaterThan(initial.center.x + 300);
   await settle();
-  act(() => scroll(track.length * 2 / 3));
+  act(() => scroll((track.length * 2) / 3));
   expect(navigate).toHaveBeenCalledTimes(1);
   expect(canvas.computed.view.camera.peek()).toEqual(committed);
   const destination = track.at(viewport.scrollTop);
@@ -170,7 +178,9 @@ test("editing preserves mounted windows and does not unlock scroll navigation", 
 
   await render({ editing: true, attached: false });
   const unlocked = new WheelEvent("wheel", { deltaY: 40, bubbles: true, cancelable: true });
-  await act(async () => { viewport.dispatchEvent(unlocked); });
+  await act(async () => {
+    viewport.dispatchEvent(unlocked);
+  });
   expect(unlocked.defaultPrevented).toBe(true);
   expect(viewport.getAttribute("data-mode")).toBe("edit");
   expect(host.querySelector("[data-window-id='a']")).toBe(window);
@@ -205,8 +215,8 @@ test("reading shows none of the author's selection, and editing the same canvas 
   expect(host.querySelector("[data-testid='bar']")).not.toBeNull();
 });
 
-test("cards that share a row share one stop in the section list, named after both", async () => {
-  const { host } = await mount({
+test("cards that share a row remain separate focus targets", async () => {
+  const { canvas, host, render } = await mount({
     canvas: createCanvasState({
       windowDefinitions: { card: { size: { width: 200, height: 100 } } },
       document: {
@@ -220,11 +230,21 @@ test("cards that share a row share one stop in the section list, named after bot
       },
     }),
     content: (
-      <Sections.Root>{(section) => <Sections.Item key={section.id} section={section} />}</Sections.Root>
+      <WindowNavigation.Root>
+        {(window) => <WindowNavigation.Item key={window.id} window={window} />}
+      </WindowNavigation.Root>
     ),
   });
-  const stops = [...host.querySelectorAll("[data-slot='canvas-section']")];
-  expect(stops.map((stop) => stop.textContent)).toEqual(["A, B", "C"]);
-  expect(stops.map((stop) => stop.getAttribute("aria-label"))).toEqual(["A, B", "C"]);
-  expect(stops.map((stop) => stop.getAttribute("aria-current"))).toEqual(["true", null]);
+  const stops = [
+    ...host.querySelectorAll<HTMLButtonElement>("[data-slot='canvas-window-navigation-item']"),
+  ];
+  expect(stops.map((stop) => stop.textContent)).toEqual(["A", "B", "C"]);
+  expect(stops.map((stop) => stop.getAttribute("aria-label"))).toEqual(["A", "B", "C"]);
+  expect(stops.map((stop) => stop.getAttribute("aria-current"))).toEqual(["true", null, null]);
+  const onFocusedWindowChange = vi.fn();
+  await render({ onFocusedWindowChange });
+  await settle(() => stops[1]!.click());
+  expect(canvas.computed.view.activeWindowId.peek()).toBe("b");
+  expect(onFocusedWindowChange).toHaveBeenCalledWith("b");
+  expect(stops.map((stop) => stop.getAttribute("aria-current"))).toEqual([null, "true", null]);
 });

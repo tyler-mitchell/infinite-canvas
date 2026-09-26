@@ -16,7 +16,7 @@ test("career details open, remain visible, close, and reopen", async () => {
       main: {},
       "career-detail": {
         size: { width: 360, height: 480 },
-        section: false,
+        navigable: false,
         schema: type({
           organization: "string > 0",
           role: "string > 0",
@@ -1277,7 +1277,7 @@ test("snapping and the camera limits are settable, and disordered zoom limits ar
 
 test("a window takes its kind's place in the reading order until the author overrides it", () => {
   const canvas = createCanvasState({
-    windowDefinitions: { note: {}, mark: { section: false } },
+    windowDefinitions: { note: {}, mark: { navigable: false } },
     viewport: { width: 1000, height: 800 },
     document: {
       content: {
@@ -1300,9 +1300,9 @@ test("a window takes its kind's place in the reading order until the author over
   });
   const order = () => canvas.computed.route.get().map((section) => section.id);
   expect(order()).toEqual(["p"]);
-  canvas.actions.setWindowSection.run({ window: "q", section: true });
+  canvas.actions.setWindowNavigable.run({ window: "q", navigable: true });
   expect(order()).toEqual(["q", "p"]);
-  canvas.actions.setWindowSection.run({ window: "q" });
+  canvas.actions.setWindowNavigable.run({ window: "q" });
   expect(order()).toEqual(["p"]);
 });
 

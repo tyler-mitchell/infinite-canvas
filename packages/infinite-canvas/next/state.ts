@@ -451,7 +451,7 @@ export const createCanvasState = withComputed(stateModel)
         "data?": "unknown",
         "layout?": canvas.inputs.windowLayout,
         "heightMode?": "'content' | 'manual'",
-        "section?": "boolean",
+        "navigable?": "boolean",
         "rect?": { x: "number", y: "number", width: "number > 0", height: "number > 0" },
       }).pipe(({ id = crypto.randomUUID(), ...container }, ctx) => {
         const input = { ...container, id };
@@ -758,7 +758,7 @@ export const createCanvasState = withComputed(stateModel)
           input.maxSize !== undefined ||
           ctx.mustBe("a width mode, a height mode or a maximum size"),
       ),
-      setWindowSection: { window: "existingWindow", "section?": "boolean" },
+      setWindowNavigable: { window: "existingWindow", "navigable?": "boolean" },
       setPresentation: type({
         "axis?": "'horizontal' | 'vertical'",
         "maxZoom?": "number > 0",
@@ -918,8 +918,8 @@ export const createCanvasState = withComputed(stateModel)
       setWindowSizeMode: type.fn(inputs.setWindowSizeMode)(({ window, ...modes }) =>
         window.assign(modes),
       ),
-      setWindowSection: type.fn(inputs.setWindowSection)(({ window, section }) =>
-        section === undefined ? window.section.delete() : window.section.set(section),
+      setWindowNavigable: type.fn(inputs.setWindowNavigable)(({ window, navigable }) =>
+        navigable === undefined ? window.navigable.delete() : window.navigable.set(navigable),
       ),
       setPresentation: type.fn(inputs.setPresentation)((presentation) =>
         state.document.content.presentation.assign(presentation),
@@ -1781,7 +1781,7 @@ export const createCanvasState = withComputed(stateModel)
             layout: input.layout ?? configuration.grouping,
             children,
             ...(input.heightMode === undefined ? {} : { heightMode: input.heightMode }),
-            ...(input.section === undefined ? {} : { section: input.section }),
+            ...(input.navigable === undefined ? {} : { navigable: input.navigable }),
           });
           children.forEach((child) =>
             replaceTopLevel({ document: state.document, from: child, to: input.id }),
@@ -2131,16 +2131,16 @@ export const createCanvasState = withComputed(stateModel)
       scope: "selection",
       icon: "resize",
     },
-    setWindowSection: {
-      action: actions.setWindowSection,
-      label: "Reset section",
-      description: "Put the window back on its component's default for the reading order",
+    setWindowNavigable: {
+      action: actions.setWindowNavigable,
+      label: "Set navigation",
+      description: "Include the window in navigation, or restore its component default",
       icon: "section",
     },
     setPresentation: {
       action: actions.setPresentation,
       label: "Set route",
-      description: "The axis the document reads along, and how far a section may zoom in",
+      description: "Set the navigation axis and maximum zoom",
       scope: "canvas",
       icon: "section",
     },

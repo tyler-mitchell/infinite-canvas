@@ -23,7 +23,7 @@ export const CanvasInspector = observer(function CanvasInspector({ canvas }: Can
   const selected = chosen[0];
   const ids = chosen.map((entry) => entry.id.get());
   const overridden = chosen
-    .filter((entry) => entry.section.get() !== undefined)
+    .filter((entry) => entry.navigable.get() !== undefined)
     .map((entry) => entry.id.get());
   const alone = ids.length === 1;
   const id = selected.id.get();
@@ -35,9 +35,7 @@ export const CanvasInspector = observer(function CanvasInspector({ canvas }: Can
   return (
     <section className={styles().root()} aria-label="Selection">
       <FieldSet>
-        <FieldLegend variant="label">
-          {alone ? "Window" : `${ids.length} windows`}
-        </FieldLegend>
+        <FieldLegend variant="label">{alone ? "Window" : `${ids.length} windows`}</FieldLegend>
         <FieldGroup>
           {alone && (
             <Field orientation="vertical">
@@ -57,11 +55,11 @@ export const CanvasInspector = observer(function CanvasInspector({ canvas }: Can
           )}
           <Field>
             <Field.Content>
-              <Field.Label>Section</Field.Label>
+              <Field.Label>Include in navigation</Field.Label>
               <Field.Description>
                 {overridden.length === 0
-                  ? "Takes its place in the reading order. Following the component default."
-                  : `Takes its place in the reading order. Set on ${overridden.length} of ${ids.length}.`}
+                  ? "Uses the component default."
+                  : `Overridden on ${overridden.length} of ${ids.length} windows.`}
               </Field.Description>
             </Field.Content>
             {overridden.length > 0 && (
@@ -70,7 +68,7 @@ export const CanvasInspector = observer(function CanvasInspector({ canvas }: Can
                 tone="ghost"
                 onClick={() =>
                   overridden.forEach((entry) =>
-                    canvas.actions.setWindowSection.run({ window: entry }),
+                    canvas.actions.setWindowNavigable.run({ window: entry }),
                   )
                 }
               >
@@ -78,10 +76,10 @@ export const CanvasInspector = observer(function CanvasInspector({ canvas }: Can
               </Button>
             )}
             <Switch
-              checked={ids.every((entry) => canvas.computed.windowSection[entry].get())}
+              checked={ids.every((entry) => canvas.computed.windowNavigable[entry].get())}
               onCheckedChange={(checked) =>
                 ids.forEach((entry) =>
-                  canvas.actions.setWindowSection.run({ window: entry, section: checked }),
+                  canvas.actions.setWindowNavigable.run({ window: entry, navigable: checked }),
                 )
               }
             />

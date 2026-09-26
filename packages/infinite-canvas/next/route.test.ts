@@ -30,7 +30,7 @@ test("the route is the reading order of the layout: rows top to bottom, left to 
   expect(route.map((section) => section.id)).toEqual(["a", "b", "c", "d", "note"]);
 });
 
-test("a window that is not a section leaves the route and takes its children with it", () => {
+test("excluded windows and their children stay out of navigation", () => {
   const windows = {
     board: { children: ["a", "icon", "row"] },
     a: {},
@@ -47,8 +47,8 @@ test("a window that is not a section leaves the route and takes its children wit
     c: { x: 0, y: 100, width: 200, height: 100 },
     d: { x: 200, y: 100, width: 200, height: 100 },
   };
-  const ids = (sections: Record<string, boolean>) =>
-    getRoute({ windows, rects, roots: ["board"], sections }).map((section) => section.id);
+  const ids = (navigable: Record<string, boolean>) =>
+    getRoute({ windows, rects, roots: ["board"], navigable }).map((section) => section.id);
   expect(ids({})).toEqual(["a", "icon", "c", "d"]);
   expect(ids({ icon: false })).toEqual(["a", "c", "d"]);
   expect(ids({ row: false })).toEqual(["a", "icon"]);

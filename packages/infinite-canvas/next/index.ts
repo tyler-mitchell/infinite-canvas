@@ -44,15 +44,11 @@ export { resizeTracks, resolveTracks } from "@hyphened/math/cpu";
 export { getRunnableCommands } from "./commands";
 export type { RunnableCommand } from "./commands";
 export type { MutationResult, Result } from "./model";
-export type {
-  CameraNavigation,
-  CameraNavigationResult,
-  CameraTarget,
-} from "./camera";
+export type { CameraNavigation, CameraNavigationResult, CameraTarget } from "./camera";
 export type { CameraBehavior, Insets as ViewportInsets } from "@hyphened/math/cpu";
 export type { CameraController, CameraMotion, CameraRequest, CameraRequestSource } from "./camera";
 export { getRoute } from "./route";
-export type { Section } from "./route";
+export type { NavigationTarget } from "./route";
 export { getCameraTrack, type CameraTrack } from "@hyphened/math/cpu";
 export { getPlacementRect, getVacantRect, type PlacementRegion } from "@hyphened/math/cpu";
 export { bindComponentActions, getComponentPlacement } from "./components";

@@ -38,7 +38,7 @@ import {
   type Tree,
   type TreeChange,
 } from "./layout/tree";
-import { getRoute, type Section } from "./route";
+import { getRoute, type NavigationTarget } from "./route";
 import { containerDefinition } from "./state.schema";
 import type { stateModel } from "./state";
 import { alignRect, type AlignmentGuide } from "./alignment";
@@ -193,9 +193,9 @@ export const withComputed = (model: typeof stateModel) =>
         ...computed.windowDefinition[windowId].capabilities.get(),
         ...state.document.content.windows[windowId].capabilities.get(),
       }),
-      windowSection: (windowId: string): boolean =>
-        state.document.content.windows[windowId].section.get() ??
-        computed.windowDefinition[windowId].section.get(),
+      windowNavigable: (windowId: string): boolean =>
+        state.document.content.windows[windowId].navigable.get() ??
+        computed.windowDefinition[windowId].navigable.get(),
       workspaceWindows: () => {
         const id = state.document.activeWorkspaceId.get();
         const members = id === null ? null : state.document.content.workspaces[id].windowIds.get();
@@ -724,14 +724,14 @@ export const withComputed = (model: typeof stateModel) =>
                 [`window:${window.id.get()}`, computed.windowRect[window.id.get()].get()!] as const,
             ),
         ),
-      route: (): Section[] => {
+      route: (): NavigationTarget[] => {
         const windows = computed.baseTree.windows.get();
         const ids = Object.keys(windows);
         return getRoute({
           axis: state.document.content.presentation.axis.get(),
           windows,
           rects: fromEntries(ids.map((id) => [id, computed.windowRect[id].get()])),
-          sections: fromEntries(ids.map((id) => [id, computed.windowSection[id].get()])),
+          navigable: fromEntries(ids.map((id) => [id, computed.windowNavigable[id].get()])),
           roots: computed.workspaceRoots.map((window) => window.id.get()),
         });
       },

@@ -88,10 +88,10 @@ export {
   type CanvasPresentationProps,
 } from "./components/canvas-presentation.tsx";
 export {
-  CanvasSectionRail,
-  canvasSectionRailVariants,
-  type CanvasSectionRailProps,
-} from "./components/canvas-section-rail.tsx";
+  CanvasWindowNavigation,
+  canvasWindowNavigationVariants,
+  type CanvasWindowNavigationProps,
+} from "./components/canvas-window-navigation.tsx";
 export {
   CanvasSelectionToolbar,
   type CanvasSelectionToolbarProps,

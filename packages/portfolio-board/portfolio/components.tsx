@@ -53,7 +53,6 @@ import {
   siModelcontextprotocol,
   siNodedotjs,
   siNpm,
-  siPnpm,
   siPrisma,
   siPostgresql,
   siReact,
@@ -63,7 +62,6 @@ import {
   siTailwindcss,
   siTanstack,
   siThreedotjs,
-  siTurborepo,
   siTypescript,
   siVite,
   siVercel,
@@ -84,7 +82,6 @@ const icons = {
   typescript: siTypescript,
   javascript: siJavascript,
   react: siReact,
-  github: siGithub,
   python: { title: "Python", hex: "3776AB", image: pythonLogo },
   docker: siDocker,
   postgresql: siPostgresql,
@@ -97,14 +94,12 @@ const icons = {
   rust: { ...siRust, hex: "DEA584" },
   cplusplus: siCplusplus,
   nodedotjs: siNodedotjs,
-  pnpm: siPnpm,
   vite: siVite,
   vitest: siVitest,
   tailwindcss: siTailwindcss,
   zod: siZod,
   effect: siEffect,
   tanstack: { ...siTanstack, title: "TanStack Start" },
-  turborepo: siTurborepo,
   threedotjs: siThreedotjs,
   webgpu: siWebgpu,
   surrealdb: siSurrealdb,
@@ -601,7 +596,7 @@ export const components = defineComponents({
   components: {
     "flow-study": {
       aspectRatio: 1,
-      section: false,
+      navigable: false,
       size: { width: 320, height: 320 },
       schema: type({ paused: "boolean = false" }),
       render: (props) => (
@@ -622,7 +617,7 @@ export const components = defineComponents({
     },
     "career-detail": {
       schema: careerEntry.merge({ source: "string > 0" }),
-      section: false,
+      navigable: false,
       size: { width: 360, height: 480 },
       render: (props, context) => (
         <CareerCard
@@ -634,7 +629,7 @@ export const components = defineComponents({
     },
     "icon-square": {
       aspectRatio: 1,
-      section: false,
+      navigable: false,
       size: { width: 80, height: 80 },
       maxSize: { width: 96, height: 96 },
       actions: {
@@ -846,7 +841,7 @@ export const components = defineComponents({
       ),
     },
     checklist: {
-      section: false,
+      navigable: false,
       schema: type({
         title: "string > 0 = 'Checklist'",
         items: type({ id: "string > 0", label: "string > 0", done: "boolean" })

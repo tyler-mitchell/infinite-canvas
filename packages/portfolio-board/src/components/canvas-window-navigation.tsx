@@ -1,12 +1,9 @@
-import {
-  Sections,
-  useCanvasScroll,
-} from "@hyphened/infinite-canvas/next/react";
+import { WindowNavigation, useCanvasScroll } from "@hyphened/infinite-canvas/next/react";
 
 import { tv } from "../tv.ts";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip.tsx";
 
-const sectionRail = tv({
+const windowNavigation = tv({
   slots: {
     root: "pointer-events-none absolute z-20 flex",
     list: "pointer-events-auto flex",
@@ -23,32 +20,29 @@ const sectionRail = tv({
 
 const tooltipSide = { vertical: "left", horizontal: "top" } as const;
 
-export type CanvasSectionRailProps = { className?: string };
+export type CanvasWindowNavigationProps = { className?: string };
 
-export function CanvasSectionRail({ className }: CanvasSectionRailProps) {
+export function CanvasWindowNavigation({ className }: CanvasWindowNavigationProps) {
   const { axis } = useCanvasScroll();
-  const styles = sectionRail({ axis });
+  const styles = windowNavigation({ axis });
   return (
-    <div
-      data-canvas-control
-      className={styles.root({ className })}
-    >
+    <div data-canvas-control className={styles.root({ className })}>
       <Tooltip.Provider>
-        <Sections.Root className={styles.list()}>
-          {(section) => (
-            <Tooltip key={section.id}>
+        <WindowNavigation.Root className={styles.list()}>
+          {(window) => (
+            <Tooltip key={window.id}>
               <TooltipTrigger
-                render={<Sections.Item section={section} className={styles.item()} />}
+                render={<WindowNavigation.Item window={window} className={styles.item()} />}
               >
                 <span aria-hidden="true" className={styles.dot()} />
               </TooltipTrigger>
-              <TooltipContent side={tooltipSide[axis]}>{section.title}</TooltipContent>
+              <TooltipContent side={tooltipSide[axis]}>{window.title}</TooltipContent>
             </Tooltip>
           )}
-        </Sections.Root>
+        </WindowNavigation.Root>
       </Tooltip.Provider>
     </div>
   );
 }
 
-export { sectionRail as canvasSectionRailVariants };
+export { windowNavigation as canvasWindowNavigationVariants };

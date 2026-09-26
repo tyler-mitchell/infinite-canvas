@@ -18,7 +18,7 @@ export type WindowState = {
   layout?: WindowLayout;
   children?: string[];
   item?: Record<string, unknown>;
-  section?: boolean;
+  navigable?: boolean;
   mode: "normal" | "minimized" | "maximized";
   isPinned: boolean;
   rect: Rect;
