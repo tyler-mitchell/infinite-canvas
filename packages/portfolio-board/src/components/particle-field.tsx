@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { TimedDOMSegment } from "../motion.ts";
 
 export interface ParticleOptions {
@@ -17,7 +18,11 @@ export interface ParticleFieldProps {
   readonly className?: string;
 }
 
-export function ParticleField({ count = 12, groups = 3, className = "" }: ParticleFieldProps) {
+export const ParticleField = memo(function ParticleField({
+  count = 12,
+  groups = 3,
+  className = "",
+}: ParticleFieldProps) {
   const length = Number.isFinite(count) ? Math.max(0, Math.min(26, Math.floor(count))) : 12;
   const groupCount = Number.isFinite(groups) ? Math.max(1, Math.min(12, Math.floor(groups))) : 3;
   return (
@@ -36,7 +41,7 @@ export function ParticleField({ count = 12, groups = 3, className = "" }: Partic
       ))}
     </div>
   );
-}
+});
 
 export function particleBurstSequence({
   count = 12,

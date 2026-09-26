@@ -217,6 +217,23 @@ function ActivityGrid({
     thresholds: thresholds.length ? thresholds : DEFAULT_THRESHOLDS,
   });
   const columns = animation.columns;
+  const cells = useMemo(
+    () =>
+      columns.map((day, index) =>
+        day ? (
+          <ActivityCell
+            key={day.date.toISOString()}
+            day={day}
+            index={index}
+            selection$={selection$}
+            thresholds={thresholds}
+          />
+        ) : (
+          <div key={index} aria-hidden />
+        ),
+      ),
+    [columns, selection$, thresholds],
+  );
 
   const firstDay = Math.max(
     0,
@@ -323,19 +340,7 @@ function ActivityGrid({
                   typeof playback === "object" && playback.particles ? playback.particles.count : 12
                 }
               />
-              {columns.map((day, index) =>
-                day ? (
-                  <ActivityCell
-                    key={day.date.toISOString()}
-                    day={day}
-                    index={index}
-                    selection$={selection$}
-                    thresholds={thresholds}
-                  />
-                ) : (
-                  <div key={index} aria-hidden />
-                ),
-              )}
+              {cells}
             </div>
           </div>
 

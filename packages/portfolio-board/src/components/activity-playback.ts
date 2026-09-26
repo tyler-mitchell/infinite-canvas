@@ -61,12 +61,16 @@ export function useActivityPlayback({
   const options = typeof playback === "object" ? playback : {};
   const reduced = useReducedMotion();
   const enabled = playback !== false && !reduced;
-  const signature = JSON.stringify([
-    days.map((day) => [day.date.getTime(), day.count]),
-    replayKey,
-    playback,
-    thresholds,
-  ]);
+  const signature = useMemo(
+    () =>
+      JSON.stringify([
+        days.map((day) => [day.date.getTime(), day.count]),
+        replayKey,
+        playback,
+        thresholds,
+      ]),
+    [days, replayKey, playback, thresholds],
+  );
   const state$ = useObservable({
     snapshot: { days, signature, revision: 0 },
     phase: "idle",
