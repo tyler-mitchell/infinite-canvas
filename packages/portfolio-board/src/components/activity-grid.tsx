@@ -27,7 +27,7 @@ const activityGrid = tv({
     weekdays: "col-start-1 row-start-2 grid grid-rows-7 justify-items-end",
     weekday: "font-pk-mono text-pk-mono-sm whitespace-nowrap text-pk-ink-faint/80",
     grid: "relative col-start-2 row-start-2 grid min-w-0 grid-flow-col grid-rows-7",
-    cell: "relative overflow-clip rounded-[3px] transition-transform duration-(--pk-duration-hover) ease-pk-swift data-hot:scale-125 data-hot:ring-1 data-hot:ring-pk-ink-bright/70 data-hot:ring-offset-1 data-hot:ring-offset-(color:--pk-ring-seat)",
+    cell: "relative overflow-clip rounded-[3px] transition-[scale] duration-(--pk-duration-hover) ease-pk-swift data-hot:scale-125 data-hot:ring-1 data-hot:ring-pk-ink-bright/70 data-hot:ring-offset-1 data-hot:ring-offset-(color:--pk-ring-seat)",
     footer: "flex min-h-4 flex-none items-center justify-between gap-2",
     readout: "min-w-0 truncate",
     legend: "flex items-center gap-1",
@@ -154,7 +154,7 @@ function ActivityGrid({
   ...props
 }: ActivityGridProps) {
   const styles = activityGrid();
-  const cursor$ = useObservable<number | undefined>(undefined);
+  const selection$ = useObservable<Partial<Record<number, true>>>({});
   const measure = useRef<HTMLDivElement | null>(null);
   // Legend v3's ref declaration predates nullable React 19 refs.
   const size$ = useMeasure(measure as Parameters<typeof useMeasure>[0]);
@@ -179,14 +179,6 @@ function ActivityGrid({
   });
   const columns = animation.columns;
 
-  const onPointerMove = useCallback(
-    (event: React.PointerEvent) => {
-      const index = (event.target as Element).closest<HTMLElement>("[data-index]")?.dataset.index;
-      cursor$.set(index === undefined ? undefined : Number(index));
-    },
-    [cursor$],
-  );
-
   const firstDay = Math.max(
     0,
     columns.findIndex((day) => day !== null),
@@ -197,9 +189,16 @@ function ActivityGrid({
       const step = { ArrowLeft: -7, ArrowRight: 7, ArrowUp: -1, ArrowDown: 1 }[event.key];
       if (step === undefined) return;
       event.preventDefault();
-      cursor$.set((current) => cursorAfter(current, step, firstDay, columns.length));
+      const current = Object.keys(selection$.peek())[0];
+      const index = cursorAfter(
+        current === undefined ? undefined : Number(current),
+        step,
+        firstDay,
+        columns.length,
+      );
+      selection$.set({ [index]: true });
     },
-    [columns.length, firstDay, cursor$],
+    [columns.length, firstDay, selection$],
   );
 
   const monthMarks = useMemo(() => {
@@ -237,7 +236,7 @@ function ActivityGrid({
           "aria-keyshortcuts": "ArrowLeft ArrowRight ArrowUp ArrowDown",
           tabIndex: 0,
           onKeyDown,
-          onBlur: () => cursor$.set(undefined),
+          onBlur: () => selection$.set({}),
         },
         props,
       ),
@@ -276,8 +275,7 @@ function ActivityGrid({
             <div
               ref={animation.plot}
               className={styles.grid()}
-              onPointerMove={onPointerMove}
-              onPointerLeave={() => cursor$.set(undefined)}
+              onPointerLeave={() => selection$.set({})}
               style={{ gridAutoColumns: `${cell}px`, gap: `${gap}px` }}
             >
               <ParticleField
@@ -293,7 +291,8 @@ function ActivityGrid({
                     key={day.date.toISOString()}
                     data-slot="activity-day"
                     data-index={index}
-                    $data-hot={() => (cursor$.get() === index ? "" : undefined)}
+                    $data-hot={() => (selection$[index].get() ? "" : undefined)}
+                    onPointerEnter={() => selection$.set({ [index]: true })}
                     className={CELLS[level(day.count, thresholds)]}
                   >
                     <span
@@ -320,9 +319,15 @@ function ActivityGrid({
           <div className={styles.footer()}>
             <Computed>
               {() => {
-                const cursor = cursor$.get();
-                const focused = cursor === undefined ? undefined : (columns[cursor] ?? undefined);
-                if (loading) return <Readout className={styles.readout()}>{loadingLabel}</Readout>;
+                const cursor = Object.keys(selection$.get())[0];
+                const focused =
+                  cursor === undefined ? undefined : (columns[Number(cursor)] ?? undefined);
+                if (loading)
+                  return (
+                    <Readout data-loading="" className={styles.readout()}>
+                      {loadingLabel}
+                    </Readout>
+                  );
                 return children ? (
                   children(focused)
                 ) : (

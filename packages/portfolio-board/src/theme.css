@@ -529,10 +529,6 @@
   --default-transition-timing-function: var(--pk-ease-swift);
 }
 
-[data-slot="activity-grid"][data-playback="idle"] [data-slot="activity-day"] {
-  background-color: var(--pk-level-0);
-}
-
 [data-slot="activity-fill"]:not([data-level="0"]) {
   box-shadow:
     var(--pk-lift-cell),
@@ -621,12 +617,7 @@
   background: var(--particle-flash-color, #fffef8);
 }
 
-[data-slot="activity-grid"]:is([data-playback="playing"], [data-playback="settling"])
-  [data-slot="activity-day"] {
-  transition: none;
-}
-
-[data-slot="activity-grid"][data-playback="loading"] [data-slot="text-readout"] {
+[data-slot="text-readout"][data-loading] {
   animation: activity-loading 1.6s ease-in-out infinite alternate;
 }
 
@@ -640,7 +631,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-slot="activity-grid"][data-playback="loading"] [data-slot="text-readout"] {
+  [data-slot="text-readout"][data-loading] {
     animation: none;
   }
 }

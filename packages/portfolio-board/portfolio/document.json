@@ -138,26 +138,23 @@
         "rect": { "x": 0, "y": 0, "width": 285.33, "height": 211 },
         "layout": {
           "type": "grid",
-          "columns": 8,
+          "columns": 4,
           "rowHeight": "square",
           "gap": 12
         },
         "children": [
           "typescript",
           "react",
-          "nodedotjs",
-          "pnpm",
-          "vite",
-          "vitest",
-          "tailwindcss",
-          "effect",
-          "tanstack",
-          "threedotjs",
-          "webgpu",
-          "surrealdb",
-          "modelcontextprotocol",
           "claudecode",
-          "codex"
+          "codex",
+          "python",
+          "graphql",
+          "googlecloud",
+          "nodedotjs",
+          "drizzle",
+          "prisma",
+          "tanstack",
+          "effect"
         ]
       },
       "profile": {
@@ -1764,185 +1761,31 @@
       },
       "typescript": {
         "id": "typescript",
-        "item": { "column": 0, "row": 0, "columnSpan": 2, "rowSpan": 2 },
+        "item": { "column": 0, "row": 0 },
         "kind": "icon-square",
         "title": "TypeScript",
         "isPinned": false,
         "mode": "normal",
         "heightMode": "content",
-        "capabilities": {
-          "maximizable": false,
-          "minimizable": false
-        },
-        "rect": {
-          "x": 808,
-          "y": 548,
-          "width": 190,
-          "height": 196
-        },
-        "data": {
-          "icon": "typescript",
-          "color": "brand"
-        }
+        "capabilities": { "maximizable": false, "minimizable": false },
+        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
+        "data": { "icon": "typescript", "color": "brand" }
       },
       "react": {
         "id": "react",
-        "item": { "column": 0, "row": 2, "columnSpan": 2, "rowSpan": 2 },
+        "item": { "column": 1, "row": 0 },
         "kind": "icon-square",
         "title": "React",
         "isPinned": false,
         "mode": "normal",
         "heightMode": "content",
-        "capabilities": {
-          "maximizable": false,
-          "minimizable": false
-        },
-        "rect": {
-          "x": 1010,
-          "y": 548,
-          "width": 190,
-          "height": 196
-        },
-        "data": {
-          "icon": "react",
-          "color": "brand"
-        }
-      },
-      "nodedotjs": {
-        "id": "nodedotjs",
-        "item": { "column": 2, "row": 0, "columnSpan": 2, "rowSpan": 2 },
-        "kind": "icon-square",
-        "title": "Node.js",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
         "capabilities": { "maximizable": false, "minimizable": false },
         "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "nodedotjs", "color": "brand" }
-      },
-      "pnpm": {
-        "id": "pnpm",
-        "item": { "column": 2, "row": 4, "columnSpan": 1, "rowSpan": 1 },
-        "kind": "icon-square",
-        "title": "pnpm",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "pnpm", "color": "brand" }
-      },
-      "vite": {
-        "id": "vite",
-        "item": { "column": 0, "row": 5, "columnSpan": 1, "rowSpan": 1 },
-        "kind": "icon-square",
-        "title": "Vite",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "vite", "color": "brand" }
-      },
-      "vitest": {
-        "id": "vitest",
-        "item": { "column": 1, "row": 5, "columnSpan": 1, "rowSpan": 1 },
-        "kind": "icon-square",
-        "title": "Vitest",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "vitest", "color": "brand" }
-      },
-      "tailwindcss": {
-        "id": "tailwindcss",
-        "item": { "column": 4, "row": 0, "columnSpan": 2, "rowSpan": 2 },
-        "kind": "icon-square",
-        "title": "Tailwind CSS",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "tailwindcss", "color": "brand" }
-      },
-      "effect": {
-        "id": "effect",
-        "item": { "column": 6, "row": 2, "columnSpan": 2, "rowSpan": 2 },
-        "kind": "icon-square",
-        "title": "Effect",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "effect", "color": "brand" }
-      },
-      "tanstack": {
-        "id": "tanstack",
-        "item": { "column": 6, "row": 0, "columnSpan": 2, "rowSpan": 2 },
-        "kind": "icon-square",
-        "title": "TanStack",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "tanstack", "color": "brand" }
-      },
-      "threedotjs": {
-        "id": "threedotjs",
-        "item": { "column": 4, "row": 2, "columnSpan": 2, "rowSpan": 2 },
-        "kind": "icon-square",
-        "title": "Three.js",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "threedotjs", "color": "monochrome" }
-      },
-      "webgpu": {
-        "id": "webgpu",
-        "item": { "column": 2, "row": 2, "columnSpan": 2, "rowSpan": 2 },
-        "kind": "icon-square",
-        "title": "WebGPU",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "webgpu", "color": "brand" }
-      },
-      "surrealdb": {
-        "id": "surrealdb",
-        "item": { "column": 0, "row": 4, "columnSpan": 1, "rowSpan": 1 },
-        "kind": "icon-square",
-        "title": "SurrealDB",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "surrealdb", "color": "brand" }
-      },
-      "modelcontextprotocol": {
-        "id": "modelcontextprotocol",
-        "item": { "column": 1, "row": 4, "columnSpan": 1, "rowSpan": 1 },
-        "kind": "icon-square",
-        "title": "Model Context Protocol",
-        "isPinned": false,
-        "mode": "normal",
-        "heightMode": "content",
-        "capabilities": { "maximizable": false, "minimizable": false },
-        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
-        "data": { "icon": "modelcontextprotocol", "color": "monochrome" }
+        "data": { "icon": "react", "color": "brand" }
       },
       "claudecode": {
         "id": "claudecode",
-        "item": { "column": 4, "row": 4, "columnSpan": 2, "rowSpan": 2 },
+        "item": { "column": 2, "row": 0 },
         "kind": "icon-square",
         "title": "Claude Code",
         "isPinned": false,
@@ -1954,7 +1797,7 @@
       },
       "codex": {
         "id": "codex",
-        "item": { "column": 6, "row": 4, "columnSpan": 2, "rowSpan": 2 },
+        "item": { "column": 3, "row": 0 },
         "kind": "icon-square",
         "title": "Codex",
         "isPinned": false,
@@ -1963,6 +1806,102 @@
         "capabilities": { "maximizable": false, "minimizable": false },
         "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
         "data": { "icon": "codex", "color": "brand" }
+      },
+      "python": {
+        "id": "python",
+        "item": { "column": 0, "row": 1 },
+        "kind": "icon-square",
+        "title": "Python",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": { "maximizable": false, "minimizable": false },
+        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
+        "data": { "icon": "python", "color": "brand" }
+      },
+      "graphql": {
+        "id": "graphql",
+        "item": { "column": 1, "row": 1 },
+        "kind": "icon-square",
+        "title": "GraphQL",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": { "maximizable": false, "minimizable": false },
+        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
+        "data": { "icon": "graphql", "color": "brand" }
+      },
+      "googlecloud": {
+        "id": "googlecloud",
+        "item": { "column": 2, "row": 1 },
+        "kind": "icon-square",
+        "title": "Google Cloud Platform (GCP)",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": { "maximizable": false, "minimizable": false },
+        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
+        "data": { "icon": "googlecloud", "color": "brand" }
+      },
+      "nodedotjs": {
+        "id": "nodedotjs",
+        "item": { "column": 3, "row": 1 },
+        "kind": "icon-square",
+        "title": "Node.js",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": { "maximizable": false, "minimizable": false },
+        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
+        "data": { "icon": "nodedotjs", "color": "brand" }
+      },
+      "drizzle": {
+        "id": "drizzle",
+        "item": { "column": 0, "row": 2 },
+        "kind": "icon-square",
+        "title": "Drizzle ORM",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": { "maximizable": false, "minimizable": false },
+        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
+        "data": { "icon": "drizzle", "color": "brand" }
+      },
+      "prisma": {
+        "id": "prisma",
+        "item": { "column": 1, "row": 2 },
+        "kind": "icon-square",
+        "title": "Prisma",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": { "maximizable": false, "minimizable": false },
+        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
+        "data": { "icon": "prisma", "color": "monochrome" }
+      },
+      "tanstack": {
+        "id": "tanstack",
+        "item": { "column": 2, "row": 2 },
+        "kind": "icon-square",
+        "title": "TanStack Start",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": { "maximizable": false, "minimizable": false },
+        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
+        "data": { "icon": "tanstack", "color": "brand" }
+      },
+      "effect": {
+        "id": "effect",
+        "item": { "column": 3, "row": 2 },
+        "kind": "icon-square",
+        "title": "Effect",
+        "isPinned": false,
+        "mode": "normal",
+        "heightMode": "content",
+        "capabilities": { "maximizable": false, "minimizable": false },
+        "rect": { "x": 0, "y": 0, "width": 80, "height": 80 },
+        "data": { "icon": "effect", "color": "brand" }
       }
     },
     "connections": {},
