@@ -1,4 +1,4 @@
-import { For, observer, Show, useObserve, useValue } from "@legendapp/state/react";
+import { For, observer, useObserve, useValue } from "@legendapp/state/react";
 import { useMeasure } from "@legendapp/state/react-hooks/useMeasure";
 import { observe, type Observable } from "@legendapp/state";
 import {
@@ -60,29 +60,38 @@ function ToolRegistration({ tool }: { tool: WebMCPOptions<unknown, unknown> }) {
 export function useCanvasOccluder<Element extends HTMLElement>() {
   const { canvas, viewport } = useCanvasViewport();
   const source = useId();
-  return useCallback((element: Element | null) => {
-    if (element === null) return;
-    const measure = () => {
-      const bounds = viewport.current?.getBoundingClientRect();
-      const rect = element.getBoundingClientRect();
-      canvas.actions.setViewportOccluder.run({
-        source,
-        rect: bounds === undefined || rect.width <= 0 || rect.height <= 0
-          ? undefined
-          : { x: rect.x - bounds.x, y: rect.y - bounds.y, width: rect.width, height: rect.height },
+  return useCallback(
+    (element: Element | null) => {
+      if (element === null) return;
+      const measure = () => {
+        const bounds = viewport.current?.getBoundingClientRect();
+        const rect = element.getBoundingClientRect();
+        canvas.actions.setViewportOccluder.run({
+          source,
+          rect:
+            bounds === undefined || rect.width <= 0 || rect.height <= 0
+              ? undefined
+              : {
+                  x: rect.x - bounds.x,
+                  y: rect.y - bounds.y,
+                  width: rect.width,
+                  height: rect.height,
+                },
+        });
+      };
+      const stopResize = resize(element, measure);
+      const stopViewport = observe(() => {
+        canvas.state.input.viewport.get();
+        measure();
       });
-    };
-    const stopResize = resize(element, measure);
-    const stopViewport = observe(() => {
-      canvas.state.input.viewport.get();
-      measure();
-    });
-    return () => {
-      stopResize();
-      stopViewport();
-      canvas.actions.setViewportOccluder.run({ source });
-    };
-  }, [canvas, source, viewport]);
+      return () => {
+        stopResize();
+        stopViewport();
+        canvas.actions.setViewportOccluder.run({ source });
+      };
+    },
+    [canvas, source, viewport],
+  );
 }
 
 export function CanvasTools({ canvas }: { canvas: Canvas }) {
@@ -356,13 +365,7 @@ const SelectionBounds = observer(function SelectionBounds({ canvas }: { canvas: 
   );
 });
 
-function WorldLayer({
-  canvas,
-  children,
-}: {
-  canvas: Canvas;
-  children: ReactNode;
-}) {
+function WorldLayer({ canvas, children }: { canvas: Canvas; children: ReactNode }) {
   const scrollContext = useContext(ScrollContext);
   const onTrack = useValue(() => {
     return scrollContext?.canvas === canvas && scrollContext.following.get();
@@ -370,25 +373,29 @@ function WorldLayer({
   const viewport = scrollContext?.viewport;
   const track = scrollContext?.track;
   const axis = scrollContext?.axis;
-  const ref = useCallback((element: HTMLDivElement | null) => {
-    if (element === null) return;
-    const container = viewport?.current;
-    if (onTrack && container && track?.length) {
-      const viewport = canvas.state.input.viewport.peek();
-      const transform = [0, track.length].map((offset) =>
-        `matrix(${[...cameraMatrix({ camera: track.at(offset), viewport })].join(",")})`,
-      );
-      return scroll(animate(element, { transform }, { ease: "linear" }), {
-        container,
-        axis: axis === "vertical" ? "y" : "x",
+  const ref = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (element === null) return;
+      const container = viewport?.current;
+      if (onTrack && container && track?.length) {
+        const viewport = canvas.state.input.viewport.peek();
+        const transform = [0, track.length].map(
+          (offset) =>
+            `matrix(${[...cameraMatrix({ camera: track.at(offset), viewport })].join(",")})`,
+        );
+        return scroll(animate(element, { transform }, { ease: "linear" }), {
+          container,
+          axis: axis === "vertical" ? "y" : "x",
+        });
+      }
+      return observe(() => {
+        const camera = canvas.computed.camera.get();
+        const viewport = canvas.state.input.viewport.get();
+        element.style.transform = `matrix(${[...cameraMatrix({ camera, viewport })].join(",")})`;
       });
-    }
-    return observe(() => {
-      const camera = canvas.computed.camera.get();
-      const viewport = canvas.state.input.viewport.get();
-      element.style.transform = `matrix(${[...cameraMatrix({ camera, viewport })].join(",")})`;
-    });
-  }, [canvas, onTrack, viewport, track, axis]);
+    },
+    [canvas, onTrack, viewport, track, axis],
+  );
   return (
     <div
       ref={ref}
@@ -401,13 +408,23 @@ function WorldLayer({
 }
 
 function CanvasOverlays({ canvas, children }: { canvas: Canvas; children: ReactNode }) {
-  const ref = useCallback((element: HTMLDivElement | null) => {
-    if (element === null) return;
-    return observe(() => {
-      element.style.setProperty("--canvas-screen-scale", String(1 / canvas.computed.camera.zoom.get()));
-    });
-  }, [canvas]);
-  return <div ref={ref} style={{ display: "contents" }}>{children}</div>;
+  const ref = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (element === null) return;
+      return observe(() => {
+        element.style.setProperty(
+          "--canvas-screen-scale",
+          String(1 / canvas.computed.camera.zoom.get()),
+        );
+      });
+    },
+    [canvas],
+  );
+  return (
+    <div ref={ref} style={{ display: "contents" }}>
+      {children}
+    </div>
+  );
 }
 
 const MarqueeView = observer(function MarqueeView({ canvas }: { canvas: Canvas }) {
@@ -614,17 +631,20 @@ export function CanvasViewport({
           if (tabDrag === null || canvas.computed.tabDragInside.peek() !== true) return;
           const siblings = [...element.querySelectorAll<HTMLElement>("[data-canvas-tab]")].filter(
             (tab) =>
-              tab.dataset.containerId === tabDrag.container && tab.dataset.childId !== tabDrag.child,
+              tab.dataset.containerId === tabDrag.container &&
+              tab.dataset.childId !== tabDrag.child,
           );
           const next = siblings.find(
             (tab) => event.clientX < centroidOfRect(tab.getBoundingClientRect()).x,
           );
           const target = next ?? siblings.at(-1);
           if (target?.dataset.childId !== undefined)
-            report(canvas.actions.targetTab.run({
-              child: target.dataset.childId,
-              after: next === undefined,
-            }));
+            report(
+              canvas.actions.targetTab.run({
+                child: target.dataset.childId,
+                after: next === undefined,
+              }),
+            );
         }}
         onPointerUp={(event) => {
           if (canvas.computed.capturedPointerId.peek() !== event.pointerId) return;
@@ -646,7 +666,9 @@ export function CanvasViewport({
             return;
           const interactive = isInteractiveTarget(event.target);
           if (mode === "read" || (mode === "explore" && interactive)) return;
-          const explicitPan = event.button === 1 || event.altKey ||
+          const explicitPan =
+            event.button === 1 ||
+            event.altKey ||
             (spaceHeld && event.currentTarget.ownerDocument.activeElement === event.currentTarget);
           if (
             mode === "edit" &&
@@ -707,33 +729,31 @@ export function CanvasViewport({
         }}
       >
         <WorldLayer canvas={canvas}>
-          <Show if={() => canvas.state.input.viewport.width.get() > 0}>
-            <For each={canvas.computed.workspaceWindows}>
-              {(window) => (
-                <WindowView
-                  canvas={canvas}
-                  window={window}
-                  viewport={viewport}
-                  renderWindow={renderWindow}
-                  instanceId={instanceId}
-                  renderChildLabel={renderChildLabel}
-                  renderControl={renderControl}
-                />
-              )}
-            </For>
-            <For each={canvas.computed.previewWindows}>
-              {(window) => (
-                <WindowView
-                  canvas={canvas}
-                  window={window}
-                  viewport={viewport}
-                  renderWindow={renderWindow}
-                  instanceId={instanceId}
-                  preview
-                />
-              )}
-            </For>
-          </Show>
+          <For each={canvas.computed.workspaceWindows}>
+            {(window) => (
+              <WindowView
+                canvas={canvas}
+                window={window}
+                viewport={viewport}
+                renderWindow={renderWindow}
+                instanceId={instanceId}
+                renderChildLabel={renderChildLabel}
+                renderControl={renderControl}
+              />
+            )}
+          </For>
+          <For each={canvas.computed.previewWindows}>
+            {(window) => (
+              <WindowView
+                canvas={canvas}
+                window={window}
+                viewport={viewport}
+                renderWindow={renderWindow}
+                instanceId={instanceId}
+                preview
+              />
+            )}
+          </For>
           <CanvasOverlays canvas={canvas}>
             <SelectionBounds canvas={canvas} />
             <SelectionHandles canvas={canvas} viewport={viewport} />

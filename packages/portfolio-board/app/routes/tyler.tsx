@@ -9,7 +9,6 @@ export const Route = createFileRoute("/tyler")({
   validateSearch: (search: Record<string, unknown>): { mode: BoardMode } => ({
     mode: import.meta.env.DEV && search.mode === "edit" ? "edit" : "read",
   }),
-  ssr: false,
   head: () => ({
     meta: [
       { title: "Tyler Davis Mitchell — Portfolio" },
@@ -28,12 +27,16 @@ function BoardRoute() {
     <PortfolioBoard
       canvas={canvas}
       mode={mode}
-      onReset={import.meta.env.DEV
-        ? () => void canvas.commands.restoreDocument.run(JSON.parse(documentSource))
-        : undefined}
-      onModeChange={import.meta.env.DEV
-        ? (mode) => void navigate({ search: { mode }, replace: true })
-        : undefined}
+      onReset={
+        import.meta.env.DEV
+          ? () => void canvas.commands.restoreDocument.run(JSON.parse(documentSource))
+          : undefined
+      }
+      onModeChange={
+        import.meta.env.DEV
+          ? (mode) => void navigate({ search: { mode }, replace: true })
+          : undefined
+      }
       section={hash || undefined}
       onSectionChange={(section) =>
         void navigate({ hash: section, search: true, replace: true, resetScroll: false })
