@@ -1,12 +1,16 @@
-import { createRootRouteWithContext, HeadContent, Link, Outlet, Scripts, useNavigate, useRouterState } from "@tanstack/react-router";
+import {
+  createRootRouteWithContext,
+  HeadContent,
+  Link,
+  Outlet,
+  Scripts,
+  useRouterState,
+} from "@tanstack/react-router";
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Kind, Meta, ScrollArea, Title, tv } from "portfolio-board";
 import "../styles.css";
-import { AuthProvider } from "../components/auth/auth-provider";
 import { Toaster } from "../components/ui/sonner";
-import { authClient } from "../auth";
-import { getSignInProviders } from "../auth.functions";
 
 const shell = tv({
   slots: {
@@ -61,7 +65,6 @@ const SECTIONS = [
 ] as const;
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  loader: () => getSignInProviders(),
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -75,24 +78,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootDocument({ children }: { children: ReactNode }) {
   const { queryClient } = Route.useRouteContext();
-  const providers = Route.useLoaderData();
-  const navigate = useNavigate();
   return (
     <html lang="en">
-      <head><HeadContent /></head>
+      <head>
+        <HeadContent />
+      </head>
       <body>
         <QueryClientProvider client={queryClient}>
-          <AuthProvider
-            authClient={authClient}
-            navigate={navigate}
-            Link={({ href, ...props }) => <Link to={href} {...props} />}
-            redirectTo="/editor"
-            socialProviders={providers.map(({ id }) => id)}
-            emailAndPassword={{ enabled: false }}
-          >
-            {children}
-            <Toaster />
-          </AuthProvider>
+          {children}
+          <Toaster />
         </QueryClientProvider>
         <Scripts />
       </body>
@@ -103,9 +97,10 @@ function RootDocument({ children }: { children: ReactNode }) {
 function RootRoute() {
   const styles = shell();
   const isBoard = useRouterState({
-    select: (state) => ["/", "/editor", "/tyler"].includes(state.location.pathname)
-      || state.location.pathname.startsWith("/auth/")
-      || state.location.pathname.startsWith("/p/"),
+    select: (state) =>
+      ["/", "/editor", "/tyler"].includes(state.location.pathname) ||
+      state.location.pathname.startsWith("/auth/") ||
+      state.location.pathname.startsWith("/p/"),
   });
 
   if (isBoard) return <Outlet />;

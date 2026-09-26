@@ -187,9 +187,11 @@ export function useActivityPlayback({
       const entries: TimedDOMSegment[] = [];
       const burst: TimedDOMSegment[] = [];
       const cursor = options.cursor === false ? null : `${cell} [data-slot="activity-cursor"]`;
-      const level = thresholds.filter(
-        (threshold) => Number.isFinite(threshold) && day.count >= threshold,
-      ).length;
+      const level = Math.min(
+        4,
+        thresholds.filter((threshold) => Number.isFinite(threshold) && day.count >= threshold)
+          .length,
+      );
       if (level > 0) {
         entries.push([
           fill,
@@ -366,7 +368,17 @@ export function useActivityPlayback({
     };
     const playSequence = (sequence: TimedDOMSegment[]) => {
       const animations = [...Map.groupBy(sequence, ([element]) => element).values()].map(
-        (segments) => animate(segments),
+        (segments) => {
+          const delay = Math.min(...segments.map(([, , transition]) => transition.at));
+          return animate(
+            segments.map(([subject, keyframes, transition]) => [
+              subject,
+              keyframes,
+              { ...transition, at: transition.at - delay },
+            ]),
+            { delay },
+          );
+        },
       );
       return Promise.all(animations.map(play));
     };

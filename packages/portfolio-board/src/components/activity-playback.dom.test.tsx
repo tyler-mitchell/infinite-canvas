@@ -37,6 +37,7 @@ vi.mock("motion", async (original) => ({
     _to: unknown,
     options?: { onUpdate?: (time: number) => void; delay?: number; duration?: number },
   ) => {
+    const playback = Array.isArray(from) ? (_to as typeof options) : options;
     const completion = { finish: () => {} };
     const promise = new Promise<void>((resolve) => {
       completion.finish = resolve;
@@ -49,10 +50,10 @@ vi.mock("motion", async (original) => ({
       complete: vi.fn(() => completion.finish()),
       finish: completion.finish,
       update: options?.onUpdate,
-      delay: options?.delay,
+      delay: playback?.delay,
       segments: Array.isArray(from) ? from : undefined,
     });
-    if (options?.duration !== 0) animation.controls.push(control);
+    if (playback?.duration !== 0) animation.controls.push(control);
     return control;
   },
 }));
@@ -257,13 +258,26 @@ test("completion shimmer shares the cell timelines and starts after all cell eff
     return typeof element === "string" && element.endsWith('[data-slot="activity-cursor"]');
   });
   expect(cursorControls).toHaveLength(3);
-  const cellSegments = cellControls.flatMap((control) =>
-    cursorControls.includes(control) ? control.segments!.slice(0, -1) : control.segments!,
-  );
-  const completionAt = Math.max(...cellSegments.map(([, , { at, duration }]) => at + duration));
-  expect(cursorControls.every((control) => control.segments!.at(-1)![2].at >= completionAt)).toBe(
-    true,
-  );
+  const cellSegments = cellControls.flatMap((control) => {
+    const segments = cursorControls.includes(control)
+      ? control.segments!.slice(0, -1)
+      : control.segments!;
+    return segments.map(([, , transition]) => ({
+      ...transition,
+      at: transition.at + (control.delay ?? 0),
+    }));
+  });
+  const completionAt = Math.max(...cellSegments.map(({ at, duration }) => at + duration));
+  expect(
+    cursorControls.every(
+      (control) => control.segments!.at(-1)![2].at + (control.delay ?? 0) >= completionAt,
+    ),
+  ).toBe(true);
+  expect(
+    cellControls.every(
+      (control) => Math.min(...control.segments!.map(([, , transition]) => transition.at)) === 0,
+    ),
+  ).toBe(true);
   expect(cellControls.every((control) => control.update === undefined)).toBe(true);
   expect(host.firstElementChild?.getAttribute("data-phase")).toBe("playing");
   await act(async () => {
