@@ -545,6 +545,7 @@ export function CanvasViewport({
     const content = canvas.computed.contentBounds.peek();
     if (
       opening &&
+      scrollMode !== "read" &&
       content !== null &&
       !intersectsRect(canvas.computed.viewportRect.peek(), content)
     )

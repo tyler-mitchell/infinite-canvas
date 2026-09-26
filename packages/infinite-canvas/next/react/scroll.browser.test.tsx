@@ -36,10 +36,12 @@ const mount = async ({
   canvas = createReading(),
   content,
   focusedWindowId = "a",
+  reading = true,
 }: {
   canvas?: Canvas;
   content?: ReactNode;
   focusedWindowId?: string | null;
+  reading?: boolean;
 }) => {
   const host = document.createElement("div");
   host.style.cssText = "position:fixed;left:0;top:0;width:800px;height:600px";
@@ -91,7 +93,7 @@ const mount = async ({
     );
     await settle();
   };
-  await render({});
+  await render({ reading });
   return {
     canvas,
     host,
@@ -108,6 +110,25 @@ function Band() {
     />
   );
 }
+
+test("reading owns initial camera placement even when the saved camera is off-screen", async () => {
+  const canvas = createReading();
+  canvas.actions.setCamera.run({ center: { x: 10000, y: 10000 } });
+  const fitAll = vi.spyOn(canvas.actions.fitAll, "run");
+  onTestFinished(() => fitAll.mockRestore());
+  await mount({ canvas, focusedWindowId: null });
+  expect(fitAll).not.toHaveBeenCalled();
+  expect(canvas.computed.camera.get()).toEqual(canvas.computed.cameraTrack.get()!.at(0));
+});
+
+test("a standalone viewport still recovers an off-screen saved camera", async () => {
+  const canvas = createReading();
+  canvas.actions.setCamera.run({ center: { x: 10000, y: 10000 } });
+  const fitAll = vi.spyOn(canvas.actions.fitAll, "run");
+  onTestFinished(() => fitAll.mockRestore());
+  await mount({ canvas, reading: false });
+  expect(fitAll).toHaveBeenCalledOnce();
+});
 
 test("reading puts the camera on the route when it opens and whenever a panel changes the insets", async () => {
   const { canvas, first } = await mount({});
