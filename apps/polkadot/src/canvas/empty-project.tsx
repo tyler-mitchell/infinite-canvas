@@ -1,10 +1,9 @@
-import { useInfiniteCanvasState } from "@hyphened/infinite-canvas";
+import { useInfiniteCanvasSelector } from "@hyphened/infinite-canvas";
 import { useValue } from "@legendapp/state/react";
 import { tv } from "ui/tv";
 
 import { projectContent$ } from "../content/project-content";
 import { FLOATING_SURFACE } from "../material";
-import type { WindowKind } from "./window-registry";
 
 const emptyProject = tv({
   slots: {
@@ -32,15 +31,13 @@ export function EmptyProjectInvitation({
   onCreate,
   projectId,
 }: Readonly<{ onCreate: () => void; projectId: string }>) {
-  const state = useInfiniteCanvasState<WindowKind>();
+  const insets = useInfiniteCanvasSelector((state) => state.viewportInsets);
   const listing = useValue(projectContent$[projectId]);
   const styles = emptyProject();
 
   if (listing == null || listing.items.length > 0) {
     return null;
   }
-
-  const insets = state.viewportInsets;
 
   return (
     <div
