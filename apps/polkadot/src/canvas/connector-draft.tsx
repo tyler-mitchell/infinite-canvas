@@ -5,7 +5,7 @@ import {
   getInfiniteCanvasConnectionPreviewPath,
   resolveInfiniteCanvasSpatialTarget,
   screenPointToWorldPoint,
-  useInfiniteCanvasState,
+  useInfiniteCanvasState$,
   worldPointToScreenPoint,
   type InfiniteCanvasPoint,
   type InfiniteCanvasState,
@@ -55,7 +55,9 @@ function getLandingTarget(
 }
 
 export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
-  const state = useInfiniteCanvasState<WindowKind>();
+  const state$ = useInfiniteCanvasState$<WindowKind>();
+  const state = useValue(state$) as InfiniteCanvasState<WindowKind>;
+  const peekState = () => state$.peek() as InfiniteCanvasState<WindowKind>;
   const relations = useValue(relations$[projectId]) ?? [];
   const rootRef = useRef<HTMLDivElement | null>(null);
   const affordance$ = useObservable<string | null>(null);
@@ -83,7 +85,7 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
       }
 
       affordance$.set(
-        getInfiniteCanvasConnectionAffordanceWindowId(state, pointer, affordance$.peek()),
+        getInfiniteCanvasConnectionAffordanceWindowId(peekState(), pointer, affordance$.peek()),
       );
     };
 
@@ -92,7 +94,7 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
     return () => {
       window.removeEventListener("pointermove", onPointerMove);
     };
-  }, [affordance$, draft$, state]);
+  }, [affordance$, draft$, state$]);
 
   useEffect(() => {
     if (!isDragging) {
@@ -109,7 +111,7 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
         return;
       }
 
-      const landing = getLandingTarget(state, {
+      const landing = getLandingTarget(peekState(), {
         x: event.clientX - bounds.left,
         y: event.clientY - bounds.top,
       });
@@ -139,7 +141,7 @@ export function ConnectorDraft({ projectId }: Readonly<{ projectId: string }>) {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("pointerup", onPointerUp);
     };
-  }, [draft$, isDragging, projectId, relations, state]);
+  }, [draft$, isDragging, projectId, relations, state$]);
 
   const sourceWindowId = dragging?.sourceWindowId ?? affordanceWindowId;
   const canvasLayout = getCanvasLayout(state);
