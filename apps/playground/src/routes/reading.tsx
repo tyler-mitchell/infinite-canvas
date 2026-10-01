@@ -5,7 +5,7 @@ import {
   CanvasScroll,
   CanvasTools,
   CanvasViewport,
-  Sections,
+  WindowNavigation,
 } from "@hyphened/infinite-canvas/next/react";
 import "@hyphened/infinite-canvas/next/theme.css";
 import { createSampleCanvas, SampleWindow } from "../showcases/sample-canvas";
@@ -24,15 +24,15 @@ export const Route = createFileRoute("/reading")({
 
 function Rail() {
   return (
-    <Sections.Root className="absolute top-1/2 right-4 z-70 flex -translate-y-1/2 flex-col gap-1">
-      {(section) => (
-        <Sections.Item
-          key={section.id}
-          section={section}
+    <WindowNavigation.Root className="absolute top-1/2 right-4 z-70 flex -translate-y-1/2 flex-col gap-1">
+      {(entry) => (
+        <WindowNavigation.Item
+          key={entry.id}
+          window={entry}
           className="rounded px-2 py-1 text-right font-mono text-[11px] text-white/50 aria-[current=true]:text-white"
         />
       )}
-    </Sections.Root>
+    </WindowNavigation.Root>
   );
 }
 

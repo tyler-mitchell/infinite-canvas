@@ -7,7 +7,7 @@ import {
   CanvasScroll,
   CanvasTools,
   CanvasViewport,
-  Sections,
+  WindowNavigation,
 } from "@hyphened/infinite-canvas/next/react";
 import "@hyphened/infinite-canvas/next/theme.css";
 import { SampleWindow } from "../showcases/sample-canvas";
@@ -101,18 +101,18 @@ function createStripCanvas() {
 
 function Rail() {
   return (
-    <Sections.Root
+    <WindowNavigation.Root
       aria-label="Columns"
       className="absolute bottom-4 left-1/2 z-70 flex -translate-x-1/2 gap-1 border border-white/10 bg-black/90 p-1"
     >
-      {(section) => (
-        <Sections.Item
-          key={section.id}
-          section={section}
+      {(entry) => (
+        <WindowNavigation.Item
+          key={entry.id}
+          window={entry}
           className="rounded px-2 py-1 font-mono text-[11px] text-white/50 aria-[current=true]:text-white"
         />
       )}
-    </Sections.Root>
+    </WindowNavigation.Root>
   );
 }
 
