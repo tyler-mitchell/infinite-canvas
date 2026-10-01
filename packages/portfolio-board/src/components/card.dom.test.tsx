@@ -13,7 +13,10 @@ beforeEach(() => {
   vi.stubGlobal(
     "ResizeObserver",
     class {
-      constructor(readonly callback: ResizeObserverCallback) {}
+      readonly callback: ResizeObserverCallback;
+      constructor(callback: ResizeObserverCallback) {
+        this.callback = callback;
+      }
       observe(target: Element) {
         measurements.set(target, this.callback);
       }
@@ -65,7 +68,7 @@ test("height reporting measures content and spacing, then disconnects when disab
           {
             target,
             borderBoxSize: [{ inlineSize: 300, blockSize: 40 }],
-          } as ResizeObserverEntry,
+          } as unknown as ResizeObserverEntry,
         ],
         {} as ResizeObserver,
       );
