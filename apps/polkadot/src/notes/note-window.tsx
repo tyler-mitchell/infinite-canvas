@@ -42,6 +42,10 @@ const noteWindow = tv({
       bottom: { fade: "-mt-6 bottom-0 bg-gradient-to-t from-[var(--surface)] to-transparent" },
       top: { fade: "-mb-6 top-0 bg-gradient-to-b from-[var(--surface)] to-transparent" },
     },
+    overflowing: {
+      false: { fade: "opacity-0" },
+      true: { fade: "opacity-100" },
+    },
   },
 });
 
@@ -158,7 +162,7 @@ export function NoteWindowBody({
   return (
     <div className={styles.root()} ref={rootRef}>
       {/* Inline opacity carries the measured scroll state. */}
-      <div className={noteWindow({ edge: "top" }).fade()} style={{ opacity: above ? 1 : 0 }} />
+      <div className={noteWindow({ edge: "top", overflowing: above }).fade()} />
       <div className={styles.body()}>
         {error === undefined ? null : <p role="alert">{error.message}</p>}
         {/* The title field has a persistent accessible name. */}
@@ -209,7 +213,7 @@ export function NoteWindowBody({
           />
         </div>
       </div>
-      <div className={noteWindow({ edge: "bottom" }).fade()} style={{ opacity: below ? 1 : 0 }} />
+      <div className={noteWindow({ edge: "bottom", overflowing: below }).fade()} />
     </div>
   );
 }
