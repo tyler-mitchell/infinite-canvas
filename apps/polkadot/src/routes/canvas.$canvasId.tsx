@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useRouter, type ErrorComponentProps } from "@tanstack/react-router";
 
 import { CanvasFailure, CanvasLoading } from "../workspace/canvas-states";
 import { WorkspaceCanvas } from "../workspace/workspace-canvas";
@@ -33,16 +33,16 @@ function CanvasRoute() {
   return <WorkspaceCanvas canvas={canvas} key={canvas.id} />;
 }
 
-function CanvasRouteFailure({ error }: Readonly<{ error: Error }>) {
+function CanvasRouteFailure({ error }: ErrorComponentProps) {
   const router = useRouter();
-  const isMissing = error.name === "CanvasNotFoundError";
+  const isMissing = error instanceof CanvasNotFoundError;
 
   return (
     <CanvasFailure
       detail={
         isMissing
           ? "This link points at a canvas that is not in this browser. Canvases live locally, so one created elsewhere will not be here."
-          : error.message
+          : String(error instanceof Error ? error.message : error)
       }
       onRetry={() => {
         void router.invalidate();

@@ -1,4 +1,9 @@
-import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  redirect,
+  useRouter,
+  type ErrorComponentProps,
+} from "@tanstack/react-router";
 
 import { initialLayout } from "../canvas/canvas-document";
 import { CanvasFailure, CanvasLoading } from "../workspace/canvas-states";
@@ -21,12 +26,12 @@ export const Route = createFileRoute("/")({
 // Remove terminal punctuation before the message continues.
 const asClause = (message: string) => message.replace(/[\s.!?]+$/u, "");
 
-function RootFailure({ error }: Readonly<{ error: Error }>) {
+function RootFailure({ error }: ErrorComponentProps) {
   const router = useRouter();
 
   return (
     <CanvasFailure
-      detail={`${asClause(error.message)}. Your work is stored in this browser, so it is still here — the engine that reads it did not start.`}
+      detail={`${asClause(String(error instanceof Error ? error.message : error))}. Your work is stored in this browser, so it is still here — the engine that reads it did not start.`}
       onRetry={() => {
         void router.invalidate();
       }}
