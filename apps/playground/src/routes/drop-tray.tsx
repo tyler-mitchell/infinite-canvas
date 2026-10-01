@@ -11,6 +11,7 @@ import {
   type InfiniteCanvasRect,
   type InfiniteCanvasSize,
   type InfiniteCanvasWindow,
+  useInfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/scene";
 import { useMemo, useRef } from "react";
@@ -273,6 +274,7 @@ function BodyDropOutline({
 }: {
   context: InfiniteCanvasOverlayRenderContext<CardKind, CardAsset>;
 }) {
+  const state = useInfiniteCanvasState<CardKind>();
   const target =
     context.drag.status === "dragging" && context.drag.dropTarget.target?.type === "window"
       ? context.drag.dropTarget.target
@@ -280,11 +282,7 @@ function BodyDropOutline({
   if (target === null || target.area !== "body") {
     return null;
   }
-  const rect = worldRectToScreenRect(
-    context.state.camera,
-    context.state.viewport,
-    target.window.rect,
-  );
+  const rect = worldRectToScreenRect(state.camera, state.viewport, target.window.rect);
   return (
     <div
       aria-hidden="true"

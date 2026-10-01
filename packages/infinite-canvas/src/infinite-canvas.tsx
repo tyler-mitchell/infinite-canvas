@@ -118,7 +118,6 @@ import {
   InfiniteCanvasProvider,
   useInfiniteCanvasDispatch,
   useInfiniteCanvasSelector,
-  useInfiniteCanvasState,
   useInfiniteCanvasStore,
 } from "./react/store";
 import {
@@ -1502,13 +1501,12 @@ function InfiniteCanvasViewport<Kind extends string, Payload = InfiniteCanvasDro
   );
 }
 
-/** The overlay context without the two members that the slot derives from the live state. */
 type InfiniteCanvasOverlaySlotContext<Kind extends string, Payload> = Omit<
   InfiniteCanvasOverlayRenderContext<Kind, Payload>,
-  "contextualCommands" | "state"
+  "contextualCommands"
 >;
 
-/** Renders one consumer overlay with the live state. Only this subtree renders per state change. */
+/** Renders one consumer overlay. Overlays subscribe to the state they read. */
 function InfiniteCanvasOverlaySlot<Kind extends string, Payload>({
   context,
   render,
@@ -1517,7 +1515,6 @@ function InfiniteCanvasOverlaySlot<Kind extends string, Payload>({
   render: (context: InfiniteCanvasOverlayRenderContext<Kind, Payload>) => ReactNode;
 }>) {
   const store = useInfiniteCanvasStore<Kind>();
-  const state = useInfiniteCanvasState<Kind>();
 
   return render({
     ...context,
@@ -1525,7 +1522,6 @@ function InfiniteCanvasOverlaySlot<Kind extends string, Payload>({
     get contextualCommands() {
       return store.getContextualCommands();
     },
-    state,
   });
 }
 

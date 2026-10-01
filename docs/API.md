@@ -1317,7 +1317,8 @@ The size type `InfiniteCanvasViewport` is exported as `InfiniteCanvasViewportSiz
 - `InfiniteCanvasMarqueeMode`
 - `InfiniteCanvasMoveInteraction`
 - `InfiniteCanvasMoveOriginRect`
-- `InfiniteCanvasOverlayReadContext`: A read-only context that is covariant in `Payload`.
+- `InfiniteCanvasOverlayReadContext`: A read-only context that is covariant in `Payload`. It carries no
+  state: an overlay subscribes with `useInfiniteCanvasSelector`, so a camera step does not render it.
 - `InfiniteCanvasOverlayRenderContext`
 - `InfiniteCanvasPanInteraction`
 - `InfiniteCanvasPoint`

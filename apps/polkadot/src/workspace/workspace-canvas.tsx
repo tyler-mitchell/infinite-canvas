@@ -2,8 +2,10 @@ import {
   createInfiniteCanvasEdgeTargetResolver,
   getInfiniteCanvasGroupTitle,
   InfiniteCanvas,
-  type InfiniteCanvasOverlayReadContext,
+  useInfiniteCanvasDispatch,
+  useInfiniteCanvasState$,
   type CanvasToolsContext,
+  type InfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/scene";
 import { useObservable, useValue } from "@legendapp/state/react";
@@ -71,7 +73,6 @@ const workspace = tv({
 });
 
 function IdentityRail({
-  canvas,
   canvasId,
   libraryOpen,
   onToggleLibrary,
@@ -80,7 +81,6 @@ function IdentityRail({
   saveStatus$,
   title,
 }: Readonly<{
-  canvas: InfiniteCanvasOverlayReadContext<WindowKind>;
   canvasId: string;
   libraryOpen: boolean;
   onToggleLibrary: () => void;
@@ -89,6 +89,8 @@ function IdentityRail({
   saveStatus$: Observable<ObservableSyncState>;
   title: string;
 }>) {
+  const dispatch = useInfiniteCanvasDispatch<WindowKind>();
+  const state$ = useInfiniteCanvasState$<WindowKind>();
   const saveStatus = useValue(saveStatus$);
   const error =
     saveStatus.error?.name === "CanvasRevisionConflictError"
@@ -126,7 +128,11 @@ function IdentityRail({
       <span className={styles.divider()} />
       <Button
         onClick={() => {
-          void openNewNote({ dispatch: canvas.dispatch, projectId, state: canvas.state });
+          void openNewNote({
+            dispatch,
+            projectId,
+            state: state$.peek() as InfiniteCanvasState<WindowKind>,
+          });
         }}
         size="sm"
         variant="ghost"
@@ -230,7 +236,7 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
                   void openNewNote({
                     dispatch: context.dispatch,
                     projectId: canvas.projectId,
-                    state: context.state,
+                    state: runtime.store.state$.peek() as InfiniteCanvasState<WindowKind>,
                   });
                 }}
               />
@@ -269,7 +275,6 @@ export function WorkspaceCanvas({ canvas }: Readonly<{ canvas: LoadedCanvas }>) 
                 }
                 identity={
                   <IdentityRail
-                    canvas={context}
                     canvasId={canvas.id}
                     libraryOpen={libraryOpen}
                     onToggleLibrary={() => {

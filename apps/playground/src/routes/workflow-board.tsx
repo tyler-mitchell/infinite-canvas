@@ -15,6 +15,7 @@ import {
   type InfiniteCanvasState,
   type InfiniteCanvasWindow,
   type InfiniteCanvasWorldSegment,
+  useInfiniteCanvasState,
 } from "@hyphened/infinite-canvas";
 import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/scene";
 import { useState } from "react";
@@ -250,11 +251,12 @@ function BoardOverlay({
   setWorkspaceId: (workspaceId: WorkspaceId) => void;
   workspaceId: WorkspaceId;
 }) {
-  const selectedId = selectedConnectionId(context.state);
+  const state = useInfiniteCanvasState<CardKind>();
+  const selectedId = selectedConnectionId(state);
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[65]">
-      <ConnectionLabels context={context} />
+      <ConnectionLabels />
       <WindowPorts context={context} pendingFrom={pendingFrom} setPendingFrom={setPendingFrom} />
       <div className="pointer-events-auto absolute top-4 right-4 flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
         {(Object.keys(workspaces) as WorkspaceId[]).map((id) => (
@@ -296,19 +298,16 @@ function BoardOverlay({
   );
 }
 
-function ConnectionLabels({ context }: { context: InfiniteCanvasOverlayRenderContext<CardKind> }) {
+function ConnectionLabels() {
+  const state = useInfiniteCanvasState<CardKind>();
   return (
     <>
-      {context.state.connections.map((connection) => {
-        const segment = connectionSegment(context.state, connection);
+      {state.connections.map((connection) => {
+        const segment = connectionSegment(state, connection);
         if (segment === null) {
           return null;
         }
-        const point = worldPointToScreenPoint(
-          context.state.camera,
-          context.state.viewport,
-          segment.midpoint,
-        );
+        const point = worldPointToScreenPoint(state.camera, state.viewport, segment.midpoint);
         return (
           <div
             className="absolute -translate-x-1/2 -translate-y-1/2 rounded border border-sky-300/25 bg-[#07121a]/90 px-1.5 py-0.5 font-mono text-[9px] tracking-widest text-sky-200/80 uppercase"
@@ -332,16 +331,13 @@ function WindowPorts({
   pendingFrom: string | null;
   setPendingFrom: (windowId: string | null) => void;
 }) {
+  const state = useInfiniteCanvasState<CardKind>();
   return (
     <>
-      {context.state.windows
+      {state.windows
         .filter((window) => window.mode !== "minimized")
         .map((window) => {
-          const rect = worldRectToScreenRect(
-            context.state.camera,
-            context.state.viewport,
-            window.rect,
-          );
+          const rect = worldRectToScreenRect(state.camera, state.viewport, window.rect);
           const portY = rect.top + rect.height / 2;
           const isPendingSource = pendingFrom === window.id;
           const canComplete = pendingFrom !== null && pendingFrom !== window.id;
@@ -415,8 +411,9 @@ function PortButton({
 }
 
 function Dock({ context }: { context: InfiniteCanvasOverlayRenderContext<CardKind> }) {
-  const presence = getInfiniteCanvasWindowPresence(context.state);
-  const linkCount = context.state.connections.length;
+  const state = useInfiniteCanvasState<CardKind>();
+  const presence = getInfiniteCanvasWindowPresence(state);
+  const linkCount = state.connections.length;
   return (
     <div className="pointer-events-auto absolute bottom-4 left-4 flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
       {presence.visible.map((item) => (

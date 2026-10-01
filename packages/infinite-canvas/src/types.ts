@@ -645,7 +645,6 @@ type InfiniteCanvasOverlayReadContext<
   contextualCommands: readonly InfiniteCanvasContextualCommand[];
   drag: InfiniteCanvasDropInteraction<Payload, Kind>;
   resolveSpatialTarget: InfiniteCanvasResolveSpatialTarget<Kind>;
-  state: InfiniteCanvasState<Kind>;
 }>;
 
 /** Overlay read context plus `startDrag`. */
