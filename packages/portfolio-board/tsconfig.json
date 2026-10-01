@@ -1,5 +1,5 @@
 {
-  "include": ["src", "app", "portfolio", "server", "db", "env.d.ts"],
+  "include": ["src", "app", "portfolio", "server", "db", "env.d.ts", "cloudflare-workers.d.ts"],
   "compilerOptions": {
     "paths": { "@/*": ["./app/*"] },
     "target": "ES2023",
