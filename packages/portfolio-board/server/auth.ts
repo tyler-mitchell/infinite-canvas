@@ -15,23 +15,19 @@ export type AuthBindings = {
 export function createAuth(env: AuthBindings) {
   return betterAuth({
     baseURL: {
-      allowedHosts: [
-        new URL(env.BETTER_AUTH_URL).host,
-        "featuretype.com",
-        "tyler.featuretype.com",
-      ],
+      allowedHosts: [new URL(env.BETTER_AUTH_URL).host, "featuretype.com", "tyler.featuretype.com"],
       fallback: env.BETTER_AUTH_URL,
     },
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(db, { provider: "sqlite", schema }),
     socialProviders: {
       github: {
-        clientId: env.GITHUB_CLIENT_ID,
+        clientId: env.GITHUB_CLIENT_ID ?? "",
         clientSecret: env.GITHUB_CLIENT_SECRET,
         enabled: Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET),
       },
       google: {
-        clientId: env.GOOGLE_CLIENT_ID,
+        clientId: env.GOOGLE_CLIENT_ID ?? "",
         clientSecret: env.GOOGLE_CLIENT_SECRET,
         enabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
       },
