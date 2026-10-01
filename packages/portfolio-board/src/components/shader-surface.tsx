@@ -133,9 +133,13 @@ function ShaderCanvas({
     const depth = geometry
       ? root.createTexture({ size, format: "depth24plus" }).$usage("render")
       : undefined;
-    const render = pipeline
-      .withColorAttachment({ view: scene ?? context, clearValue: [0, 0, 0, 0] })
-      .withDepthStencilAttachment(depth ? { view: depth, depthClearValue: 1 } : undefined);
+    const colored = pipeline.withColorAttachment({
+      view: scene ?? context,
+      clearValue: [0, 0, 0, 0],
+    });
+    const render = depth
+      ? colored.withDepthStencilAttachment({ view: depth, depthClearValue: 1 })
+      : colored;
     const postprocess =
       effectPipeline && scene
         ? effectPipeline
@@ -158,7 +162,7 @@ function ShaderCanvas({
     };
     state.dirty = true;
     state.draw = () => {
-      const encoder = root.createCommandEncoder();
+      const encoder = root["~unstable"].createCommandEncoder();
       values.time = state.time;
       uniform.write(values);
       render.with(encoder).draw(geometry?.vertexCount ?? 3);
