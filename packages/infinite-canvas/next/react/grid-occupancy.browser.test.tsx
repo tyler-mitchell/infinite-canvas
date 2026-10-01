@@ -85,10 +85,7 @@ test("a rendered small square reaches the adjacent visible cell", async ({ onTes
     expect(large.getBoundingClientRect().x).toBeCloseTo(neighbour.x, 1);
   }
   await act(async () => {
-    canvas.actions.releasePointer.run({
-      ...pointer,
-      point: { x: 500 + 4 * pitch, y: 400 },
-    });
+    canvas.actions.releasePointer.run(pointer);
   });
   expect(positions, "rendered positions in small-icon units").toEqual([1, 2, 3, 4]);
   await expect.poll(() => small.getBoundingClientRect().x - start.x).toBeCloseTo(4 * pitch, 1);
