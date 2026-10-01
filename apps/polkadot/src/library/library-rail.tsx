@@ -77,11 +77,11 @@ const rail = tv({
       "size-3 shrink-0 transition-transform duration-150 ease-[var(--ease-swift)] motion-reduce:transition-none",
     empty: "px-3 py-8 text-center text-[12px] text-[var(--ink-faint)]",
     /* Aligned under the title, past the gutter and the kind glyph. */
-    excerpt: "truncate pr-2 pb-1 pl-[30px] font-mono text-[11px] text-[var(--ink-faint)]",
+    excerpt: "truncate pr-2 pb-1 pl-[36px] font-mono text-[11px] text-[var(--ink-faint)]",
     // The fixed gutter keeps all titles aligned.
     gutter: "flex w-2 shrink-0 justify-center",
     header: "flex items-center gap-1 px-1.5 pt-1.5 pb-1",
-    kindGlyph: "size-3.5 shrink-0 text-[var(--ink-faint)]",
+    kindGlyph: "mr-1.5 inline size-3.5 align-[-0.2em] text-[var(--ink-faint)]",
     heading: "flex-1 pl-1.5 text-[12px] font-medium tracking-[-0.005em] text-[var(--ink-muted)]",
     presence: "size-1.5 rounded-full bg-[var(--accent)]",
     root: `flex w-[264px] flex-col rounded-[var(--radius-lg)] ${FLOATING_SURFACE} shadow-[var(--lift-2)]`,
