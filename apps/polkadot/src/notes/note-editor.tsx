@@ -28,8 +28,7 @@ const noteEditor = tv({
     // Block and inline code need separate theme keys.
     codeBlock:
       "my-2 block overflow-x-auto rounded-[6px] p-3 font-mono text-[12px] leading-[1.6] break-words whitespace-pre-wrap data-[wrap=false]:break-normal data-[wrap=false]:whitespace-pre",
-    // flex-1 lets long notes grow beyond the window scroller.
-    content: "flex-1 text-[13.5px] leading-[1.7] text-[var(--ink-muted)] outline-none",
+    content: "text-[13.5px] leading-[1.7] text-[var(--ink-muted)] outline-none",
     h1: "mt-0 mb-2 text-[17px] font-medium tracking-[-0.015em] text-[var(--ink)]",
     h2: "mt-4 mb-1.5 text-[14px] font-medium text-[var(--ink)]",
     inlineCode:
@@ -42,7 +41,7 @@ const noteEditor = tv({
     placeholder:
       "pointer-events-none absolute inset-0 text-[13.5px] leading-[1.7] text-[var(--ink-faint)] select-none",
     quote: "my-2 border-l-2 border-[var(--accent)] pl-3 text-[var(--ink-faint)]",
-    root: "group/note relative flex flex-1 flex-col",
+    root: "group/note relative grid flex-1 grid-rows-[1fr]",
     ul: "my-2 list-disc pl-5",
   },
 });
