@@ -42,7 +42,8 @@ framework renders on every state change by contract. Done when a per-frame synth
 240Hz and the search input is not rewritten per step. Decision needed first: a stable overlay
 context that overlays subscribe to themselves (framework contract change, playground overlays
 adapt), or the app moves its chrome out of `renderOverlay` and selects fields.
-D4. [ ] **Yoga-backed `flex` group mode.** Depends on D1 and D2. Same seams, `yoga-layout` as the
+D4. [x] **Yoga-backed `flex` group mode.** Superseded 2026-10-01: groups are gone, and `resolveTracks` implements
+flex space sharing with Chromium parity (`docs/layout-engine.md`). Original: same seams, `yoga-layout` as the
 solver with measured sizes as leaf results.
 D5. [ ] **The canvas is the page (reading mode).** The camera-stops model built and rejected on
 2026-09-17 is demolished (stored camera positions stepped like slides). Replacement, designed in
