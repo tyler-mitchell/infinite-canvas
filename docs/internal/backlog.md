@@ -927,3 +927,8 @@ in the store (Legend State `Observable` hits TS2589 with both a hand-rolled `Jso
 type-fest `Jsonify` on the columns (drops `WindowLayout.type` beside its index signature). Ready to
 apply once those two pass: `scratchpad` patch moving `.returning()` onto each `savePortfolio` branch
 (16 -> 6 errors). Done when `vp check` passes `server/portfolio.functions.ts`.
+Works (tried, reverted): columns typed `Serialized<CanvasSnapshot>` with
+`type Serialized<T> = unknown extends T ? JsonValue : T extends object ? { [K in keyof T]: Serialized<T[K]> } : T`
+(type-fest `JsonValue`) clear both GET functions and the editor read. Left: the two writes, where
+the validated snapshot carries `unknown`. Next: export the type from `next` with a validator whose
+output is that type, so neither consumer nor framework casts.
