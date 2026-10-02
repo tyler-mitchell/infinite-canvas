@@ -919,3 +919,11 @@ ready, seeded with whatever the selection could supply, with Run disabled until
 nothing is hand-written per command.
 
 NOT seen on screen. The check is opening the launcher, choosing Set snapping, and getting a form.
+
+P1. [ ] **Portfolio board server functions return a non-serializable snapshot type.** Found
+2026-10-01. `getPortfolio`/`getPublishedPortfolio` fail TanStack Start's serializable check because
+`CanvasSnapshot` carries `data?: unknown` and `WindowLayout`'s index signature. Ruled out: JSON types
+in the store (Legend State `Observable` hits TS2589 with both a hand-rolled `Json` and `@ark/util`'s);
+type-fest `Jsonify` on the columns (drops `WindowLayout.type` beside its index signature). Ready to
+apply once those two pass: `scratchpad` patch moving `.returning()` onto each `savePortfolio` branch
+(16 -> 6 errors). Done when `vp check` passes `server/portfolio.functions.ts`.
