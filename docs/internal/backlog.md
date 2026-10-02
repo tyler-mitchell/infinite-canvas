@@ -932,3 +932,8 @@ Works (tried, reverted): columns typed `Serialized<CanvasSnapshot>` with
 (type-fest `JsonValue`) clear both GET functions and the editor read. Left: the two writes, where
 the validated snapshot carries `unknown`. Next: export the type from `next` with a validator whose
 output is that type, so neither consumer nor framework casts.
+Tried next: `next` exporting `CanvasSnapshotJson = Serialized<CanvasSnapshot>` and
+`canvasSnapshotJson = canvasSnapshot.pipe(type("object.json"), (s) => s as CanvasSnapshotJson)`
+(input stays the live snapshot, so the editor types). Framework and editor typecheck; assigning the
+validator output to the Drizzle column hits TS2589 even with `$inferInsert` annotation. Isolate
+whether ArkType's pipe output type re-wraps the mapped type before retrying.
