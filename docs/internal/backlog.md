@@ -939,3 +939,6 @@ validator output to the Drizzle column hits TS2589 even with `$inferInsert` anno
 validator as `Type<(In: typeof canvasSnapshot.inferIn) => Out<CanvasSnapshotJson>>` did not help: the
 overflow is Drizzle's insert typing over a recursive mapped `$type`, not ArkType. Next: give the JSON
 columns a non-recursive type, or store the document column as text and parse at the boundary.
+Text columns tried too: Drizzle compiles, but TanStack Start's serializable check on a
+`CanvasSnapshotJson` return then hits TS2589 itself. Any recursive JSON type in a server-function
+return overflows; the return needs a finite, non-recursive JSON type for `data`.
