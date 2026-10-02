@@ -935,5 +935,7 @@ output is that type, so neither consumer nor framework casts.
 Tried next: `next` exporting `CanvasSnapshotJson = Serialized<CanvasSnapshot>` and
 `canvasSnapshotJson = canvasSnapshot.pipe(type("object.json"), (s) => s as CanvasSnapshotJson)`
 (input stays the live snapshot, so the editor types). Framework and editor typecheck; assigning the
-validator output to the Drizzle column hits TS2589 even with `$inferInsert` annotation. Isolate
-whether ArkType's pipe output type re-wraps the mapped type before retrying.
+validator output to the Drizzle column hits TS2589 even with `$inferInsert` annotation. Pinning the
+validator as `Type<(In: typeof canvasSnapshot.inferIn) => Out<CanvasSnapshotJson>>` did not help: the
+overflow is Drizzle's insert typing over a recursive mapped `$type`, not ArkType. Next: give the JSON
+columns a non-recursive type, or store the document column as text and parse at the boundary.
