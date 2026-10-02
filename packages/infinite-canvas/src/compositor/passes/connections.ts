@@ -120,6 +120,10 @@ function createInfiniteCanvasConnectionsPass<
             })
             .slice(0, CONNECTION_CAPACITY);
 
+          if (drawn.length === 0) {
+            return;
+          }
+
           // One patch for the whole set. The state is read every frame either way.
           buffer.buffer.patch(drawn);
           pipeline.withColorAttachment(target()).draw(6, drawn.length);
