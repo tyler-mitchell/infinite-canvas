@@ -28,5 +28,5 @@
     "noUnusedLocals": true,
     "isolatedModules": true
   },
-  "include": ["src", "next", "scripts"]
+  "include": ["legacy", "next", "scripts"]
 }

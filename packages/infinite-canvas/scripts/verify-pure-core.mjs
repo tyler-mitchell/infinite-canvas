@@ -4,7 +4,7 @@ import { dirname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const sourceRoot = join(packageRoot, "src");
+const sourceRoot = join(packageRoot, "legacy");
 
 const PURE_CORE_ROOTS = ["core.ts"];
 

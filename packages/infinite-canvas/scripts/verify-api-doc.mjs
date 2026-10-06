@@ -8,9 +8,9 @@ const repoRoot = dirname(dirname(packageRoot));
 const apiDocPath = join(repoRoot, "docs", "API.md");
 
 const BARRELS = [
-  { entry: ".", path: join(packageRoot, "src", "index.ts") },
-  { entry: "./core", path: join(packageRoot, "src", "core.ts") },
-  { entry: "./scene", path: join(packageRoot, "src", "scene.ts") },
+  { entry: ".", path: join(packageRoot, "legacy", "index.ts") },
+  { entry: "./core", path: join(packageRoot, "legacy", "core.ts") },
+  { entry: "./scene", path: join(packageRoot, "legacy", "scene.ts") },
 ];
 
 const stripComments = (source) =>

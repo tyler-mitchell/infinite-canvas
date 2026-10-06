@@ -37,7 +37,7 @@ const pack: NonNullable<UserConfig["pack"]> = {
   // be declared here — hand edits to package.json get clobbered on build.
   exports: {
     customExports(exports: Record<string, unknown>, context: { isPublish: boolean }) {
-      exports["./theme.css"] = context.isPublish ? "./dist/theme.css" : "./src/theme.css";
+      exports["./theme.css"] = context.isPublish ? "./dist/theme.css" : "./legacy/theme.css";
       if (!context.isPublish)
         Object.assign(exports, {
           "./next": "./next/index.ts",
@@ -86,13 +86,13 @@ export default defineConfig({
   plugins: [typegpu()],
   // Build the headless core separately from React entry points.
   pack: [
-    { ...pack, entry: { core: "src/core.ts" } },
+    { ...pack, entry: { core: "legacy/core.ts" } },
     {
       ...pack,
-      entry: { index: "src/index.ts", scene: "src/scene.ts" },
+      entry: { index: "legacy/index.ts", scene: "legacy/scene.ts" },
       plugins: [pack.plugins, typegpuRolldown({ exclude: /\.d\.[cm]?ts$/ })],
       copy: [
-        { from: "src/theme.css", to: "dist" },
+        { from: "legacy/theme.css", to: "dist" },
         { from: "node_modules/use-webmcp-tool/LICENSE", to: "dist/licenses/use-webmcp-tool" },
       ],
     },

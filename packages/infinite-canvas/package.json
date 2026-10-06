@@ -34,11 +34,11 @@
     "**/*.css"
   ],
   "exports": {
-    ".": "./src/index.ts",
-    "./core": "./src/core.ts",
-    "./scene": "./src/scene.ts",
+    ".": "./legacy/index.ts",
+    "./core": "./legacy/core.ts",
+    "./scene": "./legacy/scene.ts",
     "./package.json": "./package.json",
-    "./theme.css": "./src/theme.css",
+    "./theme.css": "./legacy/theme.css",
     "./next": "./next/index.ts",
     "./next/react": "./next/react/index.ts",
     "./next/theme.css": "./next/theme.css"

@@ -63,7 +63,7 @@ check(
 
 // README imports must exist in source barrels.
 const barrelExports = (entry) => {
-  const source = readFileSync(join(packageRoot, "src", entry), "utf8")
+  const source = readFileSync(join(packageRoot, "legacy", entry), "utf8")
     .replaceAll(/\/\*[\s\S]*?\*\//g, "")
     .replaceAll(/\/\/.*/g, "");
 
