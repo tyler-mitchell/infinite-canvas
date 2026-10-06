@@ -34,6 +34,14 @@ export {
   type AccordionTriggerProps,
 } from "./components/accordion.tsx";
 export {
+  AccordionFolderTabs,
+  accordionFolderTabsVariants,
+  type AccordionFolderTabItem,
+  type AccordionFolderTabsProps,
+  type AccordionFolderTabsClassNames,
+  type AccordionFolderTabsGeometry,
+} from "./components/accordion-folder-tabs.tsx";
+export {
   ActivityFeed,
   activityFeedVariants,
   type ActivityEntry,

@@ -13,8 +13,37 @@ authenticated editor, `/login` provides sign-in, and `/p/$id` reads published po
 
 See [Activity Grid playback and particles](docs/activity-playback.md) for animation settings.
 
-Base UI primitives styled with tailwind-variants slots. Fifty-one component modules, one
-stylesheet, and no CSS written anywhere else.
+Base UI primitives styled with tailwind-variants slots.
+
+`AccordionFolderTabs` draws one animated folder surface across a tab rail and panel.
+The [disclosure page](app/routes/disclosure.tsx) shows creation, overflow, and empty states.
+
+```tsx
+<AccordionFolderTabs
+  items={folders}
+  defaultValue="general"
+  ariaLabel="Portfolio sections"
+  onOrderChange={setFolders}
+  onClose={(id) => setFolders((current) => current.filter((item) => item.id !== id))}
+  actions={
+    <Button size="icon" className="size-6" aria-label="Add tab" onClick={createTab}>
+      <Plus aria-hidden />
+    </Button>
+  }
+/>
+```
+
+Each item has `id`, `label`, `content`, and optional `icon` and `disabled` fields.
+`value` and `onValueChange` control selection. Arrow keys select enabled tabs; Home and End
+select the ends. Alt+Left and Alt+Right reorder a tab. Pointer drag reorders tabs.
+The caller removes closed items. `classNames` overrides each visual part, and
+`accordionFolderTabsVariants` exposes the Tailwind Variants slots. `geometry`,
+`glide`, and `press` configure shape and motion. The consumer owns `actions`,
+including tab creation. Tabs keep a minimum width and the rail scrolls when needed.
+The rail snaps to tab positions by default. `scrollSnap` accepts `mandatory`,
+`proximity`, or `none`. With no tabs, the folder keeps its outline with a dashed edge.
+`emptyState` replaces the default empty message.
+One animated surface joins the selected tab and panel.
 
 ## Setup
 
