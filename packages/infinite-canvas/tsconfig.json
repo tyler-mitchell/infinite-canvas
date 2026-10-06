@@ -28,5 +28,5 @@
     "noUnusedLocals": true,
     "isolatedModules": true
   },
-  "include": ["src", "legacy", "scripts"]
+  "include": ["src", "legacy", "scripts", "vite.config.ts"]
 }
