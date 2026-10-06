@@ -1,4 +1,4 @@
-import type { Canvas, WindowState } from "@hyphened/infinite-canvas/next";
+import type { Canvas, WindowState } from "@hyphened/infinite-canvas";
 import type { Observable } from "@legendapp/state";
 import { observer } from "@legendapp/state/react";
 import { tv } from "../tv.ts";

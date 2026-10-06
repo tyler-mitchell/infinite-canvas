@@ -4,7 +4,7 @@ import {
   type InfiniteCanvasContextualEntry,
   type InfiniteCanvasContextualCommand,
   type InfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 
 import { APP_ACTIONS } from "./app-actions";
 import { getConnectorHotkeyActions } from "./canvas/connector-hotkeys";

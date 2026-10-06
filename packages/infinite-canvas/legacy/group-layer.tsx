@@ -20,7 +20,7 @@ import { useInfiniteCanvasDetailLevel } from "./react/detail-level";
 import { worldRectToScreenRect } from "./geometry";
 import { getInfiniteCanvasPointerOwnedIds } from "./interaction";
 import { INFINITE_CANVAS_LAYOUT_TRANSITION } from "./layout-motion";
-import { getResizeHandleDescriptors } from "../next/geometry";
+import { getResizeHandleDescriptors } from "../src/geometry";
 import { type InfiniteCanvasGroupAccordionHeader, type InfiniteCanvasGroupLayout } from "./layout";
 import {
   findInfiniteCanvasGroupNode,

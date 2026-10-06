@@ -1,4 +1,4 @@
-import type { InfiniteCanvasCommandId } from "@hyphened/infinite-canvas";
+import type { InfiniteCanvasCommandId } from "@hyphened/infinite-canvas/legacy";
 import {
   AlignHorizontalSpaceAround,
   FlipHorizontal,

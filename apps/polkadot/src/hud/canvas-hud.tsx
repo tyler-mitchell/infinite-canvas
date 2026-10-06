@@ -10,7 +10,7 @@ import {
   type InfiniteCanvasCommand,
   type InfiniteCanvasGroupLayoutMode,
   getSelectedWindowIds,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import {
   AlignHorizontalSpaceAround,
   AlignStartVertical,

@@ -17,8 +17,8 @@ test.each([880, 800, 740, 700, 660, 640, 639, 480, 360])(
     expect(rect("profile").height).toBeLessThan(400);
     expect(large.width).toBeCloseTo(large.height);
     expect(small.width).toBeCloseTo(small.height);
-    expect(large.width).toBeCloseTo(small.width * 2 + 12);
-    expect(rect("nodedotjs").x).toBeCloseTo(large.x + large.width + 12);
+    expect(large.width).toBeCloseTo(small.width * 2 + 6);
+    expect(rect("react").x).toBeCloseTo(large.x + large.width + 6);
     expect(right.y).toBe(left.y);
     expect(right.x).toBeCloseTo(left.x + left.width + 12);
     expect(right.x + right.width).toBeCloseTo(main.x + main.width);

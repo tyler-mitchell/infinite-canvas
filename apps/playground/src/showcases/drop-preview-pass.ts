@@ -4,8 +4,8 @@ import {
   screenToClip,
   worldToScreen,
   type InfiniteCanvasScenePass,
-} from "@hyphened/infinite-canvas/scene";
-import type { InfiniteCanvasSceneLayerRenderContext } from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy/scene";
+import type { InfiniteCanvasSceneLayerRenderContext } from "@hyphened/infinite-canvas/legacy";
 import { d, tgpu } from "typegpu";
 
 const Ghost = d.struct({

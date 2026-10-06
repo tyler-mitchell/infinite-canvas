@@ -4,7 +4,7 @@ import {
   useInfiniteCanvasDispatch,
   useInfiniteCanvasState,
   type InfiniteCanvasWindowPresenceItem,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { createHotkeyHandler, formatForDisplay } from "@tanstack/hotkeys";
 import { useEffect, useMemo, useRef, useState } from "react";
 

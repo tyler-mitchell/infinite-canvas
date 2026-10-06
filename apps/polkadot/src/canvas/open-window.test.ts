@@ -6,7 +6,7 @@ import {
   type InfiniteCanvasDispatch,
   type InfiniteCanvasWindow,
   type InfiniteCanvasWindowPlacement,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { expect, test } from "vite-plus/test";
 
 import { openContentWindow } from "./open-window";

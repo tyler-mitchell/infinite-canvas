@@ -5,7 +5,7 @@ import {
   useInfiniteCanvasSelector,
   useInfiniteCanvasStore,
   type InfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { useObservable, useValue } from "@legendapp/state/react";
 import {
   Archive,

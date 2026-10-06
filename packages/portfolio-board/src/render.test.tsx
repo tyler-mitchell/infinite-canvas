@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { createCanvasState } from "@hyphened/infinite-canvas/next";
+import { createCanvasState } from "@hyphened/infinite-canvas";
 import { type } from "arktype";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -24,6 +24,7 @@ const components = Object.entries(kit).filter(
 
 /** What each component that reads a required prop needs before it can draw at all. */
 const REQUIRED: Record<string, Record<string, unknown>> = {
+  AccordionFolderTabs: { items: [] },
   ActivityFeed: { entries: [] },
   ActivityGrid: { days: [] },
   Avatar: { name: "Ada Lovelace" },
@@ -53,7 +54,8 @@ const NEEDS_ITS_ROOT = new Set([
   "AccordionPanel",
   "AccordionTrigger",
   "CanvasCommandItem",
-  "CanvasSectionRail",
+  "CanvasSelectionToolbar",
+  "CanvasWindowNavigation",
   "CollapsiblePanel",
   "CollapsibleTrigger",
   "ComboboxContent",
@@ -150,7 +152,6 @@ const DRAWS_ONLY_WHEN_OPEN = new Set([
 
 const DRAWS_ONLY_WHEN_GIVEN = new Set([
   "CanvasInspector",
-  "CanvasSelectionToolbar",
   "EditableNote",
   "FieldError",
   "SchemaForm",
@@ -674,7 +675,7 @@ test("no component writes a reading it cannot use into its words", () => {
  */
 test("every component that takes a number from a consumer is given an unusable one", () => {
   const takesNumbers = readdirSync(new URL("./components/", import.meta.url))
-    .filter((name) => name.endsWith(".tsx"))
+    .filter((name) => name.endsWith(".tsx") && !name.endsWith(".test.tsx"))
     .filter((name) =>
       /^\s*(?:readonly\s+)?\w+\??:\s*(?:readonly\s+)?number(?:\[\])?;/m.test(
         readFileSync(new URL(`./components/${name}`, import.meta.url), "utf8"),

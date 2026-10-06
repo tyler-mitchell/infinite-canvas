@@ -1,4 +1,4 @@
-import type { InfiniteCanvasDocument } from "@hyphened/infinite-canvas";
+import type { InfiniteCanvasDocument } from "@hyphened/infinite-canvas/legacy";
 
 import type { WindowKind } from "../canvas/window-registry";
 import * as database from "../database/operations";

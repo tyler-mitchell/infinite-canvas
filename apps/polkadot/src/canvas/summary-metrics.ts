@@ -1,4 +1,4 @@
-import type { InfiniteCanvasSize } from "@hyphened/infinite-canvas";
+import type { InfiniteCanvasSize } from "@hyphened/infinite-canvas/legacy";
 
 /*
  * What every summary card agrees on.

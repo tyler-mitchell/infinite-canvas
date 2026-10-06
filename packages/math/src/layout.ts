@@ -112,12 +112,12 @@ export const arrangeLanes = ({
     first === undefined
       ? -1
       : closestRect({
-          rect: moved[first.id],
+          rect: moved[first.id]!,
           candidates: settled.map(({ rect }) => rect),
         });
   const ids = shown.map(({ id }) => id);
   const staying = ids.filter((id) => moved[id] === undefined);
-  const reorder = at >= 0 && moved[ids[at]] === undefined;
+  const reorder = at >= 0 && moved[ids[at]!] === undefined;
   const insertion =
     ids.slice(0, at).filter((id) => moved[id] === undefined).length +
     (first !== undefined && ids.indexOf(first.id) < at ? 1 : 0);

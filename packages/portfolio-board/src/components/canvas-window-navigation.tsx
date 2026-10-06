@@ -1,4 +1,4 @@
-import { WindowNavigation, useCanvasScroll } from "@hyphened/infinite-canvas/next/react";
+import { WindowNavigation, useCanvasScroll } from "@hyphened/infinite-canvas/react";
 
 import { tv } from "../tv.ts";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip.tsx";

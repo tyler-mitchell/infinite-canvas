@@ -4,7 +4,7 @@ import {
   isInfiniteCanvasWindowCapable,
   useInfiniteCanvasDispatch,
   useInfiniteCanvasStore,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { useLoaderData } from "@tanstack/react-router";
 import { useValue } from "@legendapp/state/react";
 

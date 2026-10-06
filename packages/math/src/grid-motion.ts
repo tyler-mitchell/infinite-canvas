@@ -152,8 +152,8 @@ function moveAway({
         item,
         mode,
         primary: false,
-        row: mode === "vertical" ? candidate.row : undefined,
-        column: mode === "horizontal" ? candidate.column : undefined,
+        ...(mode === "vertical" ? { row: candidate.row } : {}),
+        ...(mode === "horizontal" ? { column: candidate.column } : {}),
       });
       return;
     }

@@ -35,7 +35,7 @@ import type {
 } from "./types";
 import { isInfiniteCanvasWindowCapable } from "./window-capabilities";
 import { getWindowLayoutMembership } from "./group-state";
-import { getResizeHandleDescriptors } from "../next/geometry";
+import { getResizeHandleDescriptors } from "../src/geometry";
 
 /** Renders each window. Camera changes update only the outer transform. */
 /** World-space handle size that keeps a fixed screen size. */

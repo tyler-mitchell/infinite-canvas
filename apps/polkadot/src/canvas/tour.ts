@@ -5,7 +5,7 @@ import {
   type InfiniteCanvasRect,
   type InfiniteCanvasState,
   type InfiniteCanvasWorldPath,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 
 import type { ContentRelation } from "../database/database.client";
 import { getConnectorRectsByItem } from "./connector-geometry";

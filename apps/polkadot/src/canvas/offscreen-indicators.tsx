@@ -5,7 +5,7 @@ import {
   useInfiniteCanvasDispatch,
   useInfiniteCanvasState,
   type InfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { tv } from "ui/tv";
 
 import { FLOATING_SURFACE } from "../material";

@@ -2,14 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { type } from "arktype";
 import { useState } from "react";
 import { Button } from "ui";
-import { createCanvasState, type Layout } from "@hyphened/infinite-canvas/next";
+import { createCanvasState, type Layout } from "@hyphened/infinite-canvas";
 import {
   CanvasScroll,
   CanvasTools,
   CanvasViewport,
   WindowNavigation,
-} from "@hyphened/infinite-canvas/next/react";
-import "@hyphened/infinite-canvas/next/theme.css";
+} from "@hyphened/infinite-canvas/react";
+import "@hyphened/infinite-canvas/theme.css";
 import { SampleWindow } from "../showcases/sample-canvas";
 
 export const Route = createFileRoute("/strip")({

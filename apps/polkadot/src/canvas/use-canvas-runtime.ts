@@ -1,4 +1,7 @@
-import { createInfiniteCanvasStore, type InfiniteCanvasStore } from "@hyphened/infinite-canvas";
+import {
+  createInfiniteCanvasStore,
+  type InfiniteCanvasStore,
+} from "@hyphened/infinite-canvas/legacy";
 import { observable, syncState } from "@legendapp/state";
 import PQueue from "p-queue";
 import { useEffect, useState } from "react";

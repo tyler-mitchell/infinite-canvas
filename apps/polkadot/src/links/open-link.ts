@@ -1,4 +1,4 @@
-import type { InfiniteCanvasPoint, InfiniteCanvasRect } from "@hyphened/infinite-canvas";
+import type { InfiniteCanvasPoint, InfiniteCanvasRect } from "@hyphened/infinite-canvas/legacy";
 
 import { openContentWindow, type WindowPlacement } from "../canvas/open-window";
 import { createProjectItem } from "../content/project-content";

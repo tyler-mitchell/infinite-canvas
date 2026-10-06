@@ -42,10 +42,10 @@ export function curvatureWave({
     "use gpu";
     const phase = input.x * frequency - input.y;
     const anchorPhase = origin * frequency - input.y;
-    let position = d.vec2f((spectrum.$[0].x * (input.x - origin)) / 2, 0);
-    let tangent = d.vec2f(spectrum.$[0].x / 2, 0);
+    let position = d.vec2f((spectrum.$[0]!.x * (input.x - origin)) / 2, 0);
+    let tangent = d.vec2f(spectrum.$[0]!.x / 2, 0);
     for (let harmonic = 1; harmonic <= count; harmonic++) {
-      const coefficient = spectrum.$[harmonic];
+      const coefficient = spectrum.$[harmonic]!;
       const angle = d.f32(harmonic) * phase;
       let sine = std.sin(angle);
       let cosine = std.cos(angle);

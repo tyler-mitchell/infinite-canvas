@@ -115,7 +115,11 @@ await program({
     source: {
       description: "Run the installed Sites source workflow; provide its JSON input on stdin.",
       input: {
-        pluginRoot: { type: "string", cli: { usage: "--plugin-root", env: "SITES_PLUGIN_ROOT" } },
+        pluginRoot: {
+          type: "string",
+          required: true,
+          cli: { usage: "--plugin-root", env: "SITES_PLUGIN_ROOT" },
+        },
       },
       run: async ({ pluginRoot }, ctx) => {
         await ctx.exec(
@@ -127,7 +131,7 @@ await program({
     },
     commit: {
       description: "Commit the prepared Site copy without changing the working repository.",
-      input: { message: { type: "string", cli: "--message" } },
+      input: { message: { type: "string", required: true, cli: "--message" } },
       run: async ({ message }, ctx) => {
         await ctx.exec("git", ["add", "--all", "--", "."], {
           cwd: checkout,

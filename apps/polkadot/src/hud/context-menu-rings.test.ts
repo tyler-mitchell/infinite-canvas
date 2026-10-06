@@ -1,4 +1,4 @@
-import { DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS } from "@hyphened/infinite-canvas";
+import { DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS } from "@hyphened/infinite-canvas/legacy";
 import { expect, test } from "vite-plus/test";
 
 import { APP_ACTIONS } from "../app-actions";

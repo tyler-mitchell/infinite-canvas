@@ -1,6 +1,6 @@
 @layer theme, base, infinite-canvas, components, utilities;
 
-@import "@hyphened/infinite-canvas/theme.css";
+@import "@hyphened/infinite-canvas/legacy/theme.css";
 @import "tailwindcss";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";

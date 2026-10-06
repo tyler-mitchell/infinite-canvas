@@ -3,7 +3,7 @@ import {
   CommandMenuItem,
   type CommandTriggerProps,
   type CommandMenuItemProps,
-} from "@hyphened/infinite-canvas/next/react";
+} from "@hyphened/infinite-canvas/react";
 import type { VariantProps } from "tailwind-variants";
 import { buttonVariants } from "./button.tsx";
 import { menuVariants } from "./menu.tsx";

@@ -2,13 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import type { Observable } from "@legendapp/state";
 import { observer } from "@legendapp/state/react";
 import { useState } from "react";
-import { createCanvasState, type Canvas, type WindowState } from "@hyphened/infinite-canvas/next";
-import {
-  CanvasTools,
-  CanvasViewport,
-  WindowDragHandle,
-} from "@hyphened/infinite-canvas/next/react";
-import "@hyphened/infinite-canvas/next/theme.css";
+import { createCanvasState, type Canvas, type WindowState } from "@hyphened/infinite-canvas";
+import { CanvasTools, CanvasViewport, WindowDragHandle } from "@hyphened/infinite-canvas/react";
+import "@hyphened/infinite-canvas/theme.css";
 import { CanvasCommands } from "../showcases/canvas-commands";
 import { WindowControls } from "../showcases/sample-canvas";
 

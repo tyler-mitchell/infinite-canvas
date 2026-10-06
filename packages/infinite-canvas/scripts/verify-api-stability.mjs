@@ -9,9 +9,9 @@ const apiDocPath = join(repoRoot, "docs", "API.md");
 const manifestPath = join(packageRoot, "scripts", "api-stability.json");
 
 const BARRELS = [
-  { entry: ".", path: join(packageRoot, "legacy", "index.ts"), prefix: "" },
-  { entry: "./core", path: join(packageRoot, "legacy", "core.ts"), prefix: "" },
-  { entry: "./scene", path: join(packageRoot, "legacy", "scene.ts"), prefix: "scene:" },
+  { entry: "./legacy", path: join(packageRoot, "legacy", "index.ts"), prefix: "" },
+  { entry: "./legacy/core", path: join(packageRoot, "legacy", "core.ts"), prefix: "" },
+  { entry: "./legacy/scene", path: join(packageRoot, "legacy", "scene.ts"), prefix: "scene:" },
 ];
 
 const TYPES_MODULE = "types";

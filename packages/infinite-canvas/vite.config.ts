@@ -3,33 +3,44 @@ import typegpu from "unplugin-typegpu/vite";
 import typegpuRolldown from "unplugin-typegpu/rolldown";
 import { defineConfig, type UserConfig } from "vite-plus";
 
-const pack: NonNullable<UserConfig["pack"]> = {
+const pack = {
+  entry: {
+    index: "src/index.ts",
+    react: "src/react/index.ts",
+    legacy: "legacy/index.ts",
+    "legacy/core": "legacy/core.ts",
+    "legacy/scene": "legacy/scene.ts",
+  },
   plugins: [
-    {
-      name: "react-externals",
-      resolveId: {
-        order: "pre",
-        handler(id) {
-          if (/^react(?:\/|$)/.test(id)) return { id, external: true, moduleSideEffects: false };
+    [
+      {
+        name: "react-externals",
+        resolveId: {
+          order: "pre",
+          handler(id: string) {
+            if (/^react(?:\/|$)/.test(id)) return { id, external: true, moduleSideEffects: false };
+          },
         },
       },
-    },
+    ],
+    typegpuRolldown({ exclude: /\.d\.[cm]?ts$/ }),
   ],
   attw: {
-    excludeEntrypoints: ["theme.css"],
+    excludeEntrypoints: ["theme.css", "legacy/theme.css", "style.css"],
     level: "error",
     profile: "esm-only",
   },
   // React entries keep the client directive. Declarations and core omit it.
   outputOptions: {
     banner: (chunk: { fileName: string }) =>
-      /(?:^|\/)(?:index|scene)\.[cm]?js$/.test(chunk.fileName) ? '"use client";' : "",
+      /(?:^|\/)(?:react|legacy|scene)\.[cm]?js$/.test(chunk.fileName) ? '"use client";' : "",
   },
   dts: {
     tsgo: true,
+    tsconfig: "../tsconfig.json",
   },
   deps: {
-    alwaysBundle: ["use-webmcp-tool"],
+    alwaysBundle: ["@hyphened/math", "use-webmcp-tool"],
   },
   // Keep `exports` pointing at src for instant playground HMR; vp pack
   // writes the dist mappings to publishConfig.exports for publishing.
@@ -37,19 +48,21 @@ const pack: NonNullable<UserConfig["pack"]> = {
   // be declared here — hand edits to package.json get clobbered on build.
   exports: {
     customExports(exports: Record<string, unknown>, context: { isPublish: boolean }) {
-      exports["./theme.css"] = context.isPublish ? "./dist/theme.css" : "./legacy/theme.css";
-      if (!context.isPublish)
-        Object.assign(exports, {
-          "./next": "./next/index.ts",
-          "./next/react": "./next/react/index.ts",
-          "./next/theme.css": "./next/theme.css",
-        });
+      exports["./theme.css"] = context.isPublish ? "./dist/theme.css" : "./src/theme.css";
+      exports["./legacy/theme.css"] = context.isPublish
+        ? "./dist/legacy/theme.css"
+        : "./legacy/theme.css";
       return exports;
     },
     devExports: true,
   },
+  copy: [
+    { from: "src/theme.css", to: "dist" },
+    { from: "legacy/theme.css", to: "dist/legacy" },
+    { from: "node_modules/use-webmcp-tool/LICENSE", to: "dist/licenses/use-webmcp-tool" },
+  ],
   publint: true,
-};
+} as NonNullable<UserConfig["pack"]>;
 
 export default defineConfig({
   test: {
@@ -57,8 +70,8 @@ export default defineConfig({
       {
         test: {
           name: "types",
-          include: ["next/**/*.attest.ts"],
-          globalSetup: ["./next/setup-attest.ts"],
+          include: ["src/**/*.attest.ts"],
+          globalSetup: ["./src/setup-attest.ts"],
         },
       },
       {
@@ -71,7 +84,7 @@ export default defineConfig({
       {
         test: {
           name: "browser",
-          include: ["next/**/*.browser.test.{ts,tsx}"],
+          include: ["src/**/*.browser.test.{ts,tsx}"],
           browser: {
             enabled: true,
             headless: true,
@@ -84,19 +97,7 @@ export default defineConfig({
     ],
   },
   plugins: [typegpu()],
-  // Build the headless core separately from React entry points.
-  pack: [
-    { ...pack, entry: { core: "legacy/core.ts" } },
-    {
-      ...pack,
-      entry: { index: "legacy/index.ts", scene: "legacy/scene.ts" },
-      plugins: [pack.plugins, typegpuRolldown({ exclude: /\.d\.[cm]?ts$/ })],
-      copy: [
-        { from: "legacy/theme.css", to: "dist" },
-        { from: "node_modules/use-webmcp-tool/LICENSE", to: "dist/licenses/use-webmcp-tool" },
-      ],
-    },
-  ],
+  pack,
   lint: {
     options: {
       typeAware: true,

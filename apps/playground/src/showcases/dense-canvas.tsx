@@ -1,9 +1,5 @@
-import { createCanvasState, type WindowState } from "@hyphened/infinite-canvas/next";
-import {
-  useWindowDetail,
-  WindowContent,
-  WindowDragHandle,
-} from "@hyphened/infinite-canvas/next/react";
+import { createCanvasState, type WindowState } from "@hyphened/infinite-canvas";
+import { useWindowDetail, WindowContent, WindowDragHandle } from "@hyphened/infinite-canvas/react";
 import { observer } from "@legendapp/state/react";
 import type { Observable } from "@legendapp/state";
 

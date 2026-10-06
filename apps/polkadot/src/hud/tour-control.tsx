@@ -1,4 +1,7 @@
-import { useInfiniteCanvasDispatch, useInfiniteCanvasState } from "@hyphened/infinite-canvas";
+import {
+  useInfiniteCanvasDispatch,
+  useInfiniteCanvasState,
+} from "@hyphened/infinite-canvas/legacy";
 import { useValue } from "@legendapp/state/react";
 import { Route, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";

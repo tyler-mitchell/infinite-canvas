@@ -18,8 +18,11 @@ try {
   );
   await run("npm", ["install", spec, "--no-audit", "--no-fund"], { cwd: directory });
   await run("npm", ["audit", "signatures"], { cwd: directory });
-  await copyFile(new URL("./verify-published.mjs", import.meta.url), join(directory, "probe.mjs"));
-  await run(process.execPath, ["probe.mjs"], { cwd: directory });
+  await copyFile(
+    new URL("../packages/infinite-canvas/scripts/verify-published.ts", import.meta.url),
+    join(directory, "probe.ts"),
+  );
+  await run(process.execPath, ["probe.ts"], { cwd: directory });
   const { stdout: provenance } = await run("npm", [
     "view",
     spec,

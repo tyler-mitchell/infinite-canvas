@@ -1,24 +1,58 @@
 # API reference
 
-The public surface of `@hyphened/infinite-canvas`: 235 values and 228 types.
+The public surface of `@hyphened/infinite-canvas`: 280 values and 295 types.
 
 Anything absent from the public barrels is internal and unstable.
 This rule includes each `data-infinite-canvas-*` attribute, which supports hit tests instead of styles.
 
 The project maintains this document by hand.
 `verify-api-doc.mjs` makes sure that each export appears here.
-`verify-api-stability.mjs` makes sure that each export module has a stability class.
+`verify-api-stability.mjs` checks the legacy export classifications.
 
-Only `@hyphened/infinite-canvas/scene` imports `typegpu` and `@typegpu/react`.
-Import state and geometry APIs from `@hyphened/infinite-canvas/core`.
-The main entry adds React components and hooks.
+Import state, layout, geometry, and commands from `@hyphened/infinite-canvas`.
+Import components and hooks from `@hyphened/infinite-canvas/react`.
+The previous API remains at `/legacy`, `/legacy/core`, and `/legacy/scene`.
+The main entry uses `typegpu` for math. `/legacy/scene` also uses `@typegpu/react`.
 
-> Pre-1.0: the API can change between minor versions.
+## Canvas state and commands
 
-## Workspace `/next` API
+- `createCanvasState`, `Canvas`, `CanvasOptions`, `CanvasState`: create and type a canvas.
+- `CanvasSnapshot`, `canvasSnapshot`, `documentTransform`: validate and restore documents.
+- `DocumentState`, `ViewState`, `WorkspaceState`, `WindowState`: persisted canvas records.
+- `WindowDefinition`, `WindowDefinitionInput`, `WindowCapabilities`: window configuration.
+- `WindowLayout`, `Layout`, `LayoutItem`, `Arrangement`, `Arranged`: layout contracts.
+- `Changes`, `Operation`, `Placement`, `Proposal`, `Control`: layout operations.
+- `getRunnableCommands`, `RunnableCommand`, `MutationResult`, `Result`: command availability and results.
+- `ConnectionState`, `Presentation`, `Selection`, `SelectionTarget`, `TargetKey`: document and selection data.
+- `Camera`, `CameraBehavior`, `CameraController`, `CameraMotion`: camera configuration and motion.
+- `CameraRequest`, `CameraRequestSource`, `CameraTarget`, `CameraTrack`: navigation data.
+- `NavigationTarget`, `getRoute`, `getCameraTrack`: reading route and camera track.
 
-Portfolio Board uses `@hyphened/infinite-canvas/next`.
-The package's published entry points still use the API described below.
+## Layout and geometry
+
+- `accordion`, `split`, `tabs`, `grid`, `lanes`: built-in layouts.
+- `DockEdge`, `DockPlacement`, `PlacementRegion`: placement inputs.
+- `GridCell`, `GridItem`, `Lane`, `LaneItem`: grid and lane inputs.
+- `columnItem`, `columnOptions`, `resolveColumns`, `placeLanes`: column and lane helpers.
+- `resolveTracks`, `resizeTracks`, `resolveSize`, `SizeConstraints`: size resolution.
+- `getPlacementRect`, `getVacantRect`, `Rect`, `Point`, `Size`: geometry inputs.
+- `ResizeHandle`, `ViewportInsets`: resize and viewport geometry.
+- `getMinimapLayout`, `getMinimapWorldPoint`, `getOffscreenIndicators`: overview geometry.
+- `MinimapLayout`, `OffscreenIndicator`, `DetailLevel`: overview and detail data.
+- `bindComponentActions`, `getComponentPlacement`: component actions and placement.
+- `ComponentInsertion`, `ComponentPlacement`, `WindowCreation`: component input data.
+
+## React
+
+- `CanvasViewport`, `CanvasScroll`, `CanvasTools`, `CanvasPortal`: viewport surfaces.
+- `WindowContent`, `WindowDragHandle`, `WindowNavigation`: window surfaces.
+- `ComponentView`, `defineComponents`, `Palette`: component and command views.
+- `useCanvasViewport`, `useCanvasWindow`, `useCanvasScroll`: canvas hooks.
+- `useCanvasOccluder`, `useWindowDetail`: viewport geometry and detail hooks.
+- `defaultHotkeys`, `Hotkeys`, `HotkeyBinding`: keyboard bindings.
+- `ChildLabel`, `ControlRenderer`: control rendering inputs.
+
+## Canvas behavior
 
 `canvas.commands.openWindow.run` accepts one floating placement or one docking target:
 
@@ -54,6 +88,10 @@ createCanvasState({
   },
 });
 ```
+
+## Legacy API
+
+The sections below describe the previous API at `@hyphened/infinite-canvas/legacy`.
 
 ## Stability
 
@@ -112,7 +150,7 @@ import {
   InfiniteCanvas,
   createInfiniteCanvasStore,
   defineComponentRegistry,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { type } from "arktype";
 import "@hyphened/infinite-canvas/theme.css";
 
@@ -197,7 +235,7 @@ import {
   createInfiniteCanvasStore,
   defineComponent,
   insertComponent,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 
 const components = {
   note: defineComponent({
@@ -390,7 +428,7 @@ The value is `null` during an interaction; persist non-null values.
 Send operations as `InfiniteCanvasAction` values:
 
 ```tsx
-import { useInfiniteCanvasDispatch } from "@hyphened/infinite-canvas";
+import { useInfiniteCanvasDispatch } from "@hyphened/infinite-canvas/legacy";
 
 function CanvasControls() {
   const dispatch = useInfiniteCanvasDispatch<"note">();
@@ -1409,7 +1447,7 @@ An `onPointerDown` consumer handler runs before the framework handler.
 
 </details>
 
-## `@hyphened/infinite-canvas/scene`
+## `@hyphened/infinite-canvas/legacy/scene`
 
 This separate entry is the only entry that imports `typegpu` and `@typegpu/react`.
 Import this entry.
@@ -1417,7 +1455,7 @@ Then pass its surface to `<InfiniteCanvasDesktop sceneSurface={...} />`.
 If the application does not import this entry, it does not require or bundle these peers.
 
 ```tsx
-import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/scene";
+import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/legacy/scene";
 ```
 
 The compositor is a render graph. A scene layer is a pass: `build` runs once against the device and

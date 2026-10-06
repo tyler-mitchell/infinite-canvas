@@ -2,7 +2,7 @@ import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   type InfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { expect, test } from "vite-plus/test";
 
 import type { WindowKind } from "../canvas/window-registry";

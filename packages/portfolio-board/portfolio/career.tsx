@@ -1,6 +1,6 @@
 import { type } from "arktype";
 import { ArrowRight, X } from "lucide-react";
-import { useCanvasScroll, useCanvasWindow } from "@hyphened/infinite-canvas/next/react";
+import { useCanvasScroll, useCanvasWindow } from "@hyphened/infinite-canvas/react";
 import { Button, Card, Kind, Meta, Prose, Row, Stack, Title } from "portfolio-board";
 import federato from "./federato.png";
 import paypal from "./paypal.svg";

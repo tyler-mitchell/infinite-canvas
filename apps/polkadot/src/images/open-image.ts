@@ -1,4 +1,4 @@
-import type { InfiniteCanvasPoint, InfiniteCanvasRect } from "@hyphened/infinite-canvas";
+import type { InfiniteCanvasPoint, InfiniteCanvasRect } from "@hyphened/infinite-canvas/legacy";
 
 import { CANVAS_CHROME } from "../canvas/chrome";
 import { openContentWindow, type WindowPlacement, type WindowSize } from "../canvas/open-window";

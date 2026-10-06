@@ -5,8 +5,8 @@ import {
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
   isInfiniteCanvasWindowCapable,
-} from "@hyphened/infinite-canvas";
-import type { InfiniteCanvasState } from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
+import type { InfiniteCanvasState } from "@hyphened/infinite-canvas/legacy";
 
 type SampleCanvasWindowKind = "archive" | "control" | "dense" | "log";
 

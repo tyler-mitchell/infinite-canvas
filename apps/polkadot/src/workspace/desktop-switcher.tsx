@@ -3,7 +3,7 @@ import {
   useInfiniteCanvasSelector,
   type InfiniteCanvasWindow,
   getSelectedWindowIds,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import {
   ArrowDown,
   ArrowDownToLine,

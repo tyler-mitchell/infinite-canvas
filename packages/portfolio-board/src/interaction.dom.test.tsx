@@ -1,4 +1,4 @@
-import { createCanvasState } from "@hyphened/infinite-canvas/next";
+import { createCanvasState } from "@hyphened/infinite-canvas";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { afterAll, afterEach, beforeAll, expect, test, vi } from "vite-plus/test";
@@ -223,7 +223,7 @@ test("hovering the cell fill identifies its day", () => {
   const { host, spoken } = draw(grid());
   const cell = host.querySelector('[data-slot="activity-day"][data-index="10"]')!;
 
-  send(cell.querySelector('[data-slot="activity-fill"]')!, "pointermove");
+  send(cell.querySelector('[data-slot="activity-fill"]')!, "pointerover");
 
   expect(spoken()).toBe(dayReadout(DAYS[10], "commits"));
   expect(cell.hasAttribute("data-hot")).toBe(true);

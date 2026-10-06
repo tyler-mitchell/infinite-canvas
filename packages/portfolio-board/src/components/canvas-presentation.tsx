@@ -1,4 +1,4 @@
-import type { Canvas } from "@hyphened/infinite-canvas/next";
+import type { Canvas } from "@hyphened/infinite-canvas";
 import { observer } from "@legendapp/state/react";
 import { type } from "arktype";
 import type { ComponentProps } from "react";

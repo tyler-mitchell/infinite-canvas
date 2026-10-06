@@ -3,7 +3,10 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { expect, test } from "vite-plus/test";
-import { createInfiniteCanvasState, createInfiniteCanvasWindow } from "@hyphened/infinite-canvas";
+import {
+  createInfiniteCanvasState,
+  createInfiniteCanvasWindow,
+} from "@hyphened/infinite-canvas/legacy";
 import { getDrawnConnectors } from "./connector-geometry";
 import type { WindowKind } from "./window-registry";
 
@@ -96,7 +99,7 @@ test("connector geometry excludes minimized endpoints", () => {
 
 test("an import is not an answer", () => {
   const importOnly = [
-    'import { isInfiniteCanvasWindowInActiveWorkspace } from "@hyphened/infinite-canvas";',
+    'import { isInfiniteCanvasWindowInActiveWorkspace } from "@hyphened/infinite-canvas/legacy";',
     '  .filter((w) => w.mode !== "minimized" && !hiddenWindowIds.has(w.id))',
   ].join("\n");
 

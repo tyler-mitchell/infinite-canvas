@@ -1,4 +1,7 @@
-import { useInfiniteCanvasDispatch, useInfiniteCanvasSelector } from "@hyphened/infinite-canvas";
+import {
+  useInfiniteCanvasDispatch,
+  useInfiniteCanvasSelector,
+} from "@hyphened/infinite-canvas/legacy";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { getHotkeyManager } from "@tanstack/hotkeys";
 import { Bookmark, BookmarkPlus, Check, Crosshair, Frame, Trash2 } from "lucide-react";

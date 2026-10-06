@@ -34,7 +34,7 @@ test.each([
   { result: { status: "saved", id: "portfolio", revision: 1 }, id: "portfolio", revision: 1 },
   { result: { status: "conflict" }, id: null, revision: 0 },
   { result: { status: "unauthenticated" }, id: null, revision: 0 },
-])(
+] as const)(
   "queued publish retains the correct revision after $result.status",
   async ({ result, id, revision }) => {
     vi.clearAllMocks();
@@ -61,10 +61,10 @@ test.each([
         await published;
       });
       expect(savePortfolio).toHaveBeenNthCalledWith(1, {
-        data: { id: null, revision: 0, document: {}, publish: false },
+        data: { id: null, revision: 0, document: "{}", publish: false },
       });
       expect(savePortfolio).toHaveBeenNthCalledWith(2, {
-        data: { id, revision, document: {}, publish: true },
+        data: { id, revision, document: "{}", publish: true },
       });
     } finally {
       act(() => root.unmount());

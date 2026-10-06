@@ -33,7 +33,7 @@ import {
 } from "portfolio-board";
 
 import { ExpandInPlace } from "../src/components/motion/expand-in-place.tsx";
-import { defineComponents } from "@hyphened/infinite-canvas/next/react";
+import { defineComponents } from "@hyphened/infinite-canvas/react";
 import { type } from "arktype";
 import codexSprite from "./codex.webp";
 import avatarBackground from "./avatar-background.png";

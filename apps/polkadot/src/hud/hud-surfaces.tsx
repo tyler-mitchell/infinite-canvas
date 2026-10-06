@@ -3,7 +3,7 @@ import {
   isInfiniteCanvasActivityTransient,
   useInfiniteCanvasSelector,
   type InfiniteCanvasActivity,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { AnimatePresence, motion } from "motion/react";
 import type { ReactNode } from "react";
 import { tv } from "ui/tv";

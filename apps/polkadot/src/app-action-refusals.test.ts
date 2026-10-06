@@ -2,7 +2,7 @@ import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   type InfiniteCanvasDispatch,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { expect, test } from "vite-plus/test";
 
 import { APP_ACTIONS, describeCutRelation, getAppAction } from "./app-actions";

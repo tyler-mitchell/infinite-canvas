@@ -11,7 +11,7 @@ import {
   type InfiniteCanvasSelection,
   type InfiniteCanvasState,
   type InfiniteCanvasWorldSegment,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 
 import type { ContentRelation } from "../database/database.client";
 import { getContentWindowItemId, type WindowKind } from "./window-registry";

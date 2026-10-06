@@ -5,7 +5,7 @@ import {
   worldPointToScreenPoint,
   type InfiniteCanvasPoint,
   type InfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { useValue } from "@legendapp/state/react";
 import { tv } from "ui/tv";
 

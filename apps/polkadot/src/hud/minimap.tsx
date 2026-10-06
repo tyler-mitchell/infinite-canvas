@@ -4,7 +4,7 @@ import {
   useInfiniteCanvasDispatch,
   useInfiniteCanvasState,
   type InfiniteCanvasMinimapLayout,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { Map, X } from "lucide-react";
 import { useRef } from "react";
 import { Button } from "ui";

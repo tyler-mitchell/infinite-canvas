@@ -2,7 +2,7 @@ import {
   createInfiniteCanvasStore,
   getInfiniteCanvasContextualEntries,
   type InfiniteCanvasDispatch,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { expect, test } from "vite-plus/test";
 
 import { getConnectorHotkeyActions } from "./connector-hotkeys";

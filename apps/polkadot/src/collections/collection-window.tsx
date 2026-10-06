@@ -2,7 +2,7 @@ import {
   useInfiniteCanvasDispatch,
   useInfiniteCanvasState$,
   type InfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { useValue } from "@legendapp/state/react";
 import { ChevronDown, Layers, Link2 } from "lucide-react";
 import {

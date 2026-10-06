@@ -34,7 +34,7 @@ These files enforce the framework boundaries:
 - `src/theme-tokens.test.ts`
 - `src/framework-boundary.test.ts`
 - `packages/infinite-canvas/scripts/verify-pure-core.mjs`
-- `packages/infinite-canvas/scripts/verify-artifact.mjs`.
+- `vp pack` and `verify:consumer`.
 
 If this change affects consumers, make sure that these statements are true:
 

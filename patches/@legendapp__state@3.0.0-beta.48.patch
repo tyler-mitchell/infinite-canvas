@@ -1,3 +1,15 @@
+diff --git a/index.d.mts b/index.d.mts
+--- a/index.d.mts
++++ b/index.d.mts
+@@ -16 +16 @@
+-interface ObservableObjectFunctions<T = Record<string, any>> extends ObservablePrimitive<T>, ObservableObjectFns<T> {
++export interface ObservableObjectFunctions<T = Record<string, any>> extends ObservablePrimitive<T>, ObservableObjectFns<T> {
+diff --git a/index.d.ts b/index.d.ts
+--- a/index.d.ts
++++ b/index.d.ts
+@@ -16 +16 @@
+-interface ObservableObjectFunctions<T = Record<string, any>> extends ObservablePrimitive<T>, ObservableObjectFns<T> {
++export interface ObservableObjectFunctions<T = Record<string, any>> extends ObservablePrimitive<T>, ObservableObjectFns<T> {
 diff --git a/helpers/undoRedo.js b/helpers/undoRedo.js
 --- a/helpers/undoRedo.js
 +++ b/helpers/undoRedo.js

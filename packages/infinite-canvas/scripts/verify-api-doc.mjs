@@ -8,9 +8,11 @@ const repoRoot = dirname(dirname(packageRoot));
 const apiDocPath = join(repoRoot, "docs", "API.md");
 
 const BARRELS = [
-  { entry: ".", path: join(packageRoot, "legacy", "index.ts") },
-  { entry: "./core", path: join(packageRoot, "legacy", "core.ts") },
-  { entry: "./scene", path: join(packageRoot, "legacy", "scene.ts") },
+  { entry: ".", path: join(packageRoot, "src", "index.ts") },
+  { entry: "./react", path: join(packageRoot, "src", "react", "index.ts") },
+  { entry: "./legacy", path: join(packageRoot, "legacy", "index.ts") },
+  { entry: "./legacy/core", path: join(packageRoot, "legacy", "core.ts") },
+  { entry: "./legacy/scene", path: join(packageRoot, "legacy", "scene.ts") },
 ];
 
 const stripComments = (source) =>
@@ -87,7 +89,13 @@ for (const { entry, path } of BARRELS) {
     const isBlockExport = /^export\s+(type\s+)?\{/.test(line.trim());
     const isExport = /^export\b/.test(line.trim());
     const star = /^export\s+\*\s+from\s+"\.\/([^"]+)"/.exec(line.trim());
-    const isBarrelStar = star !== null && BARRELS.some((barrel) => barrel.entry === `./${star[1]}`);
+    const isBarrelStar =
+      star !== null &&
+      BARRELS.some(
+        (barrel) =>
+          barrel.entry === `./${star[1]}` ||
+          (entry === "./legacy" && barrel.entry === `./legacy/${star[1]}`),
+      );
 
     if (isExport && !isBlockExport && !isBarrelStar) {
       failures.push(

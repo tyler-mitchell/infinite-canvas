@@ -21,7 +21,7 @@ const camera = View({
 const insets = Insets({ top: 48, right: 16, bottom: 0, left: 220 });
 const none = Insets({ top: 0, right: 0, bottom: 0, left: 0 });
 
-// The shape this package replaces: packages/infinite-canvas/src/geometry.ts, restated rather than
+// The shape this package replaces: packages/infinite-canvas/legacy/geometry.ts, restated rather than
 // imported, so the test does not make that package a dependency of this one.
 const incumbent = {
   worldToScreen: (

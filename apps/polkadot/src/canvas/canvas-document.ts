@@ -1,4 +1,4 @@
-import type { InfiniteCanvasDocument } from "@hyphened/infinite-canvas";
+import type { InfiniteCanvasDocument } from "@hyphened/infinite-canvas/legacy";
 import type { WindowKind } from "./window-registry";
 
 export const initialLayout = {

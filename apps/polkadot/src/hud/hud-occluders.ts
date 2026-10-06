@@ -1,4 +1,4 @@
-import { rectsEqual, type InfiniteCanvasViewportOccluder } from "@hyphened/infinite-canvas";
+import { rectsEqual, type InfiniteCanvasViewportOccluder } from "@hyphened/infinite-canvas/legacy";
 import { observable } from "@legendapp/state";
 import { useValue } from "@legendapp/state/react";
 import { useEffect, useMemo, type RefObject } from "react";

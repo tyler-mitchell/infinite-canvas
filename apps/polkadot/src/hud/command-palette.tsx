@@ -12,7 +12,7 @@ import {
   type InfiniteCanvasCommandGroup,
   type InfiniteCanvasContextualEntry,
   getSelectedWindowIds,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import type { Observable } from "@legendapp/state";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { createHotkeyHandler, formatForDisplay } from "@tanstack/hotkeys";

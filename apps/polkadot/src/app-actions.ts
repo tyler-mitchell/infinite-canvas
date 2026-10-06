@@ -12,7 +12,7 @@ import {
   type InfiniteCanvasDispatch,
   type InfiniteCanvasState,
   getSelectedWindowIds,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { type, type Type } from "arktype";
 
 import { GROUP_LAYOUT_MODES } from "./canvas/group-layout-modes";

@@ -84,7 +84,7 @@ export function arrangeGrid({
       const destination = member({
         item: {
           ...item,
-          columnSpan: item.columnSpan === undefined ? undefined : authored(columnSpan),
+          ...(item.columnSpan === undefined ? {} : { columnSpan: authored(columnSpan) }),
         },
         target,
         originX: origin.x,
@@ -93,15 +93,15 @@ export function arrangeGrid({
       return {
         id,
         item,
-        column,
-        row: item.row,
+        ...(column === undefined ? {} : { column }),
+        ...(item.row === undefined ? {} : { row: item.row }),
         columnSpan,
         rowSpan,
         target:
           target === undefined
             ? undefined
             : {
-                handle: resized?.child === id ? resized.handle : undefined,
+                ...(resized?.child === id ? { handle: resized.handle } : {}),
                 column: destination.column!,
                 row: geometry.position({ x: target.x - origin.x, y: target.y - origin.y }).row,
                 columnSpan: destination.span,
@@ -120,26 +120,26 @@ export function arrangeGrid({
   const changed =
     operation === undefined
       ? []
-      : shown.filter(
-          (entry) =>
-            entry.target !== undefined ||
-            entry.column !== cells[entry.id].column ||
-            entry.row !== cells[entry.id].row,
-        );
+      : shown
+          .map((entry) => ({ ...entry, cell: cells[entry.id]! }))
+          .filter(
+            (entry) =>
+              entry.target !== undefined ||
+              entry.column !== entry.cell.column ||
+              entry.row !== entry.cell.row,
+          );
   return {
     rects: Object.fromEntries(
-      shown.map(({ id }) => [id, translateRect(geometry.rect(cells[id]), origin)]),
+      Object.entries(cells).map(([id, cell]) => [id, translateRect(geometry.rect(cell), origin)]),
     ),
     items: Object.fromEntries(
-      changed.map(({ id, item }) => [
+      changed.map(({ id, item, cell }) => [
         id,
         {
-          column: authored(cells[id].column),
-          row: cells[id].row,
-          columnSpan: authored(cells[id].columnSpan),
-          ...(resized?.child === id || item.rowSpan !== undefined
-            ? { rowSpan: cells[id].rowSpan }
-            : {}),
+          column: authored(cell.column),
+          row: cell.row,
+          columnSpan: authored(cell.columnSpan),
+          ...(resized?.child === id || item.rowSpan !== undefined ? { rowSpan: cell.rowSpan } : {}),
         },
       ]),
     ),

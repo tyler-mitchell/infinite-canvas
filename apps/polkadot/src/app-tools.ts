@@ -1,5 +1,5 @@
 import { APP_ACTIONS, isAppActionEnabled, type AppActionContext } from "./app-actions";
-import type { InfiniteCanvasContextualCommand } from "@hyphened/infinite-canvas";
+import type { InfiniteCanvasContextualCommand } from "@hyphened/infinite-canvas/legacy";
 import { describeCanvas } from "./canvas/describe-canvas";
 import { describeProjectContent } from "./content/describe-content";
 import { projectContent$ } from "./content/project-content";
@@ -150,29 +150,30 @@ const published = (
   });
 };
 
-const getCanvasCommandTools = (
+const getCanvasCommandTool = (
   input: Readonly<{
     getContextualCommands: () => readonly InfiniteCanvasContextualCommand[];
     createContext: () => AppActionContext;
     projectId: string;
   }>,
-): readonly AppTool[] =>
-  published(input).map((entry) => ({
-    description: entry.description,
-    execute: async () => {
-      const live = published(input).find((candidate) => candidate.id === entry.id);
-
-      if (live === undefined || !live.enabled) {
-        return `${entry.label} is not available right now.`;
-      }
-
-      await live.run();
-
-      return `${entry.label} done.`;
-    },
-    inputSchema: NO_INPUT,
-    name: entry.id,
-  }));
+): AppTool => ({
+  description: "Run an available canvas command by name. Call command.list for names.",
+  execute: async (raw?: unknown) => {
+    const name = (raw as Readonly<{ name?: unknown }> | undefined)?.name;
+    const live = published(input).find((entry) => entry.id === name);
+    if (live === undefined || !live.enabled) {
+      return `${typeof name === "string" ? name : "Command"} is not available right now.`;
+    }
+    await live.run();
+    return `${live.label} done.`;
+  },
+  inputSchema: {
+    properties: { name: { type: "string" } },
+    required: ["name"],
+    type: "object",
+  },
+  name: "command.execute",
+});
 
 const getAppActionTools = (createContext: () => AppActionContext): readonly AppTool[] =>
   APP_ACTIONS.map((action) => ({
@@ -198,7 +199,7 @@ const getAvailabilityTool = (
   }>,
 ): AppTool =>
   report(
-    "List the verbs that can run right now, given what is open and selected. Names are the tool names.",
+    "List available canvas commands for command.execute and app action tool names.",
     "command.list",
     async () => {
       const context = input.createContext();
@@ -212,7 +213,7 @@ const getAvailabilityTool = (
       const available = live.filter((entry) => entry.enabled).map((entry) => entry.name);
       const blocked = live.filter((entry) => !entry.enabled).map((entry) => entry.name);
 
-      return `Available now: ${available.join(", ")}. Not available right now: ${
+      return `Available now: ${available.join(", ")}. Run canvas commands through command.execute. Not available right now: ${
         blocked.length === 0 ? "nothing" : blocked.join(", ")
       }.`;
     },
@@ -274,7 +275,7 @@ function getAppTools(
   return [
     ...getReportingTools(input),
     getAvailabilityTool(input),
-    ...getCanvasCommandTools(input),
+    getCanvasCommandTool(input),
     ...getAppActionTools(input.createContext),
     ...(input.development ? getDevelopmentTools() : []),
   ];

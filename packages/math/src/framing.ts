@@ -95,7 +95,11 @@ export function getCameraTrack({
     insets,
     limits,
     navigation: {
-      behavior: { type: "fit", framingMode: crossAxis, maxZoom },
+      behavior: {
+        type: "fit",
+        framingMode: crossAxis,
+        ...(maxZoom === undefined ? {} : { maxZoom }),
+      },
     },
   });
   const { padding } = limits;

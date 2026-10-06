@@ -6,8 +6,8 @@ import {
   useInfiniteCanvasState$,
   type CanvasToolsContext,
   type InfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
-import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/scene";
+} from "@hyphened/infinite-canvas/legacy";
+import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/legacy/scene";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { PanelLeft, Plus } from "lucide-react";
 import { useCallback, useEffect } from "react";

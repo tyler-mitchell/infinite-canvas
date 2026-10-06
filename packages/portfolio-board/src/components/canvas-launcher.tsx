@@ -1,8 +1,4 @@
-import {
-  getRunnableCommands,
-  type Canvas,
-  type RunnableCommand,
-} from "@hyphened/infinite-canvas/next";
+import { getRunnableCommands, type Canvas, type RunnableCommand } from "@hyphened/infinite-canvas";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { observer } from "@legendapp/state/react";
 import { createElement, useState, type ReactNode } from "react";

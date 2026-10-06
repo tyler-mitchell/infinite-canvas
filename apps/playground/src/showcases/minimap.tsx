@@ -3,7 +3,7 @@ import {
   getInfiniteCanvasMinimapWorldPoint,
   useInfiniteCanvasDispatch,
   useInfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 
 /** The framework owns projection. The playground owns minimap UI. */
 const MINIMAP_SIZE = { height: 132, width: 200 } as const;

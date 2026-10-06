@@ -1,4 +1,4 @@
-import type { InfiniteCanvasStore } from "@hyphened/infinite-canvas";
+import type { InfiniteCanvasStore } from "@hyphened/infinite-canvas/legacy";
 import { useGoToCanvas } from "../workspace/use-go-to-canvas";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { CopyPlus, RotateCcw, TriangleAlert } from "lucide-react";

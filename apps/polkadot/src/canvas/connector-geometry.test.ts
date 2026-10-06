@@ -4,7 +4,7 @@ import {
   type InfiniteCanvasPoint,
   type InfiniteCanvasRect,
   type InfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { expect, test } from "vite-plus/test";
 
 import type { ContentRelation } from "../database/database.client";

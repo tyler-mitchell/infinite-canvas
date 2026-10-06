@@ -5,7 +5,7 @@ import {
   defineInfiniteCanvasWindowRegistry,
   CommandTrigger,
   InfiniteCanvasDesktop,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { Button } from "ui";
 import { CommandPalette } from "../showcases/command-palette.tsx";
 

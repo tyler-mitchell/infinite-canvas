@@ -1,4 +1,4 @@
-import { createCanvasState, type CanvasOptions } from "@hyphened/infinite-canvas/next";
+import { createCanvasState, type CanvasOptions } from "@hyphened/infinite-canvas";
 import { components } from "./components.tsx";
 
 export function createCanvas(document: CanvasOptions["document"]) {

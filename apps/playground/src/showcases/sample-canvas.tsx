@@ -2,12 +2,8 @@ import type { Observable } from "@legendapp/state";
 import { observer } from "@legendapp/state/react";
 import { Maximize2, Minus, Pin, X } from "lucide-react";
 import type { ComponentType } from "react";
-import { createCanvasState, type Canvas, type WindowState } from "@hyphened/infinite-canvas/next";
-import {
-  CommandTrigger,
-  WindowDragHandle,
-  useWindowDetail,
-} from "@hyphened/infinite-canvas/next/react";
+import { createCanvasState, type Canvas, type WindowState } from "@hyphened/infinite-canvas";
+import { CommandTrigger, WindowDragHandle, useWindowDetail } from "@hyphened/infinite-canvas/react";
 
 export function createSampleCanvas() {
   return createCanvasState({

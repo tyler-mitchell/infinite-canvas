@@ -4,7 +4,7 @@ import {
   createInfiniteCanvasStore,
   type InfiniteCanvasDispatch,
   type InfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { expect, test } from "vite-plus/test";
 
 import { getAppAction, isAppActionEnabled } from "./app-actions";

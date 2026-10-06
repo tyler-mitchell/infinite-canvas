@@ -1,4 +1,7 @@
-import { useInfiniteCanvasSelector, type InfiniteCanvasSize } from "@hyphened/infinite-canvas";
+import {
+  useInfiniteCanvasSelector,
+  type InfiniteCanvasSize,
+} from "@hyphened/infinite-canvas/legacy";
 import { prepareWithSegments } from "@chenglou/pretext";
 import { useValue } from "@legendapp/state/react";
 import { useEffect, useMemo, useState } from "react";

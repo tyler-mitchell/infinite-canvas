@@ -1,4 +1,4 @@
-import { getInfiniteCanvasWindowData } from "@hyphened/infinite-canvas";
+import { getInfiniteCanvasWindowData } from "@hyphened/infinite-canvas/legacy";
 import { type } from "arktype";
 
 // Keep this schema in a leaf module to prevent an import cycle.

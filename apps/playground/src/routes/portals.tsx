@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { createCanvasState } from "@hyphened/infinite-canvas/next";
+import { createCanvasState } from "@hyphened/infinite-canvas";
 import {
   CanvasPortal,
   CanvasTools,
   CanvasViewport,
   WindowDragHandle,
-} from "@hyphened/infinite-canvas/next/react";
-import "@hyphened/infinite-canvas/next/theme.css";
+} from "@hyphened/infinite-canvas/react";
+import "@hyphened/infinite-canvas/theme.css";
 import { Button } from "ui";
 import { CanvasCommands } from "../showcases/canvas-commands";
 import { WindowControls } from "../showcases/sample-canvas";

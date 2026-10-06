@@ -1,6 +1,6 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { user } from "./auth.ts";
-import type { canvasSnapshot } from "@hyphened/infinite-canvas/next";
+import type { canvasSnapshot } from "@hyphened/infinite-canvas";
 
 export * from "./auth.ts";
 

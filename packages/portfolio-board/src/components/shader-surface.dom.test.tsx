@@ -42,6 +42,7 @@ vi.mock("@typegpu/react", async () => {
     draw: gpu.draw,
   };
   const root = {
+    "~unstable": { createCommandEncoder: () => ({ submit: () => {} }) },
     with: () => root,
     createSampler: () => ({}),
     createBindGroup: () => ({}),

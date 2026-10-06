@@ -1,7 +1,7 @@
 import {
   DEFAULT_INFINITE_CANVAS_DETAIL_POLICY,
   getInfiniteCanvasWindowDetailLevel,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { expect, test } from "vite-plus/test";
 
 import { COLLECTION_MINIMUM_SIZE } from "../collections/open-collection";

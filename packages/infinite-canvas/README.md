@@ -1,27 +1,61 @@
 # @hyphened/infinite-canvas
 
-This React window manager has a pure reducer, DOM window bodies, and a programmable WebGPU scene.
+An infinite canvas with document state, layouts, commands, and React views.
 
 ## Install
 
-Install the package and its required peers:
+```bash
+npm install @hyphened/infinite-canvas
+```
+
+Install `react` and `react-dom` when using `@hyphened/infinite-canvas/react`.
+The package installs `typegpu` for shared geometry definitions.
+
+## Quick start
+
+```tsx
+import { createCanvasState } from "@hyphened/infinite-canvas";
+import { CanvasViewport } from "@hyphened/infinite-canvas/react";
+import "@hyphened/infinite-canvas/theme.css";
+
+const canvas = createCanvasState({
+  windowDefinitions: { note: {} },
+  viewport: { width: 800, height: 600 },
+});
+canvas.actions.openWindow.run({
+  id: "note-1",
+  kind: "note",
+  title: "First note",
+  rect: { x: 0, y: 0, width: 320, height: 220 },
+});
+
+export function App() {
+  return (
+    <CanvasViewport
+      canvas={canvas}
+      renderWindow={(window) => <div>{window.title.get()}</div>}
+      style={{ height: "100vh" }}
+    />
+  );
+}
+```
+
+See [API.md](../../docs/API.md) for configuration and exported types.
+
+## Legacy API
+
+The previous canvas implementation remains available under `/legacy`.
+
+### Install
+
+The legacy React entry needs React peers:
 
 ```bash
 npm install @hyphened/infinite-canvas react react-dom
 ```
 
-The main entry does not include a renderer. The package declares two required peers and four optional ones:
-
-| Peer             | Range     | Required?                                  |
-| ---------------- | --------- | ------------------------------------------ |
-| `react`          | `^19.0.0` | yes                                        |
-| `react-dom`      | `^19.0.0` | yes                                        |
-| `typegpu`        | `^0.12.3` | only for `@hyphened/infinite-canvas/scene` |
-| `@typegpu/react` | `^0.12.0` | only for `@hyphened/infinite-canvas/scene` |
-| `@typegpu/sdf`   | `^0.12.0` | only for `@hyphened/infinite-canvas/scene` |
-| `@typegpu/noise` | `^0.12.0` | only for `@hyphened/infinite-canvas/scene` |
-
-The main entry includes the core canvas features and never imports the GPU stack. Its gzip size without the compositor is approximately 40 KB. The optional entry is `@hyphened/infinite-canvas/scene`.
+The `/legacy` entry excludes the GPU stack. The optional compositor entry is
+`@hyphened/infinite-canvas/legacy/scene`.
 
 Every GPU package is an optional peer rather than a dependency, so a project that only uses the DOM plane installs none of them. `verify-consumer-install.ts` packs the tarball into a clean project and fails if any of them appears.
 
@@ -42,14 +76,14 @@ export default defineConfig({ plugins: [typegpu()] });
 Then pass the surface to `<InfiniteCanvasDesktop>`:
 
 ```tsx
-import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/scene";
+import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/legacy/scene";
 
 <InfiniteCanvasDesktop sceneSurface={InfiniteCanvasCompositorSurface} {...rest} />;
 ```
 
 Without WebGPU the surface mounts nothing and the DOM window plane stands on its own.
 
-## Quick start
+### Quick start
 
 ```tsx
 "use client";
@@ -59,7 +93,7 @@ import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 
 type WindowKind = "note";
 
@@ -101,7 +135,7 @@ Each `window.kind` must have an entry in `windowDefinitions`. Each registry key 
 Use the same flat action payload for framework commands and targeted mutations:
 
 ```tsx
-import { useInfiniteCanvasDispatch } from "@hyphened/infinite-canvas";
+import { useInfiniteCanvasDispatch } from "@hyphened/infinite-canvas/legacy";
 
 type WindowKind = "note";
 
@@ -134,13 +168,13 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<Kind, DataByKind>({
 
 The type checker applies these payload types to the registry. TypeScript erases them at runtime. Hydration reads `window.data` through `JSON.parse`, so the value is `unknown`. If you persist the canvas, validate each payload with `getInfiniteCanvasWindowData(window, guard)`. Treat `renderBody` `window.data` from `localStorage` as untrusted input.
 
-## Set the parent size
+### Set the parent size
 
 `InfiniteCanvasDesktop` fills its parent with `width: 100%; height: 100%`. The parent must have a bounded height. Give the parent an explicit height, or make it a flex child with `minHeight: 0`. Each flex ancestor must also have `minHeight: 0`.
 
 Without these limits, the canvas can grow past the workspace and move its HUD, DOM, and WebGPU layers out of view.
 
-## Add styles
+### Add styles
 
 The package is headless. Its components emit structure, geometry, and `data-slot="…"` attributes. They add `--icx-*` properties only for supplied theme values. The canvas works without a stylesheet and has no default visual design.
 
@@ -150,7 +184,7 @@ The debug overlays use inline styles. `InfiniteCanvasRasterHud` and `InfiniteCan
 Import the default theme once:
 
 ```ts
-import "@hyphened/infinite-canvas/theme.css";
+import "@hyphened/infinite-canvas/legacy/theme.css";
 ```
 
 The stylesheet uses one `@layer infinite-canvas` cascade layer and targets the public `data-slot` contract. As zoom decreases, the canvas increases `--icx-chrome-stroke` so a one-pixel border remains visible. You can omit the theme and write CSS for the same slots. The `theme` prop overrides bridged `--icx-*` properties.
@@ -163,7 +197,7 @@ If your application uses cascade layers, declare their order before the imports:
 
 This declaration keeps `infinite-canvas` before `utilities`. Unlayered styles override every layer. If the application imports `@import "tailwindcss"`, keep slot overrides in `components`.
 
-## Features
+### Features
 
 - **Window lifecycle.** The typed dispatch API opens, closes, focuses, minimizes, maximizes, restores, and pins windows.
 - **Selection.** The canvas supports replace, add, toggle, clear, marquee, group movement, and typed consumer targets.
@@ -197,7 +231,7 @@ Use `hotkeyBindings` to replace these bindings. The canvas applies `preventDefau
 
 `renderFrame` and `renderBody` use window identity as their memoization key. Camera movement does not invoke them. `context.state` is current at invocation time. Use `useInfiniteCanvasSelector` in a child component for state updates.
 
-## Status
+### Status
 
 Version 0.2.0 is pre-1.0 and can change between minor versions.
 The [stability manifest](https://github.com/tyler-mitchell/infinite-canvas/blob/main/packages/infinite-canvas/scripts/api-stability.json) is `scripts/api-stability.json`. CI enforces its classes. A stable breaking change appears in the changelog. An experimental export can change or disappear in a release.
@@ -210,12 +244,12 @@ Rasterization is partial. The `rasterization` prop is off by default. It control
 
 The project has no hosted documentation site. [`docs/API.md`](https://github.com/tyler-mitchell/infinite-canvas/blob/main/docs/API.md) lists the full public API.
 
-## Requirements
+### Requirements
 
 - **React 19.** The library is client-only. Each built entry has `"use client"`.
-- **A WebGPU browser for the compositor.** `@hyphened/infinite-canvas/scene` uses TypeGPU. Development targets Chrome first.
+- **A WebGPU browser for the compositor.** `@hyphened/infinite-canvas/legacy/scene` uses TypeGPU. Development targets Chrome first.
 - **ESM.** The package has no CommonJS build.
 
-## License
+### License
 
 MIT © Tyler Davis Mitchell

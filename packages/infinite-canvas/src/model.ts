@@ -111,7 +111,7 @@ function failure(error: unknown): Error | ArkErrors {
   return new Error("Model operation failed.", { cause: error });
 }
 
-class Model<Options, Current extends Context> {
+export class Model<Options, Current extends Context> {
   readonly create: (options: Options) => Current;
 
   constructor(create: (options: Options) => Current) {

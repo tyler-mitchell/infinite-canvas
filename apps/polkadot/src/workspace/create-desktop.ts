@@ -1,4 +1,4 @@
-import type { InfiniteCanvasDispatch } from "@hyphened/infinite-canvas";
+import type { InfiniteCanvasDispatch } from "@hyphened/infinite-canvas/legacy";
 
 import type { WindowKind } from "../canvas/window-registry";
 import { getNextNumberedTitle } from "../titles";

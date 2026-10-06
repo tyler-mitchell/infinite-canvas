@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { canvasSnapshot } from "@hyphened/infinite-canvas/next";
+import { canvasSnapshot } from "@hyphened/infinite-canvas";
 import { PortfolioBoard } from "../../portfolio/board.tsx";
 import { createCanvas } from "../../portfolio/canvas.ts";
 import { getPublishedPortfolio } from "../../server/portfolio.functions.ts";
 
 export const Route = createFileRoute("/p/$id")({
   loader: async ({ params }) =>
-    canvasSnapshot.assert(await getPublishedPortfolio({ data: { id: params.id } })),
+    canvasSnapshot.assert(JSON.parse(await getPublishedPortfolio({ data: { id: params.id } }))),
   remountDeps: ({ params }) => params.id,
   component: PublishedPortfolio,
 });

@@ -3,7 +3,7 @@ import {
   type InfiniteCanvasCamera,
   type InfiniteCanvasViewportInsets,
   type InfiniteCanvasViewportSize,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { observable } from "@legendapp/state";
 import PQueue from "p-queue";
 

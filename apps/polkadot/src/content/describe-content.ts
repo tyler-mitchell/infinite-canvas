@@ -1,4 +1,4 @@
-import { type InfiniteCanvasState } from "@hyphened/infinite-canvas";
+import { type InfiniteCanvasState } from "@hyphened/infinite-canvas/legacy";
 import { type } from "arktype";
 
 import { getContentWindowItemId, type WindowKind } from "../canvas/window-registry";

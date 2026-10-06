@@ -3,7 +3,7 @@ import {
   createInfiniteCanvasStore,
   createInfiniteCanvasWindow,
   type InfiniteCanvasDispatch,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { afterEach, expect, onTestFinished, test, vi } from "vite-plus/test";
 
 import type { WindowKind } from "../canvas/window-registry";

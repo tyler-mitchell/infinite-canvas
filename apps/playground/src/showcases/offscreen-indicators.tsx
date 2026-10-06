@@ -3,7 +3,7 @@ import {
   getInfiniteCanvasOffscreenIndicators,
   useInfiniteCanvasDispatch,
   useInfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 
 /** The framework projects indicators. The playground limits and renders them. */
 const INDICATOR_LIMIT = 12;

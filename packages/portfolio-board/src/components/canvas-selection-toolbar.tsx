@@ -1,5 +1,5 @@
-import { getRunnableCommands, type Canvas } from "@hyphened/infinite-canvas/next";
-import { CanvasPortal, useCanvasViewport } from "@hyphened/infinite-canvas/next/react";
+import { getRunnableCommands, type Canvas } from "@hyphened/infinite-canvas";
+import { CanvasPortal, useCanvasViewport } from "@hyphened/infinite-canvas/react";
 import { observer } from "@legendapp/state/react";
 
 import { tv } from "../tv.ts";

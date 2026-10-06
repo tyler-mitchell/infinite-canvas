@@ -1,4 +1,4 @@
-import { useInfiniteCanvasSelector } from "@hyphened/infinite-canvas";
+import { useInfiniteCanvasSelector } from "@hyphened/infinite-canvas/legacy";
 import { useValue } from "@legendapp/state/react";
 import { tv } from "ui/tv";
 

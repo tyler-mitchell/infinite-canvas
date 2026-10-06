@@ -12,8 +12,8 @@ import {
   type InfiniteCanvasSize,
   type InfiniteCanvasWindow,
   useInfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
-import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/scene";
+} from "@hyphened/infinite-canvas/legacy";
+import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/legacy/scene";
 import { useMemo, useRef } from "react";
 import { CommandPalette } from "../showcases/command-palette.tsx";
 

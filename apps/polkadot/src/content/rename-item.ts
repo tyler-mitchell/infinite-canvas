@@ -1,4 +1,4 @@
-import type { InfiniteCanvasDispatch, InfiniteCanvasState } from "@hyphened/infinite-canvas";
+import type { InfiniteCanvasDispatch, InfiniteCanvasState } from "@hyphened/infinite-canvas/legacy";
 
 import { getContentWindowItemId, type WindowKind } from "../canvas/window-registry";
 import {

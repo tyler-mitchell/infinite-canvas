@@ -12,7 +12,7 @@ import {
   useInfiniteCanvasSelector,
   useInfiniteCanvasStore,
   type InfiniteCanvasRecipe,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { useRef } from "react";
 import { type } from "arktype";
 import { Button } from "ui";

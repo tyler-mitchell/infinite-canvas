@@ -2,8 +2,8 @@ import { Dialog } from "@base-ui/react/dialog";
 import { observer } from "@legendapp/state/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useId, useState } from "react";
-import type { Canvas } from "@hyphened/infinite-canvas/next";
-import { CommandTrigger } from "@hyphened/infinite-canvas/next/react";
+import type { Canvas } from "@hyphened/infinite-canvas";
+import { CommandTrigger } from "@hyphened/infinite-canvas/react";
 
 export const CanvasCommands = observer(function CanvasCommands({ canvas }: { canvas: Canvas }) {
   const [open, setOpen] = useState(false);

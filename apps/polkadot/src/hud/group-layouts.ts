@@ -1,4 +1,4 @@
-import type { InfiniteCanvasGroupLayoutMode } from "@hyphened/infinite-canvas";
+import type { InfiniteCanvasGroupLayoutMode } from "@hyphened/infinite-canvas/legacy";
 import { Columns2, LayoutDashboard, Rows3, SquareSplitHorizontal } from "lucide-react";
 import type { ComponentType } from "react";
 

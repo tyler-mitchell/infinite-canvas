@@ -5,7 +5,7 @@ import {
   getOffscreenIndicators,
   type Canvas,
   type Rect,
-} from "@hyphened/infinite-canvas/next";
+} from "@hyphened/infinite-canvas";
 
 const size = { width: 200, height: 132 };
 const place = (rect: Rect) => ({

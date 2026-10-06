@@ -6,7 +6,7 @@ import {
   isWorldRectWithinViewport,
   type InfiniteCanvasState,
   getSelectedWindowIds,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 
 import type { WindowKind } from "./window-registry";
 

@@ -10,14 +10,14 @@ import {
   documentTransform,
   type Canvas,
   type WindowState,
-} from "@hyphened/infinite-canvas/next";
+} from "@hyphened/infinite-canvas";
 import {
   CanvasTools,
   CanvasViewport,
   CommandTrigger,
   WindowDragHandle,
-} from "@hyphened/infinite-canvas/next/react";
-import "@hyphened/infinite-canvas/next/theme.css";
+} from "@hyphened/infinite-canvas/react";
+import "@hyphened/infinite-canvas/theme.css";
 import { CanvasCommands } from "../showcases/canvas-commands";
 import { WindowControls } from "../showcases/sample-canvas";
 

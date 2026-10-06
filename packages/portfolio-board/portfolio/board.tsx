@@ -1,5 +1,5 @@
 // @refresh reset
-import { type Canvas, type WindowState } from "@hyphened/infinite-canvas/next";
+import { type Canvas, type WindowState } from "@hyphened/infinite-canvas";
 import {
   CanvasScroll,
   CanvasTools,
@@ -11,7 +11,7 @@ import {
   useCanvasViewport,
   WindowContent,
   WindowDragHandle,
-} from "@hyphened/infinite-canvas/next/react";
+} from "@hyphened/infinite-canvas/react";
 import { observer } from "@legendapp/state/react";
 import type { Observable } from "@legendapp/state";
 import { useState, type ReactNode } from "react";

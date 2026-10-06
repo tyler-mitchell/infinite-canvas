@@ -1,4 +1,4 @@
-import { defineInfiniteCanvasWindowRegistry } from "@hyphened/infinite-canvas";
+import { defineInfiniteCanvasWindowRegistry } from "@hyphened/infinite-canvas/legacy";
 import { tv } from "ui/tv";
 
 import { ContentWindowData, getContentWindowItemId } from "./content-window-data";

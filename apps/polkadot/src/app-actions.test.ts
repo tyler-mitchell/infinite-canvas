@@ -4,7 +4,7 @@ import {
   createInfiniteCanvasStore,
   type InfiniteCanvasAction,
   type InfiniteCanvasDispatch,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { type } from "arktype";
 import { expect, test } from "vite-plus/test";
 

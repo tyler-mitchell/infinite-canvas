@@ -6,7 +6,7 @@ import {
   type CanvasLayout,
   type InfiniteCanvasViewportSize,
   type InfiniteCanvasWindow,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { useEffect, useRef } from "react";
 import { useValue } from "@legendapp/state/react";
 import tgpu from "typegpu";

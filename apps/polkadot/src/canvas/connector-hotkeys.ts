@@ -1,4 +1,7 @@
-import type { InfiniteCanvasHotkeyAction, InfiniteCanvasState } from "@hyphened/infinite-canvas";
+import type {
+  InfiniteCanvasHotkeyAction,
+  InfiniteCanvasState,
+} from "@hyphened/infinite-canvas/legacy";
 
 import { disconnectRelations, relations$ } from "../relations/relation-store";
 import { getSelectedRelations } from "./connector-geometry";

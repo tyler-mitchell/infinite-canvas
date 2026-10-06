@@ -1,7 +1,7 @@
 import type {
   InfiniteCanvasDropTargetContext,
   InfiniteCanvasNativeDropPayload,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { expect, test } from "vite-plus/test";
 
 import { createCanvasDropPolicy, DROPPED_IMAGE_SIZE, type CanvasDropPayload } from "./drop-policy";

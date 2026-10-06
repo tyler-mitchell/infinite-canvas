@@ -5,7 +5,7 @@ export {
   isInteractiveTarget,
   isPrimaryButton,
   releasePointer,
-} from "../next/input";
+} from "../src/input";
 
 export function getClientPoint(event: Pick<PointerEvent, "clientX" | "clientY">): Point {
   return { x: event.clientX, y: event.clientY };

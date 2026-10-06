@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { createCanvasState } from "@hyphened/infinite-canvas/next";
-import { CanvasScroll, CanvasViewport } from "@hyphened/infinite-canvas/next/react";
+import { createCanvasState } from "@hyphened/infinite-canvas";
+import { CanvasScroll, CanvasViewport } from "@hyphened/infinite-canvas/react";
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";

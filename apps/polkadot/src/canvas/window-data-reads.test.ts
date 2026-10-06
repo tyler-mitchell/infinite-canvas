@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { getInfiniteCanvasWindowData } from "@hyphened/infinite-canvas";
+import { getInfiniteCanvasWindowData } from "@hyphened/infinite-canvas/legacy";
 import { expect, test } from "vite-plus/test";
 
 import { ContentWindowData } from "./window-registry";

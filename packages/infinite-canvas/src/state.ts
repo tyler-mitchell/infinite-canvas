@@ -1,7 +1,8 @@
 import { type } from "arktype";
 import { flatMorph, pick } from "@ark/util";
-import { linked, ObservableHint, type Observable } from "@legendapp/state";
-import { batch, model } from "./model";
+import { linked, ObservableHint, type Observable, type ObservableObject } from "@legendapp/state";
+import type { undoRedo } from "@legendapp/state/helpers/undoRedo";
+import { batch, model, type Model } from "./model";
 import {
   centroidOfRect,
   clamp,
@@ -53,7 +54,12 @@ import {
   viewState,
 } from "./state.schema";
 import { getOwnSize, getRootRect, getWindowTree, withComputed } from "./state.computed";
-import type { CanvasOptions, CanvasSnapshot } from "./state.types";
+import type {
+  CanvasConfiguration,
+  CanvasOptions,
+  CanvasSnapshot,
+  CanvasState,
+} from "./state.types";
 
 function decodeWindowData({
   document,
@@ -169,7 +175,16 @@ function applyTree({
     );
 }
 
-export const stateModel = model({
+export const stateModel: Model<
+  CanvasOptions,
+  {
+    state: Observable<CanvasState>;
+    computed: ObservableObject<{}>;
+    actions: {};
+    configuration: CanvasConfiguration;
+    history: ReturnType<typeof undoRedo>;
+  }
+> = model({
   state: canvasStateSchema,
   initial: (options: CanvasOptions) => {
     const document = canvasSnapshot(options.document ?? {});

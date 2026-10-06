@@ -23,12 +23,14 @@ export function resolveTracks({
     if (flexible.length === 0) return tracks.map((_, index) => frozen.get(index)!);
     const free =
       available - sum([...frozen.values()]) - sum(flexible.map(({ track }) => track.base));
-    const weights = flexible.map(({ track }) =>
-      growing ? track.factor : track.factor * track.base,
-    );
-    const total = sum(weights);
-    const sized = flexible.map(({ track, index }, position) => {
-      const target = total === 0 ? track.base : track.base + (free * weights[position]) / total;
+    const weighted = flexible.map(({ track, index }) => ({
+      track,
+      index,
+      weight: growing ? track.factor : track.factor * track.base,
+    }));
+    const total = sum(weighted.map(({ weight }) => weight));
+    const sized = weighted.map(({ track, index, weight }) => {
+      const target = total === 0 ? track.base : track.base + (free * weight) / total;
       return { index, target, size: clamp(target, ...minMax(track.min, track.max)) };
     });
     const violation = sum(sized.map(({ size, target }) => size - target));
@@ -61,29 +63,29 @@ export function resizeTracks({
   index: number;
   delta: number;
 }): number[] {
-  const before = sizes
-    .map((_, item) => item)
-    .filter((item) => item <= index)
-    .toReversed();
-  const after = sizes.map((_, item) => item).filter((item) => item > index);
-  const room = (indexes: readonly number[], limit: "min" | "max") =>
-    sum(indexes.map((item) => tracks[item][limit] - sizes[item]));
+  if (sizes.length !== tracks.length) throw new RangeError("Track sizes must match tracks.");
+  const items = tracks.map((track, trackIndex) => ({
+    track,
+    trackIndex,
+    size: sizes[trackIndex]!,
+  }));
+  const before = items.filter(({ trackIndex }) => trackIndex <= index).toReversed();
+  const after = items.filter(({ trackIndex }) => trackIndex > index);
+  const room = (indexes: typeof items, limit: "min" | "max") =>
+    sum(indexes.map(({ track, size }) => track[limit] - size));
   const floor = Math.max(room(before, "min"), -room(after, "max"));
   const bounded = clamp(
     delta,
     floor,
     Math.max(floor, Math.min(room(before, "max"), -room(after, "min"))),
   );
-  const absorb = (indexes: readonly number[], amount: number) =>
+  const absorb = (indexes: typeof items, amount: number) =>
     indexes.reduce<{ rest: number; sizes: Map<number, number> }>(
-      (result, item) => {
-        const size = clamp(
-          sizes[item] + result.rest,
-          ...minMax(tracks[item].min, tracks[item].max),
-        );
+      (result, { track, trackIndex, size }) => {
+        const next = clamp(size + result.rest, ...minMax(track.min, track.max));
         return {
-          rest: result.rest - (size - sizes[item]),
-          sizes: new Map([...result.sizes, [item, size]]),
+          rest: result.rest - (next - size),
+          sizes: new Map([...result.sizes, [trackIndex, next]]),
         };
       },
       { rest: amount, sizes: new Map() },

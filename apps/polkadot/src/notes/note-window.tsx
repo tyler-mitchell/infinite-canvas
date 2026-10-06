@@ -3,7 +3,7 @@ import {
   useInfiniteCanvasDesktopPortalRoot,
   useInfiniteCanvasStore,
   type InfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { useObservable, useValue } from "@legendapp/state/react";
 import { syncState } from "@legendapp/state";
 import { useEffect, useRef } from "react";

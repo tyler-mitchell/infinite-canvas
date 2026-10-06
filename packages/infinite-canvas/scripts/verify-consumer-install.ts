@@ -9,7 +9,6 @@ import { execa } from "execa";
 const OPTIONAL_HOST_PACKAGES = [
   "react",
   "react-dom",
-  "typegpu",
   "@typegpu/react",
   "@typegpu/noise",
   "@typegpu/sdf",
@@ -19,61 +18,21 @@ const packageRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const workspaceRoot = resolve(packageRoot, "../..");
 const temporaryDirectory = await mkdtemp(join(tmpdir(), "infinite-canvas-consumer-"));
 
-/** Consumer program used to validate the installed public entry. */
 const CONSUMER_SOURCE = `
-import {
-  createInfiniteCanvasStore,
-  createInfiniteCanvasWindow,
-} from "@hyphened/infinite-canvas/core";
+import { createCanvasState } from "@hyphened/infinite-canvas";
 
-const pane = (id) =>
-  createInfiniteCanvasWindow({
-    id,
-    kind: "note",
-    rect: { height: 200, width: 300, x: 0, y: 0 },
-    title: id,
-  });
-
-const store = createInfiniteCanvasStore({
-  initialState: { windows: [pane("a"), pane("b")] },
+const canvas = createCanvasState({
+  windowDefinitions: { note: {} },
+  viewport: { width: 800, height: 600 },
 });
-
-store.dispatch({
-  title: "Research",
-  type: "workspace.create",
-  windowIds: ["a"],
-  workspaceId: "research",
+canvas.actions.openWindow.run({
+  id: "note-1",
+  kind: "note",
+  title: "First note",
+  rect: { x: 0, y: 0, width: 320, height: 220 },
 });
-store.dispatch({ type: "workspace.enter", workspaceId: "research" });
-store.dispatch({ type: "window.open", window: pane("c") });
-
-const state = store.getState();
-
-if (state.workspaces.length !== 1) {
-  throw new Error(
-    "workspace.create did not reach the public core store. state: " +
-      JSON.stringify({
-        activeWorkspaceId: state.activeWorkspaceId,
-        windows: state.windows.map((w) => w.id),
-        workspaces: state.workspaces,
-      }),
-  );
-}
-
-const members = state.workspaces[0].windowIds;
-
-if (!members.includes("c")) {
-  throw new Error("a window opened on the active workspace did not join it: " + members.join(", "));
-}
-
-if (state.windows.length !== 3) {
-  throw new Error("expected three windows, got " + state.windows.length);
-}
-
-if (typeof JSON.parse(JSON.stringify(store.snapshot())).version !== "number") {
-  throw new Error("the serialized snapshot carries no version");
-}
-
+if (canvas.state.document.content.windows["note-1"].id.get() !== "note-1")
+  throw new Error("The installed package did not open a window.");
 console.log("CONSUMER_OK");
 `;
 
@@ -119,7 +78,7 @@ try {
     throw new Error(`the installed package did not run as a consumer would use it:\n${stdout}`);
   }
 
-  console.log("Consumer install OK — ./core installs without host runtimes and drives the store.");
+  console.log("Consumer install OK — the public entry opens a window without host runtimes.");
 } finally {
   await rm(temporaryDirectory, { force: true, recursive: true });
   await rm(join(workspaceRoot, "packages/infinite-canvas/.pack.tgz"), { force: true });

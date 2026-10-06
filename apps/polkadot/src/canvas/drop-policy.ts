@@ -1,7 +1,7 @@
 import type {
   InfiniteCanvasDropPolicy,
   InfiniteCanvasNativeDropPayload,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 
 import { openNewImage } from "../images/open-image";
 import { getDraggedLinkName, LINK_SIZE, openNewLink } from "../links/open-link";

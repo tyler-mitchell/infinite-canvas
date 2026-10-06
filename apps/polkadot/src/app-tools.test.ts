@@ -1,4 +1,4 @@
-import { createInfiniteCanvasStore } from "@hyphened/infinite-canvas";
+import { createInfiniteCanvasStore } from "@hyphened/infinite-canvas/legacy";
 import { expect, test } from "vite-plus/test";
 
 import type { AppActionContext } from "./app-actions";
@@ -33,10 +33,10 @@ const takesInput = (name: string) =>
 
 test("the list holds the whole vocabulary, each verb named once", () => {
   const names = tools().map((tool) => tool.name);
-
   expect(names).toContain("canvas.describe");
   expect(names).toContain("note.create");
-  expect(names).toContain("view.fitAll");
+  expect(names).toContain("command.execute");
+  expect(names.length).toBeLessThanOrEqual(100);
   expect(new Set(names).size).toBe(names.length);
 });
 
@@ -63,7 +63,14 @@ test("a caller can ask what is available before trying it", async () => {
   const said = (await find("command.list")?.execute()) ?? "";
   const blocked = said.slice(said.indexOf("Not available right now:"));
 
+  expect(said).toContain("view.fitAll");
   expect(blocked).toContain("group.createFromSelection");
+});
+
+test("canvas commands execute through their current published names", async () => {
+  await expect(
+    find("command.execute")?.execute({ name: "group.createFromSelection" }),
+  ).resolves.toBe("group.createFromSelection is not available right now.");
 });
 
 const databaseTools = (development: boolean) =>

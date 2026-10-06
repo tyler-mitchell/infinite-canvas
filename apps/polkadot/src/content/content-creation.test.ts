@@ -1,4 +1,7 @@
-import { createInfiniteCanvasStore, createInfiniteCanvasWindow } from "@hyphened/infinite-canvas";
+import {
+  createInfiniteCanvasStore,
+  createInfiniteCanvasWindow,
+} from "@hyphened/infinite-canvas/legacy";
 import { observable, when } from "@legendapp/state";
 import { afterEach, expect, test, vi } from "vite-plus/test";
 import { getAppAction } from "../app-actions";

@@ -4,7 +4,7 @@ import {
   unionRects,
   useInfiniteCanvasDispatch,
   useInfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { useMemo, useState } from "react";
 import { Button } from "ui";
 import { CommandPalette } from "../showcases/command-palette.tsx";

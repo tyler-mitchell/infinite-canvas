@@ -1,7 +1,7 @@
 /* Layer order keeps framework styles above preflight and below consumer utilities. */
 @layer theme, base, infinite-canvas, components, utilities;
 
-@import "@hyphened/infinite-canvas/theme.css";
+@import "@hyphened/infinite-canvas/legacy/theme.css";
 
 /* This unlayered consumer theme overrides the framework layer. */
 @import "./canvas-light-theme.css";

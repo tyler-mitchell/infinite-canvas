@@ -4,7 +4,7 @@ import {
   type InfiniteCanvasDispatch,
   type InfiniteCanvasRect,
   type InfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 
 import { showsContentItem } from "./content-window-data";
 import type { WindowData, WindowKind } from "./window-registry";

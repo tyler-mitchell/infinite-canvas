@@ -1,4 +1,4 @@
-import { InfiniteCanvasProvider } from "@hyphened/infinite-canvas";
+import { InfiniteCanvasProvider } from "@hyphened/infinite-canvas/legacy";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vite-plus/test";
 

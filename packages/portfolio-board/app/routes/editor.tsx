@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { useWebMCP } from "use-webmcp-tool";
+import { canvasSnapshot } from "@hyphened/infinite-canvas";
 import { Button } from "portfolio-board";
 import { PortfolioBoard, type BoardMode } from "../../portfolio/board.tsx";
 import { createCanvas } from "../../portfolio/canvas.ts";
@@ -20,7 +21,9 @@ function Editor() {
     saved ? { id: saved.id, revision: saved.revision } : { id: null, revision: 0 },
   );
   const [mode, setMode] = useState<BoardMode>("edit");
-  const [canvas] = useState(() => createCanvas(saved?.document));
+  const [canvas] = useState(() =>
+    createCanvas(saved === null ? undefined : canvasSnapshot.assert(JSON.parse(saved.document))),
+  );
   const save = useServerFn(savePortfolio);
   const mutation = useMutation({
     scope: { id: "portfolio.save" },
@@ -28,7 +31,7 @@ function Editor() {
       const result = await save({
         data: {
           ...savedVersion.current,
-          document: canvas.state.document.peek(),
+          document: JSON.stringify(canvas.state.document.peek()),
           publish: publishRequested,
         },
       });
