@@ -21,32 +21,32 @@ Retrieved 2026-09-09.
 
 Scoped questions:
 
-| #   | Question                                               | State                                   |
-| --- | ------------------------------------------------------ | --------------------------------------- |
-| 1   | Can TanStack Start run on this workspace's toolchain?  | yes; current local rendering observed |
+| #   | Question                                               | State                                  |
+| --- | ------------------------------------------------------ | -------------------------------------- |
+| 1   | Can TanStack Start run on this workspace's toolchain?  | yes; current local rendering observed  |
 | 2   | What shell does Vite+ support instead?                 | superseded; Start is the current shell |
-| 3   | Which primitives Base UI owns, so none are hand-rolled | answered — 38 primitives, enumerated    |
-| 4   | Which motion affordances `motion` v12 owns             | answered — surface enumerated           |
-| 5   | What remains genuinely ours after 3 and 4              | answered, then outgrown — see below     |
-| 6   | Canonical R3F project shape at the installed version   | not this package's — see Open gaps      |
-| 7   | Can R3F and TypeGPU share one WebGPU device?           | not this package's — see Open gaps      |
-| 8   | Motion-system and ZUI precedence worth copying         | not this package's — see Open gaps      |
+| 3   | Which primitives Base UI owns, so none are hand-rolled | answered — 38 primitives, enumerated   |
+| 4   | Which motion affordances `motion` v12 owns             | answered — surface enumerated          |
+| 5   | What remains genuinely ours after 3 and 4              | answered, then outgrown — see below    |
+| 6   | Canonical R3F project shape at the installed version   | not this package's — see Open gaps     |
+| 7   | Can R3F and TypeGPU share one WebGPU device?           | not this package's — see Open gaps     |
+| 8   | Motion-system and ZUI precedence worth copying         | not this package's — see Open gaps     |
 
 Out of scope, deliberately: `@hyphened/infinite-canvas`, `packages/ui`, and everything under
 `apps/`. This package adopts none of that tooling and integrates with none of it.
 
 ## Implementation map
 
-| Build need             | Affordance                       | Project implication                                 | Status         |
-| ---------------------- | -------------------------------- | --------------------------------------------------- | -------------- |
-| App shell              | TanStack Start `1.168.56`        | current shell with Cloudflare Vite plugin | observed |
-| App shell              | TanStack Router SPA             | replaced by Start | superseded |
-| Interaction primitives | `@base-ui/react` 1.5.0           | 38 primitives; every one comes from here            | observed       |
-| Class composition      | `tailwind-variants` 3.2.2        | slot fns already merge `className` — no helper      | observed       |
-| Springs, layout, drag  | `motion` 12.40.0                 | surveyed, not adopted — see below                   | superseded     |
-| Frame loop             | `motion` `useAnimationFrame`     | surveyed, not adopted — see below                   | superseded     |
-| Motion tokens          | CSS custom properties            | `--pk-duration-*` and `--pk-ease-*` in `theme.css`  | observed       |
-| Widget packing         | none yet                         | evaluate a grid library when a board exists         | unresolved     |
+| Build need             | Affordance                   | Project implication                                | Status     |
+| ---------------------- | ---------------------------- | -------------------------------------------------- | ---------- |
+| App shell              | TanStack Start `1.168.56`    | current shell with Cloudflare Vite plugin          | observed   |
+| App shell              | TanStack Router SPA          | replaced by Start                                  | superseded |
+| Interaction primitives | `@base-ui/react` 1.5.0       | 38 primitives; every one comes from here           | observed   |
+| Class composition      | `tailwind-variants` 3.2.2    | slot fns already merge `className` — no helper     | observed   |
+| Springs, layout, drag  | `motion` 12.40.0             | surveyed, not adopted — see below                  | superseded |
+| Frame loop             | `motion` `useAnimationFrame` | surveyed, not adopted — see below                  | superseded |
+| Motion tokens          | CSS custom properties        | `--pk-duration-*` and `--pk-ease-*` in `theme.css` | observed   |
+| Widget packing         | none yet                     | evaluate a grid library when a board exists        | unresolved |
 
 ### `motion` was surveyed and is not installed
 

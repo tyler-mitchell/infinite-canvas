@@ -8,7 +8,8 @@ const receipt = tv({
     root: "pk-paper pk-tear flex w-full min-w-0 flex-col gap-1 px-4 pt-4 pb-5 font-pk-mono text-pk-paper-ink shadow-pk-paper",
     head: "flex flex-col items-center gap-[3px]",
     mark: "flex size-5 items-center justify-center rounded-pk-control-inner bg-pk-paper-ink font-pk-sans text-pk-micro text-pk-paper-page",
-    wordmark: "max-w-full text-center text-pk-print-xs break-words tracking-[0.12em] text-pk-paper-label uppercase",
+    wordmark:
+      "max-w-full text-center text-pk-print-xs break-words tracking-[0.12em] text-pk-paper-label uppercase",
     rule: "pk-paper-rule my-1.5 h-px flex-none",
     line: "flex items-baseline justify-between gap-2",
     name: "min-w-0 flex-1 text-pk-print break-words uppercase",

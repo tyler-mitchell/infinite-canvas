@@ -138,10 +138,7 @@ export function getHotkeyDefinitions({ canvas, hotkeys }: { canvas: Canvas; hotk
 
 type PointerLike = Pick<PointerEvent, "clientX" | "clientY">;
 
-function getViewportPoint({ element, event }: {
-  element: HTMLElement;
-  event: PointerLike;
-}): Point {
+function getViewportPoint({ element, event }: { element: HTMLElement; event: PointerLike }): Point {
   const bounds = element.getBoundingClientRect();
 
   return {
@@ -150,7 +147,11 @@ function getViewportPoint({ element, event }: {
   };
 }
 
-function capturePointer({ canvas, element, pointerId }: {
+function capturePointer({
+  canvas,
+  element,
+  pointerId,
+}: {
   canvas: Canvas;
   element: Pick<HTMLElement, "setPointerCapture">;
   pointerId: number;

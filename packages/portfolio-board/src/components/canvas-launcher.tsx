@@ -52,9 +52,7 @@ function CommandArguments({
       onDone();
       return;
     }
-    setError(
-      result.error instanceof type.errors ? result.error.summary : result.error.message,
-    );
+    setError(result.error instanceof type.errors ? result.error.summary : result.error.message);
   };
   return (
     <FieldSet className={launcher().arguments()}>
@@ -160,21 +158,23 @@ export const CanvasLauncher = observer(function CanvasLauncher({
               <CommandEmpty>No matching command.</CommandEmpty>
               {(["selection", "canvas"] as const).map((scope) => (
                 <CommandGroup key={scope} heading={scope === "selection" ? "Selection" : "Canvas"}>
-                  {commands.filter((command) => command.scope === scope).map((command) => (
-                    <CommandItem
-                      key={command.name}
-                      value={`${command.label} ${command.name}`}
-                      onSelect={() => command.ready ? run(command.run) : setAsking(command)}
-                    >
-                      {createElement(canvasIcons[command.icon] ?? canvasIcons.edit)}
-                      <span className={launcher().entry()}>
-                        {command.label}
-                        {command.description === undefined ? null : (
-                          <span className={launcher().hint()}>{command.description}</span>
-                        )}
-                      </span>
-                    </CommandItem>
-                  ))}
+                  {commands
+                    .filter((command) => command.scope === scope)
+                    .map((command) => (
+                      <CommandItem
+                        key={command.name}
+                        value={`${command.label} ${command.name}`}
+                        onSelect={() => (command.ready ? run(command.run) : setAsking(command))}
+                      >
+                        {createElement(canvasIcons[command.icon] ?? canvasIcons.edit)}
+                        <span className={launcher().entry()}>
+                          {command.label}
+                          {command.description === undefined ? null : (
+                            <span className={launcher().hint()}>{command.description}</span>
+                          )}
+                        </span>
+                      </CommandItem>
+                    ))}
                 </CommandGroup>
               ))}
             </CommandList>

@@ -7,7 +7,12 @@ export * from "./grid-geometry";
 export { compactGrid, moveGrid } from "./grid-motion";
 export * from "./occupancy";
 export * from "./overview";
-export { getAdjacentRect, getPlacementRect, getVacantRect, type PlacementRegion } from "./placement";
+export {
+  getAdjacentRect,
+  getPlacementRect,
+  getVacantRect,
+  type PlacementRegion,
+} from "./placement";
 export { interpolateCamera } from "./zoom-interpolation";
 export { add, max, min } from "@thi.ng/transducers";
 export { activitySchedule } from "./activity-schedule";
@@ -41,8 +46,14 @@ export {
   type Vec,
 } from "@thi.ng/vectors";
 export {
-  fitScales, fitAspectSize, intrinsicSize, resolveSize, pixelSize,
-  type Size, type SizeLimits, type SizeConstraints,
+  fitScales,
+  fitAspectSize,
+  intrinsicSize,
+  resolveSize,
+  pixelSize,
+  type Size,
+  type SizeLimits,
+  type SizeConstraints,
 } from "./size";
 export { type Point } from "./vector";
 
@@ -60,8 +71,14 @@ export {
 } from "./camera";
 export { type Insets } from "./rect";
 export {
-  combineInsets, insetsOfOccluder, getCameraDestination, getCameraTrack,
-  type CameraBehavior, type CameraFraming, type CameraTrack, type PlacedSection,
+  combineInsets,
+  insetsOfOccluder,
+  getCameraDestination,
+  getCameraTrack,
+  type CameraBehavior,
+  type CameraFraming,
+  type CameraTrack,
+  type PlacedSection,
 } from "./framing";
 
 export {

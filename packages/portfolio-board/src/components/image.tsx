@@ -21,7 +21,12 @@ function Image({ className, render, fill, fit, draggable = false, ...props }: Im
   return useRender({
     defaultTagName: "img",
     render,
-    props: { ...props, draggable, "data-slot": "image", className: image({ fill, fit, className }) },
+    props: {
+      ...props,
+      draggable,
+      "data-slot": "image",
+      className: image({ fill, fit, className }),
+    },
   });
 }
 

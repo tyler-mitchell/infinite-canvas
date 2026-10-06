@@ -1,17 +1,17 @@
-import { useAuth } from "@better-auth-ui/react"
-import { Eye, EyeOff } from "lucide-react"
-import { useState, type ComponentProps } from "react"
+import { useAuth } from "@better-auth-ui/react";
+import { Eye, EyeOff } from "lucide-react";
+import { useState, type ComponentProps } from "react";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
-  InputGroupInput
-} from "@/components/ui/input-group"
+  InputGroupInput,
+} from "@/components/ui/input-group";
 
 export function PasswordInput(props: Omit<ComponentProps<"input">, "type">) {
-  const { localization } = useAuth()
-  const [visible, setVisible] = useState(false)
-  const label = visible ? localization.auth.hidePassword : localization.auth.showPassword
+  const { localization } = useAuth();
+  const [visible, setVisible] = useState(false);
+  const label = visible ? localization.auth.hidePassword : localization.auth.showPassword;
   return (
     <InputGroup>
       <InputGroupInput {...props} type={visible ? "text" : "password"} />
@@ -26,5 +26,5 @@ export function PasswordInput(props: Omit<ComponentProps<"input">, "type">) {
         </InputGroupButton>
       </InputGroupAddon>
     </InputGroup>
-  )
+  );
 }

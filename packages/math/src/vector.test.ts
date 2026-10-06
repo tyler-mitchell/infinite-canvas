@@ -57,9 +57,9 @@ describe("perpendicularCCW", () => {
 
   test("four turns return the original", () => {
     const vector = d.vec2f(7, -2);
-    expect(
-      perpendicularCCW(perpendicularCCW(perpendicularCCW(perpendicularCCW(vector)))),
-    ).toEqual(vector);
+    expect(perpendicularCCW(perpendicularCCW(perpendicularCCW(perpendicularCCW(vector))))).toEqual(
+      vector,
+    );
   });
 });
 

@@ -33,8 +33,7 @@ export function alignRect({
   const alignments = (["x", "y"] as const).map((axis) => {
     const size = axis === "x" ? "width" : "height";
     const fractions = [...(edges ? [0, 1] : []), ...(centers ? [0.5] : [])];
-    const anchor = (box: Rect, fraction: number) =>
-      mix(box[axis], box[axis] + box[size], fraction);
+    const anchor = (box: Rect, fraction: number) => mix(box[axis], box[axis] + box[size], fraction);
     const candidates = targets
       .flatMap((target) =>
         fractions.flatMap((from) =>
@@ -46,7 +45,13 @@ export function alignRect({
         ),
       )
       .filter(({ offset }) => inRange(offset, -threshold, threshold));
-    const closest = candidates[argminN(0, candidates.map((candidate) => candidate.offset))];
+    const closest =
+      candidates[
+        argminN(
+          0,
+          candidates.map((candidate) => candidate.offset),
+        )
+      ];
     return { axis, closest };
   });
   const snapped = {

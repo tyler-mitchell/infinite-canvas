@@ -16,13 +16,19 @@ describe("grid", () => {
     (width) => {
       const nodes = {
         root: board(["left", "right"], {
-          columns: 24, spanColumns: 24, rowHeight: 25.17, compact: true,
+          columns: 24,
+          spanColumns: 24,
+          rowHeight: 25.17,
+          compact: true,
         }),
         left: { item: { column: 0, row: 0, columnSpan: 12, rowSpan: 4 } },
         right: { item: { column: 12, row: 0, columnSpan: 12, rowSpan: 4 } },
       };
       const { rects } = arrangeWindows({
-        id: "root", rect: { x: 0, y: 0, width, height: 1 }, nodes, layouts,
+        id: "root",
+        rect: { x: 0, y: 0, width, height: 1 },
+        nodes,
+        layouts,
       });
       expect(rects.left.y).toBe(rects.right.y);
       expect(rects.right.x).toBeCloseTo(rects.left.width + 12);
@@ -81,9 +87,9 @@ describe("grid", () => {
     };
     expect(arrangeWindows({ id: "root", rect, nodes, layouts, limits }).rects.a.height).toBe(348);
     const stated = { ...nodes, a: { item: { columnSpan: 2, rowSpan: 1 } } };
-    expect(arrangeWindows({ id: "root", rect, nodes: stated, layouts, limits }).rects.a.height).toBe(
-      108,
-    );
+    expect(
+      arrangeWindows({ id: "root", rect, nodes: stated, layouts, limits }).rects.a.height,
+    ).toBe(108);
   });
 
   test("a moved item takes the cell under it, wins over a placed item, and reports its position", () => {
@@ -232,5 +238,4 @@ describe("grid", () => {
     };
     expect(getWindowSize({ id: "board", nodes, layouts, limits })({}).width).toBe(468);
   });
-
 });

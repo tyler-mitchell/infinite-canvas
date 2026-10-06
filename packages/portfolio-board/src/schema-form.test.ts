@@ -10,9 +10,12 @@ test("an array of objects lists its item fields under their own names", () => {
     dialect: null,
     fallback: { predicate: (context) => context.base },
   });
-  const [breakpoints] = createHeadlessForm(json as never, {
-    initialValues: { breakpoints: [{ minWidth: 640, columns: 12 }] },
-  } as never).fields;
+  const [breakpoints] = createHeadlessForm(
+    json as never,
+    {
+      initialValues: { breakpoints: [{ minWidth: 640, columns: 12 }] },
+    } as never,
+  ).fields;
   expect(breakpoints?.inputType).toBe("group-array");
   expect(breakpoints?.fields?.map((child) => child.name)).toEqual(["columns", "minWidth"]);
 });

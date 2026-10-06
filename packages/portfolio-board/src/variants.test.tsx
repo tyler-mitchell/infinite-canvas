@@ -14,7 +14,11 @@ const WITHIN: Record<string, (element: ReactElement) => ReactElement> = {
   CanvasSectionRail: (element) =>
     createElement(CanvasScroll, {
       canvas,
-      children: createElement(CanvasViewport, { canvas, renderWindow: () => null, children: element }),
+      children: createElement(CanvasViewport, {
+        canvas,
+        renderWindow: () => null,
+        children: element,
+      }),
     }),
 };
 

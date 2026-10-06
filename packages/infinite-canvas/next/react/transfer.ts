@@ -1,11 +1,6 @@
 import type { ComponentProps } from "react";
 import type { Canvas } from "../state.types";
-import {
-  getViewportPoint,
-  isInteractiveTarget,
-  readComponentTransfer,
-  report,
-} from "../input";
+import { getViewportPoint, isInteractiveTarget, readComponentTransfer, report } from "../input";
 
 export function getTransferHandlers({
   canvas,
@@ -17,8 +12,7 @@ export function getTransferHandlers({
   return {
     onDragOver: (event) => {
       if (!event.dataTransfer.types.includes(transferType)) return;
-      if (event.target instanceof Element && event.target.closest("[data-canvas-control]"))
-        return;
+      if (event.target instanceof Element && event.target.closest("[data-canvas-control]")) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = "copy";
       if (canvas.state.session.drop.pointerId.peek() === null)
@@ -35,8 +29,7 @@ export function getTransferHandlers({
     },
     onDrop: (event) => {
       if (!event.dataTransfer.types.includes(transferType)) return;
-      if (event.target instanceof Element && event.target.closest("[data-canvas-control]"))
-        return;
+      if (event.target instanceof Element && event.target.closest("[data-canvas-control]")) return;
       event.preventDefault();
       event.stopPropagation();
       const point = getViewportPoint({ element: event.currentTarget, event });

@@ -93,12 +93,7 @@ function ExpandInPlaceViewport({
       "aria-hidden": !open,
       inert: !contentInteractive,
       children: Children.map(items, (child, index) => (
-        <DisclosureItem
-          count={items.length}
-          distance={distance}
-          index={index}
-          stagger={stagger}
-        >
+        <DisclosureItem count={items.length} distance={distance} index={index} stagger={stagger}>
           {child}
         </DisclosureItem>
       )),

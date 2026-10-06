@@ -22,13 +22,15 @@ test("adjacent windows stack on the selected side", () => {
 
 test("adjacent placement uses the visible vertical area when the anchor starts above it", () => {
   const anchor = { x: 500, y: 80, width: 880, height: 2400 };
-  expect(getAdjacentRect({
-    anchor,
-    size: { width: 360, height: 480 },
-    side: "right",
-    stack: true,
-    gap: 24,
-    bounds: { x: 0, y: 600, width: 1900, height: 800 },
-    occupied: [anchor],
-  })).toEqual({ x: 1404, y: 600, width: 360, height: 480 });
+  expect(
+    getAdjacentRect({
+      anchor,
+      size: { width: 360, height: 480 },
+      side: "right",
+      stack: true,
+      gap: 24,
+      bounds: { x: 0, y: 600, width: 1900, height: 800 },
+      occupied: [anchor],
+    }),
+  ).toEqual({ x: 1404, y: 600, width: 360, height: 480 });
 });

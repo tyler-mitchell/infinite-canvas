@@ -84,9 +84,10 @@ export function getCameraTrack({
   const bounds = unionRects(sections.map((section) => section.rect));
   if (bounds === null || viewport.width <= 0 || viewport.height <= 0) return null;
   const { main, mainPosition, crossPosition, crossAxis } = axes[axis];
-  const { start, end, crossStart, crossEnd } = axis === "vertical"
-    ? { start: insets.top, end: insets.bottom, crossStart: insets.left, crossEnd: insets.right }
-    : { start: insets.left, end: insets.right, crossStart: insets.top, crossEnd: insets.bottom };
+  const { start, end, crossStart, crossEnd } =
+    axis === "vertical"
+      ? { start: insets.top, end: insets.bottom, crossStart: insets.left, crossEnd: insets.right }
+      : { start: insets.left, end: insets.right, crossStart: insets.top, crossEnd: insets.bottom };
   const { zoom } = getCameraDestination({
     rect: bounds,
     camera: { center: { x: 0, y: 0 }, zoom: 1 },
@@ -127,11 +128,7 @@ export function getCameraTrack({
       center: pointOnAxis({ axis, main: centreAt(clamp(offset, 0, length)), cross }),
     }),
     offsetAt: (camera) =>
-      clamp(
-        fit(camera.center[mainPosition], centreAt(0), centreAt(length), 0, length),
-        0,
-        length,
-      ),
+      clamp(fit(camera.center[mainPosition], centreAt(0), centreAt(length), 0, length), 0, length),
   };
 }
 

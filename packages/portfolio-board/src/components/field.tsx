@@ -66,8 +66,7 @@ function FieldGroup({ className, ...props }: FieldGroupProps) {
 }
 
 export interface FieldProps
-  extends WithClassName<FieldPrimitive.Root.Props>,
-    VariantProps<typeof field> {}
+  extends WithClassName<FieldPrimitive.Root.Props>, VariantProps<typeof field> {}
 
 /**
  * Pairs a control with the words that name it. Base UI associates the two, so a switch that reads
@@ -157,7 +156,9 @@ function FieldError({ className, children, errors, ...props }: FieldErrorProps) 
     if (unique.length === 1) return unique[0]?.message;
     return (
       <ul className={field().errorList()}>
-        {unique.map((error) => error?.message !== undefined && <li key={error.message}>{error.message}</li>)}
+        {unique.map(
+          (error) => error?.message !== undefined && <li key={error.message}>{error.message}</li>,
+        )}
       </ul>
     );
   }, [children, errors]);

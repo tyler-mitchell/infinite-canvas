@@ -19,13 +19,7 @@ const styles = tv({
 export type SchemaValues = Readonly<Record<string, unknown>>;
 type FormInput = Parameters<typeof createHeadlessForm>;
 
-const fieldsOf = ({
-  schema,
-  values,
-}: {
-  schema: Type;
-  values: SchemaValues;
-}) => {
+const fieldsOf = ({ schema, values }: { schema: Type; values: SchemaValues }) => {
   const json = schema.toJsonSchema({
     dialect: null,
     fallback: { predicate: (context) => context.base },

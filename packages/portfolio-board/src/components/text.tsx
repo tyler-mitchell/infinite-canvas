@@ -30,7 +30,13 @@ const text = tv({
       code: "wrap-anywhere font-pk-mono text-pk-mono text-pk-ink-muted tabular-nums",
     },
   },
-  compoundVariants: [{ as: "display", fluid: true, class: "text-[length:clamp(var(--text-pk-title),6cqi,var(--text-pk-display))]" }],
+  compoundVariants: [
+    {
+      as: "display",
+      fluid: true,
+      class: "text-[length:clamp(var(--text-pk-title),6cqi,var(--text-pk-display))]",
+    },
+  ],
   defaultVariants: { as: "meta", fluid: false },
 });
 
@@ -39,7 +45,13 @@ type Role = NonNullable<VariantProps<typeof text>["as"]>;
 export interface TextProps extends useRender.ComponentProps<"span">, VariantProps<typeof text> {}
 
 const role = (name: Role, tag: keyof React.JSX.IntrinsicElements, slot: string = name) =>
-  function Part({ className, render, lines, fluid, ...props }: useRender.ComponentProps<"span"> & Pick<VariantProps<typeof text>, "lines" | "fluid">) {
+  function Part({
+    className,
+    render,
+    lines,
+    fluid,
+    ...props
+  }: useRender.ComponentProps<"span"> & Pick<VariantProps<typeof text>, "lines" | "fluid">) {
     return useRender({
       render,
       defaultTagName: tag,

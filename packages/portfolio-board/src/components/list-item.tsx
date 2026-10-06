@@ -35,7 +35,16 @@ export interface ListItemProps
 }
 
 /** A row with optional leading content and trailing metadata. */
-function ListItem({ lead, trail, look, density, children, className, render, ...props }: ListItemProps) {
+function ListItem({
+  lead,
+  trail,
+  look,
+  density,
+  children,
+  className,
+  render,
+  ...props
+}: ListItemProps) {
   const styles = listItem({ look, density });
 
   return useRender({

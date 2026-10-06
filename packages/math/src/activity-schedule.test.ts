@@ -56,7 +56,10 @@ test.each([
   { count: 20, thresholds: [1, 3, 6, 10], impactAt: 0.5 },
   { count: 20, thresholds: [1, 5, 12, 25], impactAt: undefined },
   { count: 0, thresholds: [1, 3, 6, 10], impactAt: undefined },
-])("impact timing for count $count and thresholds $thresholds", ({ count, thresholds, impactAt }) => {
-  const schedule = activitySchedule({ days: [{ count }], thresholds });
-  expect(schedule[0]!.impactAt).toBe(impactAt);
-});
+])(
+  "impact timing for count $count and thresholds $thresholds",
+  ({ count, thresholds, impactAt }) => {
+    const schedule = activitySchedule({ days: [{ count }], thresholds });
+    expect(schedule[0]!.impactAt).toBe(impactAt);
+  },
+);

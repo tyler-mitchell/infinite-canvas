@@ -5,8 +5,7 @@ const pendingCard = tv({
   slots: {
     root: "gap-3",
     head: "flex flex-none items-start justify-between gap-2.5",
-    title:
-      "min-w-0 flex-1 font-pk-sans text-pk-title break-words text-pk-ink",
+    title: "min-w-0 flex-1 font-pk-sans text-pk-title break-words text-pk-ink",
     badge:
       "flex-none rounded-pk-control-inner border border-pk-pending-line px-2 py-[5px] font-pk-sans text-pk-micro tracking-[0.08em] text-pk-ink-faint uppercase",
     body: "m-0 font-pk-sans text-pk-body break-words text-pk-ink-soft",

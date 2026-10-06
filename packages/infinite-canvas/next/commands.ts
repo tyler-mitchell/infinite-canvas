@@ -54,7 +54,8 @@ export function getRunnableCommands(canvas: Canvas): RunnableCommand[] {
   ];
   return entries.flatMap(({ name, command, input: supplied }) => {
     if (command.surface === "none") return [];
-    const kind = command.scope ?? (command.canRun({}) ? ("canvas" as const) : ("selection" as const));
+    const kind =
+      command.scope ?? (command.canRun({}) ? ("canvas" as const) : ("selection" as const));
     const input = supplied ?? (kind === "selection" ? scope : {});
     const ready = command.canRun(input);
     if (!ready && command.scope === undefined) return [];

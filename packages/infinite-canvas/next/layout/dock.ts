@@ -1,9 +1,5 @@
 import type { Rect, Size, SizeConstraints } from "@hyphened/math/cpu";
-import {
-  arrangeWindows,
-  type BoundLayout,
-  type LayoutNode,
-} from "./arrange";
+import { arrangeWindows, type BoundLayout, type LayoutNode } from "./arrange";
 import type { DockEdge, Operation } from "./kinds";
 import { getDockChange, getParents, type Tree } from "./tree";
 

@@ -77,8 +77,7 @@ export const CanvasPortal = observer(function CanvasPortal({
   if (scope === "viewport") return createPortal(children, portal);
   const selection = scope === "selection";
   if (selection && mode !== "edit") return null;
-  if (!selection && context === null)
-    throw new Error("A window portal requires a canvas window.");
+  if (!selection && context === null) throw new Error("A window portal requires a canvas window.");
   const id = selection ? undefined : context!.window.id.get();
   const rect = selection
     ? (canvas.computed.selectionBounds.get() ?? undefined)
@@ -114,7 +113,13 @@ export const CanvasPortal = observer(function CanvasPortal({
     >
       <div
         data-slot={selection ? "canvas-selection-portal" : "canvas-window-portal"}
-        style={{ position: "absolute", left: box.x, top: box.y, width: box.width, height: box.height }}
+        style={{
+          position: "absolute",
+          left: box.x,
+          top: box.y,
+          width: box.width,
+          height: box.height,
+        }}
       >
         {side === undefined ? children : null}
       </div>
@@ -131,7 +136,11 @@ export const CanvasPortal = observer(function CanvasPortal({
             }}
           />
           <div
-            key={selection ? canvas.computed.selectedWindows.map((window) => window.id.get()).join() : id}
+            key={
+              selection
+                ? canvas.computed.selectedWindows.map((window) => window.id.get()).join()
+                : id
+            }
             data-slot="canvas-portal-positioner"
             style={{
               position: "absolute",

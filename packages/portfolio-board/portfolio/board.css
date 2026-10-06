@@ -36,10 +36,18 @@
   pointer-events: none;
   background: conic-gradient(
     from 145deg,
-    #64dcb6, #eab2d6 18%, #e9e5c1 28%, #47756c 42%,
-    #88dccb 55%, #a5bce4 72%, #eac6dd 82%, #64dcb6
+    #64dcb6,
+    #eab2d6 18%,
+    #e9e5c1 28%,
+    #47756c 42%,
+    #88dccb 55%,
+    #a5bce4 72%,
+    #eac6dd 82%,
+    #64dcb6
   );
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   mask-composite: exclude;
 }
 

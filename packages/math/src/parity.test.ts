@@ -208,7 +208,10 @@ describe("the two adapters are not interchangeable, which is why both exist", ()
   });
 
   test("the f64 adapter never rounds its result", () => {
-    const merged = unionRect({ x: 0.1, y: 0, width: 1, height: 1 }, { x: 2, y: 0, width: 1, height: 1 });
+    const merged = unionRect(
+      { x: 0.1, y: 0, width: 1, height: 1 },
+      { x: 2, y: 0, width: 1, height: 1 },
+    );
     expect(merged.x).toBe(0.1);
     expect(merged.width).toBe(2.9);
   });

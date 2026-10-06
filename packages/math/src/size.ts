@@ -5,7 +5,12 @@ import { clamp, clamp0, eqDelta, minMax } from "@thi.ng/math";
 // they carry no execution contract and sit beside the dual-target functions without mixing them.
 // The layout engine's richer SizeLimits (min, max, ideal, measured) satisfies this structurally.
 export type Size = { width: number; height: number };
-export function pixelSize({ width, height, scale = 1, pixelRatio = 1 }: Size & {
+export function pixelSize({
+  width,
+  height,
+  scale = 1,
+  pixelRatio = 1,
+}: Size & {
   scale?: number;
   pixelRatio?: number;
 }): Size & { pixelRatio: number } {
@@ -29,12 +34,10 @@ export function resolveSize({
   constraints: SizeConstraints;
   proposal: Partial<Size>;
 }): Size {
-  if (aspect !== undefined)
-    return fitAspectSize({ aspect, proposal, ideal, limits: { min, max } });
+  if (aspect !== undefined) return fitAspectSize({ aspect, proposal, ideal, limits: { min, max } });
   const width = clamp(proposal.width ?? ideal.width, ...minMax(min.width, max.width));
-  const height = measured !== undefined && eqDelta(measured.width, width, 0.5)
-    ? measured.height
-    : ideal.height;
+  const height =
+    measured !== undefined && eqDelta(measured.width, width, 0.5) ? measured.height : ideal.height;
   return {
     width,
     height: clamp(proposal.height ?? height, ...minMax(min.height, max.height)),
@@ -66,7 +69,10 @@ export const fitScales = (
 };
 
 export function fitAspectSize({
-  aspect, proposal, ideal, limits,
+  aspect,
+  proposal,
+  ideal,
+  limits,
 }: {
   aspect: number;
   proposal: Partial<Size>;

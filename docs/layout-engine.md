@@ -149,17 +149,17 @@ rectangle index) is a separate module after these. It does not depend on the win
 
 ## Modules
 
-| File                       | Owns                                                                                               |
-| -------------------------- | -------------------------------------------------------------------------------------------------- |
-| `packages/math/src/tracks.ts` | Flexible lengths and cascade resize. |
-| `packages/math/src/grid.ts` | Grid auto-placement, collision displacement, and compaction. |
-| `next/layout/kinds.ts`     | The contract types and `split`, `tabs`, `accordion`.                                               |
-| `next/layout/columns.ts`   | Column count by width, cell width, span scaling; shared by `grid` and `lanes`.                     |
-| `next/layout/grid.ts`      | `grid`, and `createGrid({ rules })` for a consumer's placement rules.                              |
-| `next/layout/lanes.ts`     | `placeLanes` (Grid 3 §4.4) and the `lanes` kind.                                                   |
-| `next/layout/dock.ts`      | The dock preview arrangement, shared by the computed state and the insertion query.                |
-| `next/layout/tree.ts`      | Tree edits on the window map: dock at an edge, undock with settling, reorder.                      |
-| `next/layout/arrange.ts`   | `bindLayout` (validates options and items, erases kind types), `measureWindows`, `arrangeWindows`. |
+| File                          | Owns                                                                                               |
+| ----------------------------- | -------------------------------------------------------------------------------------------------- |
+| `packages/math/src/tracks.ts` | Flexible lengths and cascade resize.                                                               |
+| `packages/math/src/grid.ts`   | Grid auto-placement, collision displacement, and compaction.                                       |
+| `next/layout/kinds.ts`        | The contract types and `split`, `tabs`, `accordion`.                                               |
+| `next/layout/columns.ts`      | Column count by width, cell width, span scaling; shared by `grid` and `lanes`.                     |
+| `next/layout/grid.ts`         | `grid`, and `createGrid({ rules })` for a consumer's placement rules.                              |
+| `next/layout/lanes.ts`        | `placeLanes` (Grid 3 §4.4) and the `lanes` kind.                                                   |
+| `next/layout/dock.ts`         | The dock preview arrangement, shared by the computed state and the insertion query.                |
+| `next/layout/tree.ts`         | Tree edits on the window map: dock at an edge, undock with settling, reorder.                      |
+| `next/layout/arrange.ts`      | `bindLayout` (validates options and items, erases kind types), `measureWindows`, `arrangeWindows`. |
 
 ## What is deleted
 

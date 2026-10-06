@@ -16,7 +16,8 @@ const toggleGroup = tv({
         item: buttonVariants({
           size: "icon",
           tone: "ghost",
-          className: "data-pressed:bg-pk-accent/10 data-pressed:text-pk-accent data-pressed:hover:bg-pk-accent/15",
+          className:
+            "data-pressed:bg-pk-accent/10 data-pressed:text-pk-accent data-pressed:hover:bg-pk-accent/15",
         }),
       },
       segmented: {

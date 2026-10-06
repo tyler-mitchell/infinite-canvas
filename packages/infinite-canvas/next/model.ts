@@ -189,22 +189,22 @@ class Model<Options, Current extends Context> {
             }
           };
           return [
-          name,
-          {
             name,
-            input: operation.params.in.get<0>(0),
-            check,
-            canRun: (input: unknown) => !(operation.params([input]) instanceof type.errors),
-            run(input: unknown) {
-              try {
-                const result: unknown = Reflect.apply(operation, undefined, [input]);
-                return result instanceof Promise ? result.catch(failure) : result;
-              } catch (error) {
-                return failure(error);
-              }
+            {
+              name,
+              input: operation.params.in.get<0>(0),
+              check,
+              canRun: (input: unknown) => !(operation.params([input]) instanceof type.errors),
+              run(input: unknown) {
+                try {
+                  const result: unknown = Reflect.apply(operation, undefined, [input]);
+                  return result instanceof Promise ? result.catch(failure) : result;
+                } catch (error) {
+                  return failure(error);
+                }
+              },
             },
-          },
-        ];
+          ];
         }),
       ) as Actions<Operations>;
       return { ...context, actions: { ...context.actions, ...actions } };

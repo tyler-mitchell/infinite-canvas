@@ -44,7 +44,11 @@ export function getAdjacentRect({
   stack?: boolean;
 }): Rect {
   if (stack && (side === "left" || side === "right")) {
-    const top = clamp(anchor.y, bounds.y, Math.max(bounds.y, bounds.y + bounds.height - size.height));
+    const top = clamp(
+      anchor.y,
+      bounds.y,
+      Math.max(bounds.y, bounds.y + bounds.height - size.height),
+    );
     const x = side === "left" ? anchor.x - size.width - gap : anchor.x + anchor.width + gap;
     const y = occupied
       .filter((rect) => rect.x < x + size.width + gap && rect.x + rect.width + gap > x)
@@ -62,14 +66,14 @@ export function getAdjacentRect({
   const extent = horizontal ? "width" : "height";
   const crossExtent = horizontal ? "height" : "width";
   const boundary = occupied
-    .filter((rect) =>
-      rect[cross] < anchor[cross] + size[crossExtent] + gap &&
-      rect[cross] + rect[crossExtent] + gap > anchor[cross],
+    .filter(
+      (rect) =>
+        rect[cross] < anchor[cross] + size[crossExtent] + gap &&
+        rect[cross] + rect[crossExtent] + gap > anchor[cross],
     )
     .reduce(
-      (edge, rect) => before
-        ? Math.min(edge, rect[axis])
-        : Math.max(edge, rect[axis] + rect[extent]),
+      (edge, rect) =>
+        before ? Math.min(edge, rect[axis]) : Math.max(edge, rect[axis] + rect[extent]),
       anchor[axis] + (before ? 0 : anchor[extent]),
     );
   return {

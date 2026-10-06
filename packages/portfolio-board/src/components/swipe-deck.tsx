@@ -231,7 +231,9 @@ function SwipeDeck({
               data-slot="swipe-card"
               /* The one on top covers the others completely, so they are picture, not text. */
               aria-hidden={isTop ? undefined : true}
-              style={{ transform: `translateX(${shift / gesture.scale}px) rotate(${shift / 22}deg)` }}
+              style={{
+                transform: `translateX(${shift / gesture.scale}px) rotate(${shift / 22}deg)`,
+              }}
               className={styles.card()}
               onPointerDown={
                 isTop

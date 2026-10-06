@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import {
   authMutationKeys,
@@ -8,45 +8,30 @@ import {
   isPasswordCompromisedError,
   validateEmailAddress,
   validateMatchingValue,
-  validateStringLength
-} from "@better-auth-ui/core"
-import {
-  AuthPrompts,
-  useAuth,
-  useFetchOptions,
-  useSignUpEmail
-} from "@better-auth-ui/react"
-import { useIsMutating } from "@tanstack/react-query"
-import { useMemo, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel
-} from "@/components/ui/field"
-import { PasswordInput } from "./password-input"
-import { cn } from "@/lib/utils"
-import {
-  getAuthAdditionalFieldValidators,
-  isAuthFormFieldInvalid,
-  useAuthForm
-} from "./auth-form"
-import { PasswordStrengthMeter } from "./password-strength-meter"
-import { AuthMethods, type SocialLayout } from "./provider-buttons"
+  validateStringLength,
+} from "@better-auth-ui/core";
+import { AuthPrompts, useAuth, useFetchOptions, useSignUpEmail } from "@better-auth-ui/react";
+import { useIsMutating } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { PasswordInput } from "./password-input";
+import { cn } from "@/lib/utils";
+import { getAuthAdditionalFieldValidators, isAuthFormFieldInvalid, useAuthForm } from "./auth-form";
+import { PasswordStrengthMeter } from "./password-strength-meter";
+import { AuthMethods, type SocialLayout } from "./provider-buttons";
 
 export type SignUpProps = {
-  className?: string
-  socialLayout?: SocialLayout
-  socialPosition?: "top" | "bottom"
+  className?: string;
+  socialLayout?: SocialLayout;
+  socialPosition?: "top" | "bottom";
   /**
    * Runs instead of the post-sign-up redirect, but only when the sign-up
    * created an immediately usable session. Email verification still takes
    * priority, and social sign-ups are unaffected.
    */
-  onSignUpSuccess?: () => void
-}
+  onSignUpSuccess?: () => void;
+};
 
 /**
  * Renders a sign-up form with name, email, and password fields, optional social provider buttons, and submission handling.
@@ -67,7 +52,7 @@ export function SignUp({
   className,
   socialLayout,
   socialPosition = "bottom",
-  onSignUpSuccess
+  onSignUpSuccess,
 }: SignUpProps) {
   const {
     additionalFields,
@@ -79,65 +64,59 @@ export function SignUp({
     redirectTo,
     viewPaths,
     navigate,
-    Link
-  } = useAuth()
+    Link,
+  } = useAuth();
 
-  const { fetchOptions, resetFetchOptions } = useFetchOptions()
+  const { fetchOptions, resetFetchOptions } = useFetchOptions();
 
   const { mutateAsync: signUpEmail } = useSignUpEmail(authClient, {
     onError: (error) => {
       // The haveIBeenPwned plugin rejects on the password itself,
       // so it belongs against the field rather than in a toast.
       if (isPasswordCompromisedError(error)) {
-        setIsCompromised(true)
+        setIsCompromised(true);
       }
 
-      form.setFieldValue("password", "")
-      form.setFieldValue("confirmPassword", "")
-      resetFetchOptions()
+      form.setFieldValue("password", "");
+      form.setFieldValue("confirmPassword", "");
+      resetFetchOptions();
     },
     onSuccess: (_data, { email }) => {
       if (emailAndPassword?.requireEmailVerification) {
-        sessionStorage.setItem("better-auth-ui.verify-email", email)
+        sessionStorage.setItem("better-auth-ui.verify-email", email);
         navigate({
-          to: getAuthLinkURL(
-            `${basePaths.auth}/${viewPaths.auth.verifyEmail}`,
-            redirectTo
-          )
-        })
+          to: getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.verifyEmail}`, redirectTo),
+        });
       } else if (onSignUpSuccess) {
-        onSignUpSuccess()
+        onSignUpSuccess();
       } else {
-        navigate({ to: redirectTo })
+        navigate({ to: redirectTo });
       }
-    }
-  })
+    },
+  });
 
   const signInMutating = useIsMutating({
-    mutationKey: authMutationKeys.signIn.all
-  })
+    mutationKey: authMutationKeys.signIn.all,
+  });
   const signUpMutating = useIsMutating({
-    mutationKey: authMutationKeys.signUp.all
-  })
-  const isPending = signInMutating + signUpMutating > 0
+    mutationKey: authMutationKeys.signUp.all,
+  });
+  const isPending = signInMutating + signUpMutating > 0;
 
-  const Captcha = plugins.find(
-    (plugin) => plugin.captchaComponent
-  )?.captchaComponent
+  const Captcha = plugins.find((plugin) => plugin.captchaComponent)?.captchaComponent;
 
-
-  const [isCompromised, setIsCompromised] = useState(false)
+  const [isCompromised, setIsCompromised] = useState(false);
   const signUpFields = useMemo(
     () => additionalFields?.filter((field) => field.signUp) ?? [],
-    [additionalFields]
-  )
+    [additionalFields],
+  );
   const form = useAuthForm({
     defaultValues: {
       additionalFields: getAdditionalFieldDefaultValues(signUpFields),
       confirmPassword: "",
       email: "",
       name: "",
-      password: ""
+      password: "",
     },
     onSubmit: async ({ value }) => {
       try {
@@ -145,25 +124,20 @@ export function SignUp({
           name: emailAndPassword?.name === false ? "" : value.name,
           email: value.email.trim(),
           password: value.password,
-          ...getAdditionalFieldSubmitValues(
-            signUpFields,
-            value.additionalFields
-          ),
-          fetchOptions
-        })
+          ...getAdditionalFieldSubmitValues(signUpFields, value.additionalFields),
+          fetchOptions,
+        });
       } catch {
         // The mutation reports the error through its configured handler.
       }
-    }
-  })
+    },
+  });
 
   return (
     <Card className={cn("w-full max-w-sm", className)}>
       <AuthPrompts view="signUp" />
       <CardHeader>
-        <CardTitle className="text-xl font-semibold">
-          {localization.auth.signUp}
-        </CardTitle>
+        <CardTitle className="text-xl font-semibold">{localization.auth.signUp}</CardTitle>
       </CardHeader>
 
       <CardContent>
@@ -179,8 +153,8 @@ export function SignUp({
                         onChange: ({ value }) =>
                           validateStringLength(value, {
                             requiredMessage: localization.auth.fieldRequired,
-                            trim: true
-                          })
+                            trim: true,
+                          }),
                       }}
                     >
                       {(field) => (
@@ -201,8 +175,8 @@ export function SignUp({
                       onChange: ({ value }) =>
                         validateEmailAddress(value, {
                           invalidMessage: localization.auth.invalidEmail,
-                          requiredMessage: localization.auth.fieldRequired
-                        })
+                          requiredMessage: localization.auth.fieldRequired,
+                        }),
                     }}
                   >
                     {(field) => (
@@ -225,7 +199,7 @@ export function SignUp({
                           name={`additionalFields.${configuredField.name}`}
                           validators={getAuthAdditionalFieldValidators(
                             configuredField,
-                            localization.auth.fieldRequired
+                            localization.auth.fieldRequired,
                           )}
                         >
                           {(field) => (
@@ -236,7 +210,7 @@ export function SignUp({
                             />
                           )}
                         </form.AppField>
-                      )
+                      ),
                   )}
 
                   <form.AppField
@@ -247,60 +221,51 @@ export function SignUp({
                           maxLength: emailAndPassword?.maxPasswordLength,
                           maxLengthMessage: localization.auth.tooLong.replace(
                             "{{max}}",
-                            String(emailAndPassword?.maxPasswordLength)
+                            String(emailAndPassword?.maxPasswordLength),
                           ),
                           minLength: emailAndPassword?.minPasswordLength,
                           minLengthMessage: localization.auth.tooShort.replace(
                             "{{min}}",
-                            String(emailAndPassword?.minPasswordLength)
+                            String(emailAndPassword?.minPasswordLength),
                           ),
-                          requiredMessage: localization.auth.fieldRequired
-                        })
+                          requiredMessage: localization.auth.fieldRequired,
+                        }),
                     }}
                   >
                     {(field) => {
-                      const isInvalid =
-                        isAuthFormFieldInvalid(field.state.meta) ||
-                        isCompromised
+                      const isInvalid = isAuthFormFieldInvalid(field.state.meta) || isCompromised;
 
                       return (
                         <Field data-invalid={isInvalid}>
-                          <FieldLabel htmlFor="password">
-                            {localization.auth.password}
-                          </FieldLabel>
+                          <FieldLabel htmlFor="password">{localization.auth.password}</FieldLabel>
 
-                            <PasswordInput
-                              id="password"
-                              name={field.name}
-                              autoComplete="new-password"
-                              value={field.state.value}
-                              onBlur={field.handleBlur}
-                              onChange={(e) => {
-                                field.handleChange(e.target.value)
-                                setIsCompromised(false)
-                              }}
-                              placeholder={
-                                localization.auth.passwordPlaceholder
-                              }
-                              required
-                              minLength={emailAndPassword?.minPasswordLength}
-                              maxLength={emailAndPassword?.maxPasswordLength}
-                              disabled={isPending}
-                              aria-invalid={isInvalid}
-                            />
-
+                          <PasswordInput
+                            id="password"
+                            name={field.name}
+                            autoComplete="new-password"
+                            value={field.state.value}
+                            onBlur={field.handleBlur}
+                            onChange={(e) => {
+                              field.handleChange(e.target.value);
+                              setIsCompromised(false);
+                            }}
+                            placeholder={localization.auth.passwordPlaceholder}
+                            required
+                            minLength={emailAndPassword?.minPasswordLength}
+                            maxLength={emailAndPassword?.maxPasswordLength}
+                            disabled={isPending}
+                            aria-invalid={isInvalid}
+                          />
 
                           {isCompromised ? (
-                            <FieldError>
-                              {localization.auth.passwordCompromised}
-                            </FieldError>
+                            <FieldError>{localization.auth.passwordCompromised}</FieldError>
                           ) : (
                             <field.AuthFormFieldError />
                           )}
 
                           <PasswordStrengthMeter password={field.state.value} />
                         </Field>
-                      )
+                      );
                     }}
                   </form.AppField>
 
@@ -314,27 +279,24 @@ export function SignUp({
                             maxLength: emailAndPassword?.maxPasswordLength,
                             maxLengthMessage: localization.auth.tooLong.replace(
                               "{{max}}",
-                              String(emailAndPassword?.maxPasswordLength)
+                              String(emailAndPassword?.maxPasswordLength),
                             ),
                             minLength: emailAndPassword?.minPasswordLength,
-                            minLengthMessage:
-                              localization.auth.tooShort.replace(
-                                "{{min}}",
-                                String(emailAndPassword?.minPasswordLength)
-                              ),
-                            requiredMessage: localization.auth.fieldRequired
+                            minLengthMessage: localization.auth.tooShort.replace(
+                              "{{min}}",
+                              String(emailAndPassword?.minPasswordLength),
+                            ),
+                            requiredMessage: localization.auth.fieldRequired,
                           }) ??
                           validateMatchingValue(
                             value,
                             fieldApi.form.getFieldValue("password"),
-                            localization.auth.passwordsDoNotMatch
-                          )
+                            localization.auth.passwordsDoNotMatch,
+                          ),
                       }}
                     >
                       {(field) => {
-                        const isInvalid = isAuthFormFieldInvalid(
-                          field.state.meta
-                        )
+                        const isInvalid = isAuthFormFieldInvalid(field.state.meta);
 
                         return (
                           <Field data-invalid={isInvalid}>
@@ -342,29 +304,24 @@ export function SignUp({
                               {localization.auth.confirmPassword}
                             </FieldLabel>
 
-                              <PasswordInput
-                                id="confirmPassword"
-                                name={field.name}
-                                autoComplete="new-password"
-                                value={field.state.value}
-                                onBlur={field.handleBlur}
-                                onChange={(e) =>
-                                  field.handleChange(e.target.value)
-                                }
-                                placeholder={
-                                  localization.auth.confirmPasswordPlaceholder
-                                }
-                                required
-                                minLength={emailAndPassword?.minPasswordLength}
-                                maxLength={emailAndPassword?.maxPasswordLength}
-                                disabled={isPending}
-                                aria-invalid={isInvalid}
-                              />
-
+                            <PasswordInput
+                              id="confirmPassword"
+                              name={field.name}
+                              autoComplete="new-password"
+                              value={field.state.value}
+                              onBlur={field.handleBlur}
+                              onChange={(e) => field.handleChange(e.target.value)}
+                              placeholder={localization.auth.confirmPasswordPlaceholder}
+                              required
+                              minLength={emailAndPassword?.minPasswordLength}
+                              maxLength={emailAndPassword?.maxPasswordLength}
+                              disabled={isPending}
+                              aria-invalid={isInvalid}
+                            />
 
                             <field.AuthFormFieldError />
                           </Field>
-                        )
+                        );
                       }}
                     </form.AppField>
                   )}
@@ -377,7 +334,7 @@ export function SignUp({
                           name={`additionalFields.${configuredField.name}`}
                           validators={getAuthAdditionalFieldValidators(
                             configuredField,
-                            localization.auth.fieldRequired
+                            localization.auth.fieldRequired,
                           )}
                         >
                           {(field) => (
@@ -388,12 +345,10 @@ export function SignUp({
                             />
                           )}
                         </form.AppField>
-                      )
+                      ),
                   )}
 
-                  {Captcha && (
-                    <div className="flex justify-center">{Captcha}</div>
-                  )}
+                  {Captcha && <div className="flex justify-center">{Captcha}</div>}
 
                   <div className="flex flex-col gap-3">
                     <form.AuthFormSubmitButton disabled={isPending}>
@@ -402,18 +357,14 @@ export function SignUp({
 
                     {plugins.flatMap((plugin) =>
                       (plugin.authButtons ?? []).map((AuthButton, index) => (
-                        <AuthButton
-                          key={`${plugin.id}-${index.toString()}`}
-                          view="signUp"
-                        />
-                      ))
+                        <AuthButton key={`${plugin.id}-${index.toString()}`} view="signUp" />
+                      )),
                     )}
                   </div>
                 </FieldGroup>
               </form.AuthFormRoot>
             </form.AppForm>
           )}
-
         </AuthMethods>
 
         {emailAndPassword?.enabled && (
@@ -421,10 +372,7 @@ export function SignUp({
             <FieldDescription className="text-center">
               {localization.auth.alreadyHaveAnAccount}{" "}
               <Link
-                href={getAuthLinkURL(
-                  `${basePaths.auth}/${viewPaths.auth.signIn}`,
-                  redirectTo
-                )}
+                href={getAuthLinkURL(`${basePaths.auth}/${viewPaths.auth.signIn}`, redirectTo)}
                 className="underline underline-offset-4"
               >
                 {localization.auth.signIn}
@@ -434,5 +382,5 @@ export function SignUp({
         )}
       </CardContent>
     </Card>
-  )
+  );
 }

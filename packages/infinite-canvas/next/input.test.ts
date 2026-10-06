@@ -33,7 +33,11 @@ test("failed pointer capture cancels the gesture without committing its camera p
     capturePointer({
       canvas,
       pointerId: 7,
-      element: { setPointerCapture: () => { throw error; } },
+      element: {
+        setPointerCapture: () => {
+          throw error;
+        },
+      },
     });
     expect(canvas.computed.capturedPointerId.peek()).toBeNull();
     expect(canvas.computed.camera.peek()).toEqual(camera);

@@ -63,11 +63,7 @@ function Printer({
     render,
     props: { ...props, children, "data-slot": "printer", className: printer().root({ className }) },
   });
-  return (
-    <Context value={value}>
-      {element}
-    </Context>
-  );
+  return <Context value={value}>{element}</Context>;
 }
 
 export type PrinterMachineProps = useRender.ComponentProps<"div">;

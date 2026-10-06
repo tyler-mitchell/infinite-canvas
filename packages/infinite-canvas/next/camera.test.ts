@@ -41,19 +41,20 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const createCanvas = () => createCanvasState({
-  viewport: { width: 800, height: 600 },
-  cameraMotion: { reducedMotion: "never" },
-  windowDefinitions: { card: { size: { width: 200, height: 100 } } },
-  document: {
-    content: {
-      windows: {
-        a: { kind: "card", rect: { x: 0, y: 0, width: 200, height: 100 } },
+const createCanvas = () =>
+  createCanvasState({
+    viewport: { width: 800, height: 600 },
+    cameraMotion: { reducedMotion: "never" },
+    windowDefinitions: { card: { size: { width: 200, height: 100 } } },
+    document: {
+      content: {
+        windows: {
+          a: { kind: "card", rect: { x: 0, y: 0, width: 200, height: 100 } },
+        },
       },
+      canvasView: { camera: { center: { x: 400, y: 300 }, zoom: 1 } },
     },
-    canvasView: { camera: { center: { x: 400, y: 300 }, zoom: 1 } },
-  },
-});
+  });
 
 test("reactive destinations keep one animation and do not commit intermediate views", async () => {
   const canvas = createCanvas();
@@ -120,9 +121,8 @@ test("a new navigation cancels the old source and stops observing it", async () 
 test("an unavailable source preserves the displayed view and releases its observer", async () => {
   const canvas = createCanvas();
   const available$ = observable(true);
-  const source = (): CameraRequest | null => available$.get()
-    ? { target: { type: "point", point: { x: 1000, y: 800 } } }
-    : null;
+  const source = (): CameraRequest | null =>
+    available$.get() ? { target: { type: "point", point: { x: 1000, y: 800 } } } : null;
   const navigation = canvas.camera.navigate(source);
   playback.controls[0]!.advance(0.4);
   const displayed = canvas.computed.camera.peek();

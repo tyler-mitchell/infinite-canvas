@@ -34,35 +34,42 @@ test.each([
   { result: { status: "saved", id: "portfolio", revision: 1 }, id: "portfolio", revision: 1 },
   { result: { status: "conflict" }, id: null, revision: 0 },
   { result: { status: "unauthenticated" }, id: null, revision: 0 },
-])("queued publish retains the correct revision after $result.status", async ({ result, id, revision }) => {
-  vi.clearAllMocks();
-  vi.spyOn(Route, "useLoaderData").mockReturnValue(null);
-  vi.mocked(savePortfolio)
-    .mockResolvedValueOnce(result)
-    .mockResolvedValueOnce({ status: "published", id: "portfolio", revision: 2 });
-  const client = new QueryClient();
-  const host = document.createElement("div");
-  const root = createRoot(host);
-  const Editor = Route.options.component!;
-  try {
-    await act(async () => {
-      root.render(<QueryClientProvider client={client}><Editor /></QueryClientProvider>);
-    });
-    await act(async () => {
-      const saved = commands["portfolio.save"]();
-      const published = commands["portfolio.publish"]();
-      await saved;
-      await published;
-    });
-    expect(savePortfolio).toHaveBeenNthCalledWith(1, {
-      data: { id: null, revision: 0, document: {}, publish: false },
-    });
-    expect(savePortfolio).toHaveBeenNthCalledWith(2, {
-      data: { id, revision, document: {}, publish: true },
-    });
-  } finally {
-    act(() => root.unmount());
-    client.clear();
-    vi.restoreAllMocks();
-  }
-});
+])(
+  "queued publish retains the correct revision after $result.status",
+  async ({ result, id, revision }) => {
+    vi.clearAllMocks();
+    vi.spyOn(Route, "useLoaderData").mockReturnValue(null);
+    vi.mocked(savePortfolio)
+      .mockResolvedValueOnce(result)
+      .mockResolvedValueOnce({ status: "published", id: "portfolio", revision: 2 });
+    const client = new QueryClient();
+    const host = document.createElement("div");
+    const root = createRoot(host);
+    const Editor = Route.options.component!;
+    try {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={client}>
+            <Editor />
+          </QueryClientProvider>,
+        );
+      });
+      await act(async () => {
+        const saved = commands["portfolio.save"]();
+        const published = commands["portfolio.publish"]();
+        await saved;
+        await published;
+      });
+      expect(savePortfolio).toHaveBeenNthCalledWith(1, {
+        data: { id: null, revision: 0, document: {}, publish: false },
+      });
+      expect(savePortfolio).toHaveBeenNthCalledWith(2, {
+        data: { id, revision, document: {}, publish: true },
+      });
+    } finally {
+      act(() => root.unmount());
+      client.clear();
+      vi.restoreAllMocks();
+    }
+  },
+);

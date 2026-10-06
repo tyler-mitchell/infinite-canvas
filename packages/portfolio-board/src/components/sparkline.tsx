@@ -18,7 +18,8 @@ const sparkline = tv({
     fill: "[stroke:none]",
     trace:
       "fill-none [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.6] [vector-effect:non-scaling-stroke]",
-    restingTrace: "fill-none stroke-pk-ink-faint opacity-30 [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.6] [vector-effect:non-scaling-stroke]",
+    restingTrace:
+      "fill-none stroke-pk-ink-faint opacity-30 [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:1.6] [vector-effect:non-scaling-stroke]",
     drop: "absolute right-0 bottom-0 w-px bg-pk-accent/35 top-(--head)",
     glow: "absolute right-0 size-7.5 translate-x-1/2 -translate-y-1/2 rounded-pk-pill bg-[image:radial-gradient(circle,color-mix(in_oklab,var(--pk-accent)_45%,transparent),transparent_70%)] top-(--head)",
     dot: "absolute right-0 size-[5px] translate-x-1/2 -translate-y-1/2 rounded-pk-pill bg-pk-ink-bright top-(--head)",
@@ -142,7 +143,19 @@ export type SparklineProps = Omit<React.ComponentProps<"div">, "children"> &
  * series at rest rather than a point at the left edge; an empty one draws nothing and marks no
  * head, since a head is a reading.
  */
-function Sparkline({ values, caption, label, size, head, className, style, animation = "reveal", duration = 1.2, repeatDelay = 3, ...props }: SparklineProps) {
+function Sparkline({
+  values,
+  caption,
+  label,
+  size,
+  head,
+  className,
+  style,
+  animation = "reveal",
+  duration = 1.2,
+  repeatDelay = 3,
+  ...props
+}: SparklineProps) {
   const reducedMotion = useReducedMotion();
   /* Resolved once: the same head decides what is drawn and whether a latest is worth naming. */
   const marked = values.length === 0 ? "none" : (head ?? sparklineHead(values, caption));
@@ -200,7 +213,12 @@ function Sparkline({ values, caption, label, size, head, className, style, anima
           className={styles.trace()}
           initial={animated ? { pathLength: 0 } : false}
           animate={{ pathLength: 1 }}
-          transition={{ duration: animated ? duration : 0, ease: "easeInOut", repeat: animated && animation === "sweep" ? Infinity : 0, repeatDelay }}
+          transition={{
+            duration: animated ? duration : 0,
+            ease: "easeInOut",
+            repeat: animated && animation === "sweep" ? Infinity : 0,
+            repeatDelay,
+          }}
         />
       </svg>
       <span className={styles.drop()} />

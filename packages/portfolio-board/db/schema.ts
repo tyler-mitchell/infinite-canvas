@@ -6,7 +6,10 @@ export * from "./auth.ts";
 
 export const portfolio = sqliteTable("portfolio", {
   id: text("id").primaryKey(),
-  ownerId: text("owner_id").notNull().unique().references(() => user.id, { onDelete: "cascade" }),
+  ownerId: text("owner_id")
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: "cascade" }),
   draft: text("draft", { mode: "json" }).$type<typeof canvasSnapshot.infer>().notNull(),
   published: text("published", { mode: "json" }).$type<typeof canvasSnapshot.infer>(),
   revision: integer("revision").notNull().default(1),

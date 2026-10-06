@@ -50,8 +50,19 @@ function Avatar({ src, name, initials, size, className, background, ...props }: 
 
   return (
     <AvatarPrimitive.Root data-slot="avatar" className={styles.root({ className })} {...props}>
-      {background ? <span data-slot="avatar-background" aria-hidden className={styles.background()}>{background}</span> : null}
-      {src ? <AvatarPrimitive.Image data-slot="avatar-image" src={src} alt={name} className={styles.image()} /> : null}
+      {background ? (
+        <span data-slot="avatar-background" aria-hidden className={styles.background()}>
+          {background}
+        </span>
+      ) : null}
+      {src ? (
+        <AvatarPrimitive.Image
+          data-slot="avatar-image"
+          src={src}
+          alt={name}
+          className={styles.image()}
+        />
+      ) : null}
       {/* A name of nothing would override the initials with an empty string rather than add to them. */}
       <AvatarPrimitive.Fallback
         aria-label={name.trim().length > 0 ? name : undefined}

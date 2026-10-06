@@ -21,11 +21,13 @@ function OrganizationIcon({ icon }: { icon: typeof careerEntry.infer.icon }) {
       <img
         src={{ paypal, federato, utsa }[icon]}
         alt=""
-        className={{
-          paypal: "size-5 object-contain",
-          federato: "size-full object-cover",
-          utsa: "size-6 object-contain",
-        }[icon]}
+        className={
+          {
+            paypal: "size-5 object-contain",
+            federato: "size-full object-cover",
+            utsa: "size-6 object-contain",
+          }[icon]
+        }
       />
     </span>
   );
@@ -46,10 +48,11 @@ export function CareerCard({
   const returnToPortfolio = () => {
     if (source === undefined) return;
     if (attached) scrollTo();
-    else void canvas.commands.revealWindow.run({
-      window: source,
-      behavior: { type: "fit", framingMode: "horizontal", maxZoom: 1 },
-    });
+    else
+      void canvas.commands.revealWindow.run({
+        window: source,
+        behavior: { type: "fit", framingMode: "horizontal", maxZoom: 1 },
+      });
   };
   const open = async () => {
     const id = `${window.id.peek()}-detail`;
@@ -118,10 +121,7 @@ export function CareerCard({
       <Card.Footer rule={source === undefined ? undefined : "above"} ruleLook="engraved">
         <Meta>{entry.period}</Meta>
         {source !== undefined ? (
-          <Button
-            tone="ghost"
-            onClick={returnToPortfolio}
-          >
+          <Button tone="ghost" onClick={returnToPortfolio}>
             Back to portfolio <ArrowRight />
           </Button>
         ) : null}

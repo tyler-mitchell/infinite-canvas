@@ -47,17 +47,24 @@ export function WindowContent({
   const height = reported ?? body.height;
   useEffect(() => {
     if (
-      frame.width === undefined || frame.height === undefined ||
-      viewport.height === undefined || height === undefined || height <= 0 || frame.width <= 0
-    ) return;
-    report(canvas.actions.setContentSize.run({
-      windowId,
-      size: intrinsicSize({
-        frame: { width: frame.width, height: frame.height },
-        viewport: { height: viewport.height },
-        content: { height },
+      frame.width === undefined ||
+      frame.height === undefined ||
+      viewport.height === undefined ||
+      height === undefined ||
+      height <= 0 ||
+      frame.width <= 0
+    )
+      return;
+    report(
+      canvas.actions.setContentSize.run({
+        windowId,
+        size: intrinsicSize({
+          frame: { width: frame.width, height: frame.height },
+          viewport: { height: viewport.height },
+          content: { height },
+        }),
       }),
-    }));
+    );
   }, [canvas, windowId, frame.width, frame.height, viewport.height, height]);
   useEffect(
     () => () => {

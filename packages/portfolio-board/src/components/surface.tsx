@@ -47,7 +47,16 @@ export interface SurfaceProps
   extends useRender.ComponentProps<"div">, VariantProps<typeof surface> {}
 
 /** Applies surface tone, spacing, and interaction styling. */
-function Surface({ tone, rim, interactive, padding, container, className, render, ...props }: SurfaceProps) {
+function Surface({
+  tone,
+  rim,
+  interactive,
+  padding,
+  container,
+  className,
+  render,
+  ...props
+}: SurfaceProps) {
   return useRender({
     render,
     defaultTagName: "div",

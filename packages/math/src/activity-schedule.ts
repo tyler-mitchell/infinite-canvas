@@ -31,10 +31,13 @@ export function activitySchedule({
         const transitionDuration = cellDuration + (remaining * weight) / total;
         const count = days[index]?.count;
         const impactAt =
-          threshold === undefined || count === undefined ||
-          !Number.isFinite(count) || count <= 0 || count < threshold
+          threshold === undefined ||
+          count === undefined ||
+          !Number.isFinite(count) ||
+          count <= 0 ||
+          count < threshold
             ? undefined
-            : start + transitionDuration * Math.max(0, threshold) / count;
+            : start + (transitionDuration * Math.max(0, threshold)) / count;
         return {
           start,
           duration: transitionDuration,

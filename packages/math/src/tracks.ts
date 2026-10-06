@@ -15,8 +15,7 @@ export function resolveTracks({
       track.factor > 0 ? track.max : clamp(track.base, ...minMax(track.min, track.max)),
     );
   const growing =
-    sum(tracks.map((track) => clamp(track.base, ...minMax(track.min, track.max)))) <
-    available;
+    sum(tracks.map((track) => clamp(track.base, ...minMax(track.min, track.max)))) < available;
   const settle = (frozen: ReadonlyMap<number, number>): number[] => {
     const flexible = tracks.flatMap((track, index) =>
       frozen.has(index) ? [] : [{ track, index }],
@@ -78,7 +77,10 @@ export function resizeTracks({
   const absorb = (indexes: readonly number[], amount: number) =>
     indexes.reduce<{ rest: number; sizes: Map<number, number> }>(
       (result, item) => {
-        const size = clamp(sizes[item] + result.rest, ...minMax(tracks[item].min, tracks[item].max));
+        const size = clamp(
+          sizes[item] + result.rest,
+          ...minMax(tracks[item].min, tracks[item].max),
+        );
         return {
           rest: result.rest - (size - sizes[item]),
           sizes: new Map([...result.sizes, [item, size]]),

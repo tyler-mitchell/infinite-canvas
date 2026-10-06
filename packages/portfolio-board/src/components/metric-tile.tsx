@@ -8,7 +8,8 @@ const metricTile = tv({
     label:
       "font-pk-sans text-[9.5px] leading-none font-medium tracking-[0.05em] break-words text-pk-ink-dim uppercase",
     reading: "flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1",
-    value: "min-w-0 font-pk-mono text-[13px] leading-[1.25] break-words text-pretty text-pk-ink tabular-nums",
+    value:
+      "min-w-0 font-pk-mono text-[13px] leading-[1.25] break-words text-pretty text-pk-ink tabular-nums",
     limit: "font-pk-mono text-[13px] leading-[1.25] whitespace-nowrap text-pk-ink-dim tabular-nums",
   },
   variants: {
@@ -19,8 +20,10 @@ const metricTile = tv({
       readout: {
         root: "gap-4",
         label: "text-pk-label leading-[1.25] tracking-normal",
-        value: "font-pk-sans text-[length:var(--pk-metric-value-size)] leading-none font-semibold tracking-[-0.035em] text-pk-ink-bright [text-shadow:var(--pk-metric-text-shadow)]",
-        limit: "font-pk-sans text-[length:var(--pk-metric-limit-size)] leading-none font-normal tracking-[-0.025em]",
+        value:
+          "font-pk-sans text-[length:var(--pk-metric-value-size)] leading-none font-semibold tracking-[-0.035em] text-pk-ink-bright [text-shadow:var(--pk-metric-text-shadow)]",
+        limit:
+          "font-pk-sans text-[length:var(--pk-metric-limit-size)] leading-none font-normal tracking-[-0.025em]",
       },
     },
   },

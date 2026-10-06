@@ -82,9 +82,11 @@ export const windowCreation = type({
     "gap?": "number >= 0",
   }),
   "target?": { window: "string > 0", "edge?": "'north' | 'south' | 'east' | 'west' | 'center'" },
-}).narrow((input, ctx) =>
-  input.target === undefined || input.placement === undefined ||
-  ctx.reject("either a docking target or a floating placement"),
+}).narrow(
+  (input, ctx) =>
+    input.target === undefined ||
+    input.placement === undefined ||
+    ctx.reject("either a docking target or a floating placement"),
 );
 
 export type WindowCreation = typeof windowCreation.infer;
@@ -121,8 +123,7 @@ export function getComponentPlacement({
     insertion.point !== undefined &&
     Object.entries(canvas.computed.occupiedRects.get()).some(
       ([id, rect]) =>
-        id.startsWith("occluder:") &&
-        intersectsRect(rect, { ...point, width: 0, height: 0 }),
+        id.startsWith("occluder:") && intersectsRect(rect, { ...point, width: 0, height: 0 }),
     )
   ) {
     return new Error("Drop on the canvas, outside its controls.");

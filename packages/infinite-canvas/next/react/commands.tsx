@@ -96,14 +96,17 @@ function PaletteRoot({
 }) {
   const { canvas } = useCanvasViewport();
   const [error, setError] = useState<string | null>(null);
-  const context = useMemo(() => ({
-    error,
-    reportError: (error: MutationResult | null) => {
-      const message = error instanceof type.errors ? error.summary : error?.message ?? null;
-      setError(message);
-      if (error != null) console.warn("Component insertion failed.", error);
-    },
-  }), [error]);
+  const context = useMemo(
+    () => ({
+      error,
+      reportError: (error: MutationResult | null) => {
+        const message = error instanceof type.errors ? error.summary : (error?.message ?? null);
+        setError(message);
+        if (error != null) console.warn("Component insertion failed.", error);
+      },
+    }),
+    [error],
+  );
   const items = useMemo(
     () =>
       Object.entries(canvas.configuration.components)

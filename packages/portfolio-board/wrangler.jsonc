@@ -9,7 +9,7 @@
       "binding": "DB",
       "database_name": "portfolio-board",
       "database_id": "local",
-      "migrations_dir": "drizzle"
-    }
-  ]
+      "migrations_dir": "drizzle",
+    },
+  ],
 }
