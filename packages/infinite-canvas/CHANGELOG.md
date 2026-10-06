@@ -8,6 +8,247 @@ Keep-a-Changelog view of the whole project â€” including work not yet released â
 repository root's `CHANGELOG.md`.
 
 
+
+## 1.0.0
+<sub>2026-10-06</sub>
+
+- *(major)*
+  Moved window frames into a shared camera layer with layout transitions. Removed the devicePixelRatio prop from InfiniteCanvasWindowLayer.
+- *(major)*
+  Consolidate registered content into window definitions and the shared canvas store.
+
+  Remove the unused graph integration, separate content envelopes, and handle factory.
+  Use window kinds for component identity and raw window data for authored properties.
+  Expose document access and notifications on the store and preserve per-kind frame configuration.
+  Replace the command facade and command envelope with one flat typed dispatch function.
+  Return layout bounds and visibility separately from stored window records.
+  Use getCanvasProjection for group and window bounds, visibility, and drag previews.
+  Separate state execution from React bindings.
+  Remove the separate window lifecycle and command execution paths; normalize edits through one reducer.
+  Define command availability and grouping with their execution rules.
+  Derive command payloads from schemas and use one command admission path.
+  Normalize tree edits in one traversal and frame undo changes from projected bounds.
+  Replace direct undo, redo, reset, and clone helpers with dispatch and native cloning.
+- *(major)*
+  Added headless component authoring with schema-inferred registries and compound palette controls.
+  Added component insertion sizes, allocated manual body height, and scrollable card content.
+  Use native autocomplete filtering and keyboard navigation in the palette. Each item supports insertion and drag.
+- *(major)*
+  Added native group selection with selectable labels, group movement, layout commands, and selection framing.
+  Add and toggle marquee selection retain selected groups and external targets.
+  Changed `startMove` to accept a window or group target instead of `windowId`.
+- *(major)*
+  Moved layout calculations into the math package and made column definitions composable ArkType schemas.
+  Separated authored placement from drag collision resolution. Layouts own child positions during drag
+  and after release. Removed the `dragMotion` prop and drag transition CSS variables.
+
+  Select the dropped tab from the updated document tree when docking creates a container.
+- *(major)*
+  Use Base UI prop composition directly in frame slots. Consumer handlers use preventBaseUIHandler to decline framework behavior.
+- *(major)*
+  Keep scroll navigation independent from editing and publish section changes after scrolling settles.
+
+  Preserve the current camera after cancelled attachment and use the same inset framing at completion.
+
+  Keep detached scroll geometry updates from cancelling camera navigation.
+
+  Animate back to the reading path when scrolling starts from an off-path camera.
+
+  Initialize the computed camera track to null before route geometry is available.
+
+  Remove the camera wheel listener while native scroll navigation owns input.
+
+  Let camera preview call its controller directly without a nested stop action.
+
+  Skip selection geometry and resize-handle discovery outside edit mode.
+
+  Return an element-owned callback ref from useCanvasOccluder instead of a ref object.
+  Keep its inset registered during remeasurement and remove it when the element detaches.
+- *(major)*
+  Unified component actions and canvas commands in getRunnableCommands. Replace computed.selectionActions with the shared command list and runWith(input) with run(input).
+
+  Use declared command scope without a redundant availability check.
+- *(major)*
+  Removed state from the overlay render context. Overlays read state with useInfiniteCanvasSelector or useInfiniteCanvasState, so renderOverlay no longer renders on every camera step.
+- *(major)* Promoted the new canvas API and retained the previous API under legacy.
+- *(minor)*
+  A group title appears above the group shell. The label does not consume layout space or cover a pane.
+
+  The `group-label` slot and `--icx-group-label-fg` property control its appearance. An empty title hides the label.
+
+  The `title` value supplies the rendered text. `setGroupTitle` updates this value. The shell also keeps its `aria-label`.
+- *(minor)*
+  The `groupLabel` property lets a consumer define the frame label for each group. The callback receives the group and its windows.
+
+  This property is independent of `groupTabLabel`.
+
+  The default uses `getInfiniteCanvasGroupTitle`. The `groupLabel` callback can return `""` to hide one group label.
+
+  Set `chrome.groupLabelSize` to `0` to hide all group labels.
+- *(minor)*
+  The minimap omits a viewport indicator that matches the full inner map area. A camera that contains all mapped content causes this case.
+
+  The `viewport` property is `InfiniteCanvasRect | null`. A camera away from mapped windows produces a non-null value.
+
+  `bounds` combines the content and camera rectangles. A camera that contains all content supplies the four `bounds` values.
+
+  The function omits the indicator when the camera rectangle equals `bounds`.
+- *(minor)*
+  `getInfiniteCanvasUnoccludedRuns` merges adjacent visible path segments into contiguous runs. Each run is an `InfiniteCanvasWorldPath`.
+
+  `getInfiniteCanvasLongestUnoccludedRun` returns the longest run.
+
+  Use `getInfiniteCanvasWorldPathPointAtProgress(run, 0.5)` to get its midpoint.
+
+  The merge accepts floating-point differences at segment joints.
+
+  For a straight path, `getInfiniteCanvasLongestUnoccludedSegment` returns the same result with less work.
+- *(minor)*
+  `getInfiniteCanvasGroupableWindowIds(state, windowIds)` returns the IDs that `createInfiniteCanvasGroup` accepts. It preserves the input order.
+
+  The function removes IDs for missing, minimized, or grouped windows. `createInfiniteCanvasGroup` uses the same function.
+
+  Consumers can use the result to control group-command availability.
+- *(minor)*
+  `getInfiniteCanvasContextualEntries` combines canvas commands with consumer actions from `hotkeyActions`.
+
+  The function evaluates each consumer `isEnabled` callback against current state. It also binds each `run` handler to the correct dispatcher.
+
+  Only canvas entries have a `group` value. A consumer action replaces a canvas command with the same ID.
+
+  `getInfiniteCanvasContextualCommands` still returns only framework commands.
+
+  A `hotkeyActions` entry such as `connection.cut` can appear in contextual command lists.
+
+  `getInfiniteCanvasContextualEntries` is stable.
+- *(minor)*
+  The `/scene` entry now paints with a TypeGPU compositor instead of `three` and `@react-three/fiber`.
+
+  `InfiniteCanvasCompositorSurface` replaces `InfiniteCanvasWebGpuSurface`. Pass it to `sceneSurface`.
+
+  A scene layer is now a pass, and the type is `InfiniteCanvasScenePass`. `render` is replaced by `build`, which runs once against the device and returns optional `compute`, `record`, and `readback` functions. `record` takes the canvas for one draw from `target()`, so the first draw of a frame clears and every later one keeps what is already there. A shader reads the camera of its space through the `camera` accessor and every window instance through the `instances` accessor, so a pass needs no bind group of its own.
+
+  Windows live in a GPU-resident world. Each frame the surface writes what the document asks for, and one compute step moves the world toward it by the frame's delta before any pass draws, so nothing a pass draws can jump.
+
+  The surface mounts framework passes from the new `compositor` prop on `InfiniteCanvasDesktop`. Each field takes `true`, `false`, or partial options. On by default: a world-space dot grid that replaces the CSS backdrop, and a contact shadow below each window that reads the union of their rounded-box distance fields, and a particle field whose drift comes from curl noise so the medium carries particles without ever gathering them. Off by default, opt in with `true` or options: an area light that treats each window as a rectangular emitter above the medium and takes the diffuse term of Linearly Transformed Cosines; an attention field that dims the medium away from the active window; and a proximity compute pass whose readings reach `useInfiniteCanvasWindowProximity`. Proximity is off because it costs a compute dispatch and a GPU-to-CPU map every frame, and the map forces a synchronisation.
+
+  Colour options across the compositor are sRGB, the same channels a CSS hex carries. The canvas format is never an sRGB one, so the values pass straight through.
+
+  `InfiniteCanvasWindowFrustumProbeLayer` is removed. `diagnostics.frustum` now measures with the pure viewport predicate and needs no scene surface.
+
+  `getInfiniteCanvasWorldSegmentSceneTransform`, `getInfiniteCanvasWorldPathSceneTransforms`, and the `*ScenePosition` fields on window proxies remain for one release and are removed next.
+
+  Peers: `three`, `@react-three/fiber`, and `@types/three` are no longer required. `typegpu` and `@typegpu/react` are optional peers used only by `/scene`, which is also the only entry that reaches `@typegpu/sdf` and `@typegpu/noise`.
+- *(minor)*
+  A drag held near a viewport edge pans the camera, so an object can be placed outside the region that was visible when the drag started. Every interaction that moves or resizes gets this. A pan interaction does not, because it already moves the camera.
+
+  `InfiniteCanvasDesktop` and `InfiniteCanvasViewport` take an `edgePan` prop. It accepts an `InfiniteCanvasEdgePanPolicy` with `bandPx` and `maxSpeedPxPerSecond`. `false` holds the camera still. The default is `DEFAULT_INFINITE_CANVAS_EDGE_PAN`. Memoize a supplied object.
+
+  The band is measured from the content viewport, so `viewportInsets` moves it. Chrome cannot bury the band under itself.
+
+  Speed is zero at the band's inner lip and eases to full speed at the edge. A pointer dragged past the edge holds full speed, so the pan continues instead of stopping at the boundary.
+
+  `getInfiniteCanvasEdgePanVelocity` reports the speed for a point. It returns `null` when the pointer is clear of every edge.
+- *(minor)* Added command buttons and menu items that use current command availability and dispatch.
+- *(minor)* Added schema-defined components with record bindings, validated property edits, and insertion into existing groups.
+- *(minor)* Added masonry groups with grid placement, resizing, reordering, and content-based row sizing.
+- *(minor)* Added draggable window bodies, movement permissions, and explicit content or manual height control.
+- *(minor)*
+  Use a continuous zoom and pan trajectory for camera navigation with configurable curvature.
+
+  Apply camera state directly to the world transform without a second animation queue or React render.
+
+  Limit zoom-dependent control styles to overlays and keep the world ready for composited motion.
+
+  Start navigation from the displayed pose and commit pan and zoom through the shared camera action.
+
+  Follow reactive destinations on one animation clock without committing intermediate views.
+  Retarget camera interpolation from its current progress and retain configurable motion.
+- *(minor)*
+  Add relative window placement with matching width and spacing without resizing existing windows.
+
+  Accept content sizing and section membership when creating a group.
+- *(patch)* Added desktop registry metadata.
+- *(patch)*
+  For a filtered desktop with no mappable windows, `getInfiniteCanvasMinimapLayout` returns `null`.
+
+  An empty canvas no longer returns a layout that contains only the viewport indicator.
+
+  A consumer that renders only non-null layouts requires no change.
+
+  If a consumer renders minimap chrome without a layout, it must hide that chrome for `null`.
+
+  `bounds` includes the visible camera rectangle. Previously, this made `bounds` non-empty and let `bounds` contain only the viewport.
+
+  The empty rule uses the filtered map set instead of `state.windows`. `window.reveal` uses the same desktop filter.
+
+  The layout remains `@experimental`.
+- *(patch)*
+  The descriptions for `selection.selectAllVisible` and `view.fitAll` state which windows each command includes. Both include every non-minimized window on the current desktop.
+
+  This set includes offscreen windows and windows behind group tabs. Command behavior is unchanged.
+
+  The documentation for `getSelectableWindowIds` uses the same rule.
+
+  `getSelectableWindowIds` filters by `mode` and desktop membership. It does not read the camera.
+
+  `isSelectableWindow` also reads `mode` without the group projection.
+
+  `selectAllVisible` keeps its existing command ID.
+- *(patch)*
+  `workspace.removeActiveWindow` removes the full docked group from the current desktop. The group-complete workspace invariant no longer restores the selected pane.
+
+  `workspace.moveActiveWindow` and `workspace.removeActiveWindow` describe this group rule.
+
+  `addInfiniteCanvasWindowToWorkspace` is unchanged. Reconciliation still adds all siblings when a consumer adds one group member.
+
+  `removeInfiniteCanvasWindowFromWorkspace` previously removed one ID. Then `reconcileInfiniteCanvasWorkspaces` restored the full group.
+
+  `workspace-move.test.ts` covers the move direction through `moveInfiniteCanvasWindowsToWorkspace`.
+
+  `normalizeInfiniteCanvasWorkspaceWindowIds` defines the group-complete invariant.
+- *(patch)*
+  The descriptions for seventeen selection commands state their rules for docked windows.
+
+  `window.nudge.*` moves each selected group shell once. `window.align.*`, `window.distribute.*`, and `window.swap` skip docked windows.
+
+  Command behavior and availability are unchanged.
+
+  `getArrangeableWindows` supplies the skipped set for arrange commands.
+
+  `window.nudge.right` moves group shells. `window.align.left` skips docked panes.
+
+  `window.nudge` requires a non-empty selection. `window.place` and `window.resize` remain unavailable for a docked active window.
+- *(patch)*
+  The active-window lifecycle descriptions state their behavior for docked windows.
+
+  `activeWindow.togglePinned` describes a change to the stacking band. It does not claim that a pinned window is screen-anchored.
+
+  `toggleWindowPinned` moves a window into the pinned stacking band. `getVisibleWindowBounds` does not read `isPinned`.
+
+  `pinned-window-behaviour.test.ts` covers pan and fit-all behavior.
+
+  `activeWindow.minimize` and `activeWindow.toggleMaximized` describe removal from the group. A restore does not return the window to its group.
+
+  `activeWindow.close` still removes a window from groups and desktops.
+
+  Behavior is unchanged.
+- *(patch)* Rewrote package documentation and source comments in Simplified Technical English.
+- *(patch)* Removed deferred rendering from live window bodies so camera movement does not activate deferred body layout.
+- *(patch)* Updated HUD occlusion extents when controls or viewport insets change.
+- *(patch)* Preserved native control pointer handling inside draggable window bodies while retaining window focus.
+- *(patch)* Kept resize handles available at reduced detail and preserved manually resized window heights.
+- *(patch)* Fixed conflicting frame transition styles for content-sized windows and added a content transition CSS variable.
+- *(patch)* Use native observable assignment for canvas state updates.
+- *(patch)* Omit absent restore rectangles so newly created canvas snapshots can be loaded directly.
+- *(patch)* Removed diagnostic formatting from command availability checks.
+- *(patch)* Unified content size reporting around observed frame dimensions.
+- *(patch)* Consolidated layout input decoding into shared schemas for sizing, arrangement, docking, and absorption.
+- *(patch)* Keep drag callbacks current, preserve legacy input handling, and reuse selection lookups.
+- *(patch)* Render canvas window content before browser viewport measurement so server responses include it.
+- *(patch)* Preserve document geometry before viewport measurement and render the initial camera transform during SSR.
+- *(patch)* The connections compositor pass no longer issues a zero-instance draw when there are no connections.
+
 ## 0.2.1
 <sub>2026-08-23</sub>
 
