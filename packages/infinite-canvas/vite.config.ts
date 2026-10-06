@@ -29,7 +29,7 @@ const pack: NonNullable<UserConfig["pack"]> = {
     tsgo: true,
   },
   deps: {
-    alwaysBundle: ["@hyphened/math", "use-webmcp-tool"],
+    alwaysBundle: ["use-webmcp-tool"],
   },
   // Keep `exports` pointing at src for instant playground HMR; vp pack
   // writes the dist mappings to publishConfig.exports for publishing.

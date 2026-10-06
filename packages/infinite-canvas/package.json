@@ -69,6 +69,7 @@
   },
   "dependencies": {
     "@ark/util": "catalog:",
+    "@hyphened/math": "workspace:*",
     "@legendapp/state": "catalog:",
     "@tanstack/hotkeys": "catalog:",
     "@tanstack/react-hotkeys": "catalog:",
@@ -83,7 +84,6 @@
     "@ark/attest": "catalog:",
     "@base-ui/react": "catalog:",
     "@base-ui/utils": "catalog:",
-    "@hyphened/math": "workspace:*",
     "@typegpu/noise": "catalog:",
     "@typegpu/react": "catalog:",
     "@typegpu/sdf": "catalog:",
@@ -147,14 +147,6 @@
     "node": ">=20"
   },
   "inlinedDependencies": {
-    "@thi.ng/binary": "3.6.17",
-    "@thi.ng/bitfield": "2.4.44",
-    "@thi.ng/checks": "3.11.1",
-    "@thi.ng/errors": "2.6.17",
-    "@thi.ng/layout": "4.1.21",
-    "@thi.ng/math": "5.15.17",
-    "@thi.ng/memoize": "4.0.52",
-    "@thi.ng/strings": "3.12.10",
     "use-webmcp-tool": "0.3.0"
   }
 }
