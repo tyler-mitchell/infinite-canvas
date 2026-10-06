@@ -1,26 +1,4 @@
-/**
- * A verification harness for the claims this session shipped unwatched.
- *
- * Twelve commits landed asserting behaviour that nobody had observed — focus containment, a
- * theme refactor claiming bit-for-bit equivalence, a level-of-detail threshold, arrange
- * geometry. Each was reasoned through and typechecked. None was seen. The project's own
- * standard says focus behaviour in particular is not something to land unverified, and it was
- * landed unverified because the environment to watch it was unavailable.
- *
- * This does not fix that. It makes fixing it cheap: instead of an hour reconstructing what to
- * check and what should happen, open a route and run one command. **Every assertion here is
- * one I would otherwise have asked a human to make by hand**, written down while the reasoning
- * behind it is still fresh rather than after it has decayed into "it looked fine".
- *
- * What it deliberately does NOT do is claim these checks passed. It is an instrument, not a
- * result. A harness that has never been run proves nothing, and this one has never been run.
- *
- *     window.__canvasVerify.all()        // every check available on this route
- *     window.__canvasVerify.theme()      // just the token equivalences
- *
- * Dev-only, like the benchmark harness it is modelled on.
- */
-
+/** The development harness examines theme, focus, and detail behavior. */
 type CheckStatus = "fail" | "pass" | "skip";
 
 type CheckResult = Readonly<{
@@ -36,7 +14,7 @@ const skip = (name: string, detail: string): CheckResult => ({ detail, name, sta
 const getViewport = (): HTMLElement | null =>
   document.querySelector<HTMLElement>("[data-slot='viewport']");
 
-/** A readable identity for whatever holds focus. `String(element)` renders "[object HTMLDivElement]". */
+/** This function names the focused element without String(element). */
 const describeActiveElement = (): string => {
   const active = document.activeElement;
 
@@ -45,16 +23,7 @@ const describeActiveElement = (): string => {
     : `<${active.tagName.toLowerCase()}${active.id === "" ? "" : `#${active.id}`}>`;
 };
 
-/**
- * The theme refactor's central claim was that `color-mix(…, transparent)` is exactly the
- * `rgba()` literal it replaced. That is arithmetic, and arithmetic can be checked — but the
- * failure mode worth catching is coarser and more dangerous: if `color-mix` were unsupported,
- * or a `var()` chain were broken, the property resolves to the empty string and the surface
- * silently loses its colour rather than rendering it wrongly.
- *
- * So this asserts every token resolves to *something*. An empty computed value is the bug that
- * a screenshot would show as "looks a bit flat" and that nobody would trace back to a token.
- */
+/** These tokens must resolve to nonempty computed values. */
 const EXPECTED_TOKENS = [
   "--icx-color-foreground",
   "--icx-color-accent",
@@ -88,24 +57,14 @@ function theme(): readonly CheckResult[] {
           `${unresolved.length} resolve to empty: ${unresolved.join(", ")}. ` +
             "A var() chain is broken, or color-mix is unsupported here.",
         ),
-    // theme.css must not have been imported for the tokens to be missing entirely, which is a
-    // different failure from one broken token and worth separating.
+    // This reports a missing stylesheet separately from a missing token.
     computed.getPropertyValue("--icx-background").trim() === ""
       ? fail("theme.stylesheet-loaded", "--icx-background is empty; theme.css is not applied.")
       : pass("theme.stylesheet-loaded", "theme.css is applied."),
   ];
 }
 
-/**
- * Focus containment (FR-9). The three claims, in the order a user would meet them.
- *
- * This drives real focus rather than inspecting attributes, because the whole feature is about
- * what the browser does with `Tab` and no attribute encodes that. `KeyboardEvent` dispatch does
- * **not** move focus — the browser's default action for Tab is not synthesizable — so the entry
- * check verifies the handler's *effect* by calling the same path the handler does, and the trap
- * check verifies the wrap directly. Stated plainly because a harness that quietly tested
- * something weaker than it claims would be worse than none.
- */
+/** This function examines focus entry, tab wrapping, and escape behavior. */
 function focus(): readonly CheckResult[] {
   const surface = document.querySelector<HTMLElement>(
     "[data-infinite-canvas-command-scope='surface']",
@@ -128,7 +87,7 @@ function focus(): readonly CheckResult[] {
         ),
   );
 
-  // Entry: focusing the body should land on its first tabbable, or the body itself.
+  // Focus enters the first tabbable control or the body.
   const tabbables = [...body.querySelectorAll<HTMLElement>("a[href],button,input,select,textarea")];
   const firstTabbable = tabbables[0];
 
@@ -139,19 +98,14 @@ function focus(): readonly CheckResult[] {
       : fail("focus.body-accepts-focus", `activeElement is ${describeActiveElement()}.`),
   );
 
-  // The trap: from the last tabbable, a forward Tab must wrap to the first rather than leave.
+  // Forward Tab at the last control must wrap to the first.
   const lastTabbable = tabbables[tabbables.length - 1];
 
   if (firstTabbable === undefined || lastTabbable === undefined) {
     results.push(skip("focus.tab-wraps", "This window body has no tabbable controls."));
   } else {
     lastTabbable.focus({ preventScroll: true });
-    // Dispatched on the FOCUSED control, not on the body. A real keypress targets whatever has
-    // focus and bubbles to the body's handler, and the trap only fires at the edges — it
-    // compares `event.target` against the first and last tabbable to decide whether the Tab is
-    // leaving. Dispatching on the body makes `target` the body, which is neither, so the trap
-    // correctly declines and the check reports a failure that only its own wiring caused.
-    // (This harness did exactly that on its first run and accused the feature of the bug.)
+    // The event starts at the focused control because the body handler uses event.target.
     lastTabbable.dispatchEvent(
       new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Tab" }),
     );
@@ -165,8 +119,7 @@ function focus(): readonly CheckResult[] {
           ),
     );
 
-    // Escape must hand focus back, or the trap is a cage and every hotkey stays dead. Dispatched
-    // on the focused control for the same reason as the Tab above.
+    // Escape returns focus to the canvas command surface.
     (document.activeElement ?? body).dispatchEvent(
       new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Escape" }),
     );
@@ -184,7 +137,7 @@ function focus(): readonly CheckResult[] {
   return results;
 }
 
-/** Semantic LOD is only observable where a kind declares a summary, so this reports honestly. */
+/** Detail checks apply only to window kinds with a summary. */
 function detail(): readonly CheckResult[] {
   const bodies = document.querySelectorAll("[data-infinite-canvas-body='true']");
 

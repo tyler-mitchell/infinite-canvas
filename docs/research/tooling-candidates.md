@@ -1,56 +1,44 @@
-# Tooling Candidates
+# Tool candidates
 
-> Provenance: adapted 2026-06-10 from kek-monorepo's `tooling-shortlist.md`
-> (2026-04-22/23), corrected for decisions made since: Legend State was
-> adopted (the doc still framed it as an evaluation), and the official
-> framework does not use `@react-three/xr` (that was the predecessor's scene
-> pointer layer; the framework handles pointers in the DOM layer). Stances
-> below are for this repo today.
+> Provenance: This document updates the kek-monorepo `tooling-shortlist.md`.
+> The update occurred on 2026-06-10 and uses sources from 2026-04-22 and 2026-04-23.
+> The framework uses Legend State. The sources evaluated it as a candidate.
+> The predecessor used `@react-three/xr` pointers. This framework uses DOM pointers and does not use that package.
 
-## Adopted (no action)
+## Adopted
 
-- **`@legendapp/state` 3** — the state adapter behind `store.tsx`. The pure
-  core stays adapter-agnostic so the deferred re-evaluation remains cheap.
-- **`@zumer/snapdom`** — snapshot lane capture, behind a dynamic import.
+- `@legendapp/state` 3 supplies the state adapter behind `store.tsx`.
+  The independent pure core keeps a later evaluation local.
+- `@zumer/snapdom` supplies snapshot capture through a dynamic import.
 
-## Add when the trigger fires
+## Add after the stated trigger
 
-- **`r3f-perf`** — playground-only dev dependency; add when GPU work starts
-  in earnest (scene-layer showcases, grid backdrop work) so camera motion and
-  future guides get a factual baseline before more effects are added.
-- **`@react-three/a11y`** — accessibility is FR-9, not a nicety. Relevant
-  once interactive affordances live in the scene; if chrome stays DOM-only,
-  ordinary DOM a11y work may matter more than this package.
-- **`troika-three-text`** — adopt if/when desktop labels, guides, or HUD
-  text move into the GPU layer; don't hand-roll GPU text.
-- **`@floating-ui/react`** — menus/popovers anchored in the DOM layer.
-  Trigger: contextual menus or the body-content portal work (see
-  [body-content-contract.md](body-content-contract.md)). Note `@base-ui/react`
-  (already in the playground UI kit) embeds floating-ui positioning — prefer
-  base-ui components first; reach for floating-ui directly only for
-  canvas-anchored overlays the UI kit can't express.
-- **RBush / Flatbush** — spatial index for snap candidates and culling at
-  scale; trigger documented in [snapping.md](snapping.md).
+- When GPU work starts, add `r3f-perf` as a playground development dependency.
+  Measure scene examples, grid work, camera motion, and future guides before you add more effects.
+- After the scene contains interactive controls, add `@react-three/a11y`.
+  FR-9 requires accessibility, but DOM chrome gives standard DOM work higher value.
+- If desktop labels, guides, or HUD text move into the GPU layer, add `troika-three-text`.
+  Do not implement GPU text in this project.
+- `@base-ui/react` already supplies Floating UI positioning for menus and popovers in the DOM layer.
+  Add `@floating-ui/react` for canvas overlays that the UI kit cannot express.
+  The trigger is a contextual menu or the body-content portal work in [body-content-contract.md](body-content-contract.md).
+- When snap candidates and culling require a spatial index, add RBush or Flatbush.
+  [snapping.md](snapping.md) defines the trigger.
 
-## Situational
+## Situational candidates
 
-- **`@use-gesture/react`** — only if root-level DOM gestures get heavy
-  (pinch normalization could be its trigger; see
-  [../zoom-policy.md](../zoom-policy.md)).
-- **`@react-three/xr` pointer-events layer** — only if interactive chrome
-  ever returns to the scene; pair with R3F v10 event priorities rather than
-  custom raycast plumbing. Not currently used.
+- If root DOM gestures become complex, add `@use-gesture/react`.
+  Pinch normalization is one possible trigger in [zoom-policy.md](../zoom-policy.md).
+- The framework does not use the `@react-three/xr` pointer-events layer at this time.
+  If interactive chrome returns, add it with R3F v10 event priorities.
+  Do not add custom raycast logic for this case.
 
-## Deliberately avoided
+## Rejected candidates
 
-- **`@react-three/handle`** — incompatible posture with our interaction
-  engine; its architecture lessons (framework-agnostic core, rich interaction
-  state, apply boundary) are already absorbed into `interaction.ts`.
-- **`@react-three/uikit`** — window bodies are DOM; scene-native UI kits
-  don't fit the boundary.
-- **GridStack / React-Grid-Layout** — dashboard math must not become the
-  desktop model (risk R8).
-- **`@lume/kiwi` (Cassowary solver)** — only if weights/min-max rules
-  demonstrably fail (risk R7).
-- **`camera-controls`, `@react-three/offscreen`, `three-mesh-bvh`** — wrong
-  levers for a 2D ortho desktop at current scale.
+- `@react-three/handle` does not fit the interaction engine.
+  `interaction.ts` already contains its useful architecture: a framework-independent core, complete interaction state, and an apply boundary.
+- `@react-three/uikit` does not fit because window bodies use the DOM.
+- GridStack and React-Grid-Layout use dashboard layout rules.
+  Risk R8 excludes those rules from the desktop model.
+- Risk R7 permits `@lume/kiwi` only after weights and min-max rules fail in a measured case.
+- `camera-controls`, `@react-three/offscreen`, and `three-mesh-bvh` do not address the current needs of the 2D orthographic desktop.

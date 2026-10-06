@@ -1,72 +1,68 @@
-# State Boundaries, Focus Model, and Layout Recipes
+# State boundaries, focus, and layout recipes
 
-> Provenance: adapted 2026-06-10 from the kek-monorepo windowing corpus
-> (`05_state_focus_and_persistence.md`, verified 2026-04-23). The three-tier
-> state boundary is implemented in the framework; the group-aware focus model
-> and recipes are unbuilt and will matter as soon as grouping lands.
-> Precedents verified at authoring time: Dockview's serialization/constraint
-> split, AeroSpace/i3 command grammars, tldraw's record/render split.
+> Provenance: This document adapts `05_state_focus_and_persistence.md`.
+> A review examined the source on 2026-04-23. The adaptation occurred on 2026-06-10.
+> The framework implements three state tiers. Group focus and recipes remain open until grouping exists.
+> The source review covered Dockview serialization and constraints, AeroSpace and i3 commands, and the tldraw record and render split.
 
-## The three-tier boundary — implemented; protect it
+## Three state tiers (implemented)
 
-1. **Persistent document/layout state** — what the layout _is_: window
-   identity, titles/metadata pointers, floating world rects, z-order, camera,
-   selection. With grouping: group shells, container trees, tab/accordion
-   membership, split weights, saved recipes, optional last-floating-rect /
-   last-dock-path history.
-2. **Runtime session state** — what the user is _doing_: interaction
-   snapshots, hover, drag/resize operations, snap result, docking preview,
-   focused window/group, contextual-group hints. Discardable, recomputable.
-3. **Render/runtime caches** — how to _draw it_: projected screen rects,
-   snapshot textures, DOM measurement caches, spatial indexes, visibility
-   status.
+1. Persistent document state contains window identity, titles, metadata pointers, world rectangles, z-order, camera state, and selection.
+   Grouping adds shells, container trees, tab and accordion membership, split weights, and recipes.
+   It also adds optional last-floating-rectangle and last-dock-path history.
+2. Runtime session state contains interaction snapshots, hover, operations, snap results, docking previews, and contextual-group hints.
+   It also contains the focused window or group.
+   The framework can discard and recalculate this state.
+3. Render caches contain projected screen rectangles, snapshot textures, DOM measurements, spatial indexes, and visibility state.
 
-The framework already strips tier 2 from persistence and keeps the raster
-cache outside serialized state. Rule to preserve: **runtime constraints stay
-runtime-only** (viewport-visibility minimums, snap deadzones at viewport
-edges, drag bounds, keep-titlebar-reachable rules) — they depend on viewport/
-zoom and must never serialize.
+Persistence omits runtime session state and the raster cache.
+Viewport-visibility minimums, snap dead zones at viewport edges, drag bounds, and keep-titlebar-reachable rules depend on the viewport and zoom.
+These constraints remain outside serialized state.
 
-## Focus model — open (designed for the grouping tranche)
+## Focus model (open)
 
-- **Group-local focus first**: inside a group, directional focus resolves
-  within the group's layout semantics (split = directional neighbors,
-  tabs/accordion = local ordering).
-- **Global fallback**: no valid local target → global directional focus among
-  nearby floating windows and group shells.
-- **Floating windows participate** via the contextual parent (smallest group
-  containing the window's center) so floating windows don't need a separate
-  keyboard model. This is the direct mitigation for the "focus model
-  fragments" risk.
+- Within a group, directional focus uses split neighbors or tab and accordion order.
+- With no local target, it searches nearby floating windows and group shells.
+- A floating window uses the smallest group that contains its center as its contextual parent.
+  This common keyboard model mitigates the "focus model fragments" risk.
 
-## Command grammar — partially exists, grows with grouping
+## Command grammar (partially implemented)
 
-Today: cancel, select-all, nudge, fit-all/fit-selection, reset zoom, lifecycle
-commands — all through the typed command layer. The grammar to grow into:
-directional focus, directional move/resize, layout-mode set
-(split/tabs/accordion/columns), dock left/right/top/bottom/center, float
-toggle, balance/normalize/flatten, apply recipe, restore previous floating
-rect, send to new group shell.
+The typed layer contains cancel, select-all, nudge, fit-all, fit-selection, reset-zoom, and lifecycle commands.
+Grouping adds these commands:
 
-**The invariant that matters:** every layout-changing interaction — drag or
-keyboard — compiles to a small set of canonical mutations (move, resize,
-create group, insert child, reorder child, change layout mode, tear out,
-remove empty group, apply recipe). One mutation language is what keeps
-undo/redo, persistence, and multiplayer tractable. The framework's
-command-descriptor layer is already shaped for this.
+- Focus, move, or resize in one direction
+- Set split, tabs, accordion, or columns mode
+- Dock left, right, top, bottom, or center
+- Toggle floating state
+- Balance, normalize, or flatten a group
+- Apply a recipe
+- Restore the previous floating rectangle
+- Send the selection to a new group shell.
 
-## Persistence layers — A exists, B/C open
+Each layout interaction must produce canonical mutations:
 
-- **A. Live layout document** — current windows/positions (implemented:
-  versioned, validated, document-scoped).
-- **B. Named layout recipes** — reusable arrangements applied to the current
-  canvas or a selected region. A recipe expresses: relative placements, group
-  shell topologies, internal layout modes, optional absolute shell rects,
-  optional content-type matching hints, optional post-apply focus. Keep
-  recipes independent from concrete runtime window instances.
-- **C. Per-window history** — last floating rect, last dock target, recent
-  group membership (enables good tear-out and "restore previous rect").
+- Move or resize a window
+- Create a group
+- Put a child in a group, reorder a child, or remove a child
+- Change a layout mode
+- Tear a child out of a group
+- Remove an empty group
+- Apply a recipe.
 
-Recipes are core architecture, not a late feature: they force serialization
-boundaries and command design to stay honest, and they're a validated user
-need (PowerToys Workspaces, Rectangle Pro, Raycast layouts).
+Drag and keyboard actions use this mutation set.
+The common format supports undo, persistence, and multiplayer through the current command descriptors.
+
+## Persistence layers
+
+| Layer                   | Status      | Content                                                                                                                                                               |
+| ----------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A. Live layout document | Implemented | Current windows and positions in a versioned, validated, document-scoped value.                                                                                       |
+| B. Named layout recipes | Open        | Reusable relative placements, group topology, and layout modes. Optional values include absolute shell rectangles, content-type matching hints, and post-apply focus. |
+| C. Per-window history   | Open        | The last floating rectangle, last dock target, and recent group membership.                                                                                           |
+
+Recipes apply to the full canvas or a selected region and exclude concrete runtime window instances.
+Window history supports tear-out and the "restore previous rect" command.
+
+Recipes constrain serialization and commands before grouping ships.
+PowerToys Workspaces, Rectangle Pro, and Raycast layouts provide evidence for this need.

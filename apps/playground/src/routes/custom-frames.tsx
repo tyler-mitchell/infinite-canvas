@@ -1,187 +1,157 @@
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  createInfiniteCanvasState,
-  createInfiniteCanvasWindow,
-  defineInfiniteCanvasWindowRegistry,
-  InfiniteCanvasDesktop,
-  type InfiniteCanvasWindowFrameRenderContext,
-} from "@hyphened/infinite-canvas";
-import { CommandPalette } from "../showcases/command-palette.tsx";
-import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
+import type { Observable } from "@legendapp/state";
+import { observer } from "@legendapp/state/react";
+import { useState } from "react";
+import { createCanvasState, type Canvas, type WindowState } from "@hyphened/infinite-canvas";
+import { CanvasTools, CanvasViewport, WindowDragHandle } from "@hyphened/infinite-canvas/react";
+import "@hyphened/infinite-canvas/theme.css";
+import { CanvasCommands } from "../showcases/canvas-commands";
+import { WindowControls } from "../showcases/sample-canvas";
 
 export const Route = createFileRoute("/custom-frames")({
   component: CustomFramesShowcase,
   staticData: {
     showcase: {
-      description: "renderFrame slots: custom chrome, framework interaction.",
+      description: "Application-owned window presentation with shared canvas interaction.",
       order: 2,
-      title: "Custom frames",
+      title: "Custom windows",
     },
   },
 });
 
-type FrameKind = "default" | "signal" | "terminal";
-
-const initialState = createInfiniteCanvasState<FrameKind>({
-  camera: { center: { x: 330, y: 170 }, zoom: 0.85 },
-  windows: [
-    createInfiniteCanvasWindow({
-      id: "terminal-1",
-      kind: "terminal",
-      rect: { height: 280, width: 430, x: 20, y: 20 },
-      title: "ops/tail",
-      zIndex: 2,
-    }),
-    createInfiniteCanvasWindow({
-      id: "signal-1",
-      kind: "signal",
-      rect: { height: 280, width: 360, x: 510, y: 90 },
-      title: "Signal Monitor",
-      zIndex: 1,
-    }),
-    createInfiniteCanvasWindow({
-      id: "default-1",
-      kind: "default",
-      rect: { height: 220, width: 340, x: 200, y: 360 },
-      title: "Default chrome",
-      zIndex: 0,
-    }),
-  ],
-});
-
-const registry = defineInfiniteCanvasWindowRegistry<FrameKind>({
-  default: {
-    kind: "default",
-    overflowY: "auto",
-    renderBody: () => (
-      <div className="p-4 text-xs leading-relaxed text-white/60">
-        This window keeps the built-in frame. Custom and default chrome share one world, one
-        interaction system, one stacking model.
-      </div>
-    ),
-  },
-  signal: {
-    kind: "signal",
-    overflowY: "auto",
-    renderBody: () => (
-      <div className="grid grid-cols-2 gap-2 p-4">
-        {["alpha", "beta", "gamma", "delta"].map((channel, index) => (
-          <div
-            className="rounded-sm border border-violet-200/15 bg-violet-200/[0.04] p-3"
-            key={channel}
-          >
-            <div className="font-mono text-[9px] uppercase tracking-widest text-violet-200/50">
-              {channel}
-            </div>
-            <div className="mt-1.5 font-mono text-sm text-violet-100/80">
-              {String(57 + index * 31).padStart(3, "0")}
-            </div>
-          </div>
-        ))}
-      </div>
-    ),
-    renderFrame: renderSignalFrame,
-  },
-  terminal: {
-    kind: "terminal",
-    overflowY: "auto",
-    renderBody: () => (
-      <div className="space-y-1.5 p-4 font-mono text-[11px] text-emerald-100/60">
-        {[
-          "frame.Surface keeps the window in the DOM projection layer",
-          "frame.Header keeps drag, focus, and selection wiring",
-          "frame.Controls keeps pin/minimize/maximize/close actions",
-          "frame.Body keeps raster + pointer policy contained",
-        ].map((line) => (
-          <div key={line}>
-            <span className="text-emerald-300/50">$ </span>
-            {line}
-          </div>
-        ))}
-      </div>
-    ),
-    renderFrame: renderTerminalFrame,
-  },
-});
-
-function renderTerminalFrame({
-  frame,
-  isActive,
+const CustomWindow = observer(function CustomWindow({
+  canvas,
   window,
-}: InfiniteCanvasWindowFrameRenderContext<FrameKind>) {
-  const { ActiveCorners, Body, Controls, Header, Surface, Title } = frame;
-
-  return (
-    <Surface
-      className="rounded-md border-emerald-300/25 bg-[#04110b]"
-      style={{
-        boxShadow: isActive
-          ? "0 0 0 1px rgba(110,231,183,0.35), 0 16px 56px rgba(16,185,129,0.16)"
-          : "0 14px 40px rgba(0,0,0,0.4)",
-      }}
-    >
-      <Header
-        className="bg-[#06281b]/80"
-        style={{
-          borderBottomColor: isActive ? "rgba(110,231,183,0.6)" : "rgba(110,231,183,0.18)",
-        }}
+}: {
+  canvas: Canvas;
+  window: Observable<WindowState>;
+}) {
+  const id = window.id.get();
+  const kind = window.kind.get();
+  const active = canvas.computed.view.activeWindowId.get() === id;
+  const selected = canvas.computed.selection.targets[`window:${id}`].get() !== undefined;
+  if (kind === "terminal")
+    return (
+      <section
+        data-active={active || undefined}
+        className="flex h-full flex-col overflow-hidden rounded-md border border-emerald-300/25 bg-[#04110b] shadow-xl data-active:ring-1 data-active:ring-emerald-300/35"
       >
-        <div className="flex min-w-0 items-center gap-2">
-          <span
-            className={`h-2 w-2 shrink-0 rounded-full ${isActive ? "bg-emerald-300" : "bg-emerald-300/30"}`}
-          />
-          <Title className="font-mono normal-case text-emerald-100/75">{window.title}</Title>
+        <WindowDragHandle className="flex h-9 shrink-0 items-center justify-between border-b border-emerald-300/20 bg-[#06281b]/80 px-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <span
+              className={`size-2 shrink-0 rounded-full ${active ? "bg-emerald-300" : "bg-emerald-300/30"}`}
+            />
+            <span className="font-mono text-xs text-emerald-100/75">{window.title.get()}</span>
+          </div>
+          <WindowControls canvas={canvas} window={window} />
+        </WindowDragHandle>
+        <div
+          data-canvas-scroll="native"
+          className="min-h-0 flex-1 space-y-1.5 overflow-auto p-4 font-mono text-[11px] text-emerald-100/60"
+        >
+          {[
+            "The application supplies the surface and title.",
+            "WindowDragHandle connects pointer input to the model.",
+            "Controls call the same commands as agent tools.",
+            "Content keeps its own DOM and local state.",
+          ].map((line) => (
+            <p key={line}>
+              <span className="text-emerald-300/50">$ </span>
+              {line}
+            </p>
+          ))}
         </div>
-        <Controls />
-      </Header>
-      <Body />
-      <ActiveCorners className="border-emerald-200/40" />
-    </Surface>
-  );
-}
-
-function renderSignalFrame({
-  frame,
-  isSelected,
-}: InfiniteCanvasWindowFrameRenderContext<FrameKind>) {
-  const { Body, Controls, Header, Surface, Title } = frame;
-
-  return (
-    <Surface
-      className="rounded-xl border-violet-300/25 bg-[#0b0816]"
-      style={{
-        boxShadow: isSelected
-          ? "0 0 0 1px rgba(196,181,253,0.35), 0 18px 60px rgba(139,92,246,0.18)"
-          : "0 14px 40px rgba(0,0,0,0.35)",
-      }}
-    >
-      <Header
-        className="justify-center bg-transparent"
-        style={{ borderBottomColor: "rgba(196,181,253,0.16)" }}
+      </section>
+    );
+  if (kind === "signal")
+    return (
+      <section
+        data-selected={selected || undefined}
+        className="flex h-full flex-col overflow-hidden rounded-xl border border-violet-300/25 bg-[#0b0816] shadow-xl data-selected:ring-1 data-selected:ring-violet-300/35"
       >
-        <Title className="tracking-[0.3em] text-violet-200/60" />
-        <div className="absolute right-2">
-          <Controls />
+        <WindowDragHandle className="relative flex h-10 shrink-0 items-center justify-center border-b border-violet-300/15">
+          <span className="text-[10px] tracking-[0.2em] text-violet-200/60">
+            {window.title.get()}
+          </span>
+          <div className="absolute right-2">
+            <WindowControls canvas={canvas} window={window} />
+          </div>
+        </WindowDragHandle>
+        <div
+          data-canvas-scroll="native"
+          className="grid min-h-0 flex-1 content-start grid-cols-2 gap-2 overflow-auto p-4"
+        >
+          {["alpha", "beta", "gamma", "delta"].map((channel, index) => (
+            <div
+              key={channel}
+              className="rounded-sm border border-violet-200/15 bg-violet-200/[0.04] p-3"
+            >
+              <div className="font-mono text-[9px] uppercase tracking-widest text-violet-200/50">
+                {channel}
+              </div>
+              <div className="mt-1.5 font-mono text-sm text-violet-100/80">
+                {String(57 + index * 31).padStart(3, "0")}
+              </div>
+            </div>
+          ))}
         </div>
-      </Header>
-      <Body />
-    </Surface>
+      </section>
+    );
+  return (
+    <section className="flex h-full flex-col border border-white/20 bg-neutral-900">
+      <WindowDragHandle className="flex h-9 shrink-0 items-center justify-between border-b border-white/10 px-3">
+        <span className="text-xs">{window.title.get()}</span>
+        <WindowControls canvas={canvas} window={window} />
+      </WindowDragHandle>
+      <p className="p-4 text-xs leading-relaxed text-white/60">
+        Each presentation uses the same camera, selection, movement, and resize operations.
+      </p>
+    </section>
   );
-}
+});
 
 function CustomFramesShowcase() {
+  const [canvas] = useState(() =>
+    createCanvasState({
+      windowDefinitions: { default: {}, signal: {}, terminal: {} },
+      document: {
+        canvasView: {
+          camera: { center: { x: 330, y: 170 }, zoom: 0.85 },
+          stackingOrder: ["window:default-1", "window:signal-1", "window:terminal-1"],
+        },
+        content: {
+          windows: {
+            "terminal-1": {
+              kind: "terminal",
+              title: "ops/tail",
+              rect: { x: 20, y: 20, width: 430, height: 280 },
+            },
+            "signal-1": {
+              kind: "signal",
+              title: "Signal monitor",
+              rect: { x: 510, y: 90, width: 360, height: 280 },
+            },
+            "default-1": {
+              kind: "default",
+              title: "Plain window",
+              rect: { x: 200, y: 360, width: 340, height: 220 },
+            },
+          },
+        },
+      },
+    }),
+  );
   return (
     <div className="absolute inset-0">
-      <InfiniteCanvasDesktop
-        initialState={initialState}
-        renderOverlay={(context) => {
-          exposeCanvasDevHandle(context);
-          return <CommandPalette />;
-        }}
-        subtitle="Custom chrome through controlled frame slots; interaction stays framework-owned."
-        title="Custom Frames"
-        windowDefinitions={registry}
-      />
+      <CanvasViewport
+        canvas={canvas}
+        emptyCanvasDrag="marquee"
+        className="[&_[data-slot=canvas-window]]:bg-transparent [&_[data-slot=canvas-window]]:shadow-none"
+        renderWindow={(window) => <CustomWindow canvas={canvas} window={window} />}
+      >
+        <CanvasCommands canvas={canvas} />
+        <CanvasTools canvas={canvas} />
+      </CanvasViewport>
     </div>
   );
 }

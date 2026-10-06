@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Compositor PoC</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ground: oklch(0.155 0.008 265);
+        --ink: oklch(0.96 0.008 85);
+        --ink-faint: oklch(0.55 0.012 265);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        background: var(--ground);
+        color: var(--ink);
+        font:
+          13px/1.5 ui-sans-serif,
+          system-ui,
+          sans-serif;
+        overflow: hidden;
+      }
+
+      /* Explicit CSS size prevents canvas attributes from resizing this box each frame. */
+      #surface {
+        display: block;
+        height: 100%;
+        inset: 0;
+        position: fixed;
+        touch-action: none;
+        width: 100%;
+      }
+
+      #readout {
+        backdrop-filter: blur(12px);
+        background: oklch(0.205 0.009 265 / 0.86);
+        border-radius: 10px;
+        font-variant-numeric: tabular-nums;
+        left: 12px;
+        padding: 10px 12px;
+        pointer-events: none;
+        position: fixed;
+        top: 12px;
+        white-space: pre;
+      }
+
+      #readout b {
+        color: var(--ink-faint);
+        font-weight: 400;
+      }
+
+      /* This source stays off-screen with layout because display: none prevents capture. */
+      #capture-source {
+        left: -10000px;
+        position: absolute;
+        top: 0;
+      }
+
+      /* This attached host supplies pixels for capture and boxes for hit-testing. */
+      #paint-host {
+        left: 0;
+        position: fixed;
+        top: 0;
+        z-index: -1;
+      }
+
+      .note {
+        background: oklch(0.205 0.009 265);
+        border-radius: 12px;
+        overflow: hidden;
+        width: 512px;
+      }
+
+      .note-chrome {
+        background: oklch(0.238 0.01 265);
+        height: 32px;
+      }
+
+      .note-body {
+        padding: 18px 20px 22px;
+      }
+
+      .note-body h2 {
+        color: var(--accent, var(--ink));
+        font-size: 17px;
+        font-weight: 500;
+        margin-bottom: 10px;
+      }
+
+      .note-tag {
+        background: color-mix(in oklab, var(--accent) 22%, transparent);
+        border-radius: 999px;
+        color: var(--accent);
+        display: inline-block;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        margin-bottom: 10px;
+        padding: 3px 9px;
+        text-transform: uppercase;
+      }
+
+      .note-body p {
+        color: oklch(0.72 0.012 265);
+        font-size: 13px;
+        margin-bottom: 12px;
+      }
+
+      .note-body ul {
+        color: oklch(0.72 0.012 265);
+        font-size: 13px;
+        margin: 0 0 12px 18px;
+      }
+
+      .note-action {
+        background: oklch(0.268 0.011 265);
+        border: 0;
+        border-radius: 8px;
+        color: oklch(0.96 0.008 85);
+        font: inherit;
+        font-size: 13px;
+        margin-bottom: 12px;
+        padding: 8px 14px;
+      }
+
+      .note-field {
+        background: oklch(0.17 0.008 265);
+        border: 1px solid oklch(0.3 0.012 265);
+        border-radius: 8px;
+        color: oklch(0.96 0.008 85);
+        display: block;
+        font: inherit;
+        font-size: 13px;
+        margin-bottom: 10px;
+        padding: 8px 10px;
+        width: 100%;
+      }
+
+      /* CSS draws the focus ring because capture omits the browser focus ring. */
+      .note-field:focus,
+      .note-field[data-focus="true"] {
+        border-color: oklch(0.62 0.14 265);
+        box-shadow: 0 0 0 3px oklch(0.62 0.14 265 / 0.25);
+        outline: none;
+      }
+
+      .note-action[data-done="true"] {
+        background: var(--accent);
+        color: oklch(0.16 0.02 55);
+      }
+
+      .note-meta {
+        color: oklch(0.55 0.012 265) !important;
+        font-size: 11px !important;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="surface"></canvas>
+    <pre id="readout">starting…</pre>
+    <div id="capture-source" aria-hidden="true">
+      <div class="note">
+        <div class="note-chrome"></div>
+        <div class="note-body">
+          <h2>Meeting notes</h2>
+          <p>
+            The compositor's constraint is texture residency, not draw calls. Half a million
+            textured quads cost 1.6 ms in a single instanced draw.
+          </p>
+          <ul>
+            <li>256 layers is the hard array cap</li>
+            <li>An 8192² atlas holds ~341 windows</li>
+            <li>Re-capture is a scheduling problem</li>
+          </ul>
+          <!-- These controls provide a test of focus, selection, and click routing. -->
+          <input class="note-field" type="text" placeholder="Add a note…" />
+          <button class="note-action" type="button">Mark as done</button>
+          <p class="note-meta">edited 2 minutes ago · 3 links</p>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

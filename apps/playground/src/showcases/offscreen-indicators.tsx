@@ -1,51 +1,23 @@
 import {
+  findInfiniteCanvasWindow,
   getInfiniteCanvasOffscreenIndicators,
-  useInfiniteCanvasActions,
+  useInfiniteCanvasDispatch,
   useInfiniteCanvasState,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 
-/**
- * Arrows on the viewport edge pointing at everything you have panned away from.
- *
- * `getInfiniteCanvasOffscreenIndicators` hands over the bearing, the distance, and the point on
- * the edge to draw at. Everything below is this playground's taste, exactly as with the minimap:
- * the framework owns the projection because that is the part a consumer cannot easily get right,
- * and a chevron is the part they can.
- *
- * Click one to fly to it. `behavior: "center"` rather than `"fit"` — a click on an arrow says
- * *"take me there"*, not *"and change my zoom while you're at it"*. Zoom is a thing the user set,
- * and quietly overwriting it is the sort of helpfulness that makes a canvas feel possessed.
- */
-
-/**
- * Twelve, because the arrows exist to be scanned in the periphery, and a ring of a hundred and
- * forty is a border rather than a hint. The framework's `limit` is unbounded by default and this
- * is the consumer picking one — which is exactly why the count is *rendered*. A silent cap reads
- * as "that is everything" precisely when it isn't.
- */
+/** The framework projects indicators. The playground limits and renders them. */
 const INDICATOR_LIMIT = 12;
 
-/** Screen pixels. Far enough in that a rotated chevron is never half-clipped by the viewport. */
+/** The inset keeps rotated chevrons inside the viewport edge. */
 const INDICATOR_INSET_PX = 28;
 
-/**
- * A window one pixel past the edge does not need an arrow: it needs you to look slightly left.
- * The arrow would land on top of the window it points at and jitter as you pan.
- *
- * This is `marginPx` rather than a filter on `distancePx`, and the difference matters twice.
- * The framework applies the margin *before* it sorts and caps, so `indicators.length` still
- * means what the label below claims it means — filtering afterwards would strip the nearest
- * entries out of an already-capped list and undercount. And a margin measures the target's
- * *edge* against the viewport's, so a window mostly offscreen still gets an arrow even though
- * its centre is far away, which a centre-distance test would have suppressed.
- */
+/** The margin hides near-edge indicators before the sort and limit steps. */
 const INDICATOR_MARGIN_PX = 96;
 
 export function CanvasOffscreenIndicators() {
-  // Follows the camera, so it subscribes to everything. Correct for an overlay — it is expected
-  // to re-render per frame — and wrong for a window body, which must not.
+  // Indicators follow camera changes, so they subscribe to all state.
   const state = useInfiniteCanvasState();
-  const actions = useInfiniteCanvasActions();
+  const dispatch = useInfiniteCanvasDispatch();
 
   const indicators = getInfiniteCanvasOffscreenIndicators(state, {
     insetPx: INDICATOR_INSET_PX,
@@ -69,20 +41,24 @@ export function CanvasOffscreenIndicators() {
           ].join(" ")}
           key={`${indicator.kind}:${indicator.id}`}
           onClick={() => {
-            actions.navigateToRect({ behavior: { type: "center" }, rect: indicator.rect });
+            dispatch({
+              request: {
+                behavior: { type: "center" },
+                target: { rect: indicator.rect, type: "rect" },
+              },
+              type: "camera.navigate",
+            });
 
             if (indicator.kind === "window") {
-              actions.focusWindow(indicator.id);
+              dispatch({ type: "window.focus", windowId: indicator.id });
             }
           }}
           onPointerDown={(event) => {
-            // The overlay sits inside the canvas's React tree; without this the pointerdown
-            // reaches the canvas root and starts a marquee behind the arrow.
+            // stopPropagation blocks the button event before the canvas can start a marquee.
             event.stopPropagation();
           }}
           style={{
-            // `point` is where the arrow *points from*, so the button is centred on it rather
-            // than hung off its top-left corner.
+            // The style centers the button on the projected point.
             left: indicator.point.x,
             top: indicator.point.y,
             transform: "translate(-50%, -50%)",
@@ -90,12 +66,11 @@ export function CanvasOffscreenIndicators() {
           title={
             indicator.kind === "group"
               ? `Group ${indicator.id} — ${Math.round(indicator.distancePx)}px away`
-              : `${state.windows.find((window) => window.id === indicator.id)?.title ?? indicator.id} — ${Math.round(indicator.distancePx)}px away`
+              : `${findInfiniteCanvasWindow(state, indicator.id)?.title ?? indicator.id} — ${Math.round(indicator.distancePx)}px away`
           }
           type="button"
         >
-          {/* Rotated by the bearing. The chevron is drawn pointing right (`+x`), which is where
-              `angle === 0` points, so the rotation needs no offset. */}
+          {/* The chevron points right. This direction matches angle zero. */}
           <svg
             aria-hidden="true"
             className="h-3 w-3"

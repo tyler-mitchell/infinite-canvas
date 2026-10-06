@@ -12,11 +12,6 @@ export const Route = createFileRoute("/stage-template")({
   },
 });
 
-/**
- * Template for canvas-style showcases: a full-viewport dark stage with a
- * pointer readout. Real framework showcases replace the stage contents with
- * an InfiniteCanvas desktop.
- */
 function StageTemplateShowcase() {
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
 

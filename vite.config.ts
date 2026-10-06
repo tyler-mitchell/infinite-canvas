@@ -5,14 +5,24 @@ export default defineConfig({
     "*": "vp check --fix",
   },
   fmt: {
-    ignorePatterns: ["reference/**", "**/routeTree.gen.ts", "**/CHANGELOG.md"],
+    ignorePatterns: [
+      "reference/**",
+      "packages/*/research/sources/**",
+      "**/routeTree.gen.ts",
+      "**/CHANGELOG.md",
+    ],
   },
   lint: {
-    ignorePatterns: ["reference/**", "**/routeTree.gen.ts"],
+    ignorePatterns: [
+      ".claude/**",
+      "reference/**",
+      "packages/*/research/sources/**",
+      "**/routeTree.gen.ts",
+    ],
     options: { typeAware: true, typeCheck: true },
     overrides: [
       {
-        files: ["apps/playground/**"],
+        files: ["apps/playground/**", "apps/polkadot/**"],
         plugins: ["typescript", "react"],
       },
     ],

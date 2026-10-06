@@ -9,14 +9,13 @@ import {
   type InfiniteCanvasDropPolicy,
   type InfiniteCanvasOverlayRenderContext,
   type InfiniteCanvasRect,
-  type InfiniteCanvasSceneLayer,
   type InfiniteCanvasSize,
   type InfiniteCanvasWindow,
-} from "@hyphened/infinite-canvas";
-import { InfiniteCanvasWebGpuSurface } from "@hyphened/infinite-canvas/scene";
+  useInfiniteCanvasState,
+} from "@hyphened/infinite-canvas/legacy";
+import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/legacy/scene";
 import { useMemo, useRef } from "react";
 import { CommandPalette } from "../showcases/command-palette.tsx";
-import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 
 export const Route = createFileRoute("/drop-tray")({
   component: DropTrayShowcase,
@@ -158,14 +157,15 @@ function DropTrayShowcase() {
             }
           );
         },
-        onDrop: ({ actions, payload, placement, state, target }) => {
+        onDrop: ({ dispatch, payload, placement, state, target }) => {
           if (!isCardAsset(payload) || placement === null) {
             return;
           }
           sequenceRef.current += 1;
           const ordinal = sequenceRef.current;
-          actions.openWindow(
-            makeCard({
+          dispatch({
+            type: "window.open",
+            window: makeCard({
               accent: payload.accent,
               id: `drop-${payload.kind}-${ordinal}`,
               kind: payload.kind,
@@ -173,58 +173,16 @@ function DropTrayShowcase() {
                 target.type === "window"
                   ? [`Related to “${target.window.title}”.`]
                   : ["Placed at the drop point."],
-              // Literally the rect the ghost was drawn at — the framework hands
-              // back the placement it previewed rather than a second computation.
+              // The preview rect keeps the committed drop aligned with the ghost.
               rect: placement.rect,
               title: `${payload.label} ${String(ordinal).padStart(2, "0")}`,
               zIndex: state.windows.length + 1,
             }),
-          );
+          });
         },
-        // Telling the framework how big the card will be is what lets it snap the
-        // drop and draw the guides. Without it, `drag.placement` stays null.
+        // The card size makes snap placement and guide rendering possible.
         placement: ({ payload }) => (isCardAsset(payload) ? { size: cardSize } : null),
       }) satisfies InfiniteCanvasDropPolicy<CardKind, CardAsset>,
-    [],
-  );
-
-  const sceneLayers = useMemo(
-    () =>
-      [
-        {
-          frameloop: "demand",
-          id: "drop-preview",
-          placement: "overlay",
-          // The ghost. The framework draws the snap guides beside it now, from the
-          // same placement — this layer used to re-derive them and paint its own.
-          render: (context) => {
-            const { drop } = context;
-            if (
-              drop.status !== "dragging" ||
-              !drop.isOverViewport ||
-              !isCardAsset(drop.payload) ||
-              drop.dropTarget.target === null ||
-              drop.placement === null
-            ) {
-              return null;
-            }
-            const { rect } = drop.placement;
-            const valid = drop.dropTarget.status === "valid";
-            return (
-              <group position={[rect.x + rect.width / 2, -(rect.y + rect.height / 2), 10]}>
-                <mesh>
-                  <boxGeometry args={[rect.width, rect.height, 1]} />
-                  <meshBasicMaterial
-                    color={valid ? drop.payload.accent : "#f87171"}
-                    opacity={valid ? 0.16 : 0.08}
-                    transparent
-                  />
-                </mesh>
-              </group>
-            );
-          },
-        },
-      ] satisfies readonly InfiniteCanvasSceneLayer<CardKind, CardAsset>[],
     [],
   );
 
@@ -242,6 +200,7 @@ function DropTrayShowcase() {
   return (
     <div className="absolute inset-0">
       <InfiniteCanvasDesktop<CardKind, CardAsset>
+        tools
         dropPolicy={dropPolicy}
         initialState={initialState}
         renderOverlay={(context) => (
@@ -250,10 +209,9 @@ function DropTrayShowcase() {
             <TrayOverlay context={context} />
           </>
         )}
-        sceneLayers={sceneLayers}
-        sceneSurface={InfiniteCanvasWebGpuSurface}
+        sceneSurface={InfiniteCanvasCompositorSurface}
         spatialTargetResolvers={spatialTargetResolvers}
-        subtitle="Typed payloads, validated targets, R3F placement preview, framework-committed drops."
+        subtitle="Typed payloads, validated targets, compositor placement preview, framework-committed drops."
         title="Drop Tray"
         windowDefinitions={registry}
       />
@@ -266,7 +224,6 @@ function TrayOverlay({
 }: {
   context: InfiniteCanvasOverlayRenderContext<CardKind, CardAsset>;
 }) {
-  exposeCanvasDevHandle(context);
   const { drag } = context;
   const draggingId = drag.status === "dragging" ? drag.id : null;
 
@@ -317,6 +274,7 @@ function BodyDropOutline({
 }: {
   context: InfiniteCanvasOverlayRenderContext<CardKind, CardAsset>;
 }) {
+  const state = useInfiniteCanvasState<CardKind>();
   const target =
     context.drag.status === "dragging" && context.drag.dropTarget.target?.type === "window"
       ? context.drag.dropTarget.target
@@ -324,11 +282,7 @@ function BodyDropOutline({
   if (target === null || target.area !== "body") {
     return null;
   }
-  const rect = worldRectToScreenRect(
-    context.state.camera,
-    context.state.viewport,
-    target.window.rect,
-  );
+  const rect = worldRectToScreenRect(state.camera, state.viewport, target.window.rect);
   return (
     <div
       aria-hidden="true"

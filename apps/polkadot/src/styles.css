@@ -1,0 +1,433 @@
+@layer theme, base, infinite-canvas, components, utilities;
+
+@import "@hyphened/infinite-canvas/legacy/theme.css";
+@import "tailwindcss";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+@source "../../../packages/ui/src";
+@source "../../../packages/surreal-inspector/src";
+
+/* A hairline separates surfaces. Warm ink contrasts with the neutral ground. */
+:root {
+  color-scheme: dark;
+
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+
+  /*
+   * The ground is black and every surface above it is near-black and neutral.
+   *
+   * The whole scale spans L 0 to L 0.19, so lightness alone can no longer separate two surfaces —
+   * `--line` does that. Tinting the ground was what made a dark interface read as grey; without it
+   * the accent is the only colour on screen.
+   */
+  --ground: oklch(0 0 0);
+  --ground-sunken: oklch(0 0 0);
+
+  --surface: oklch(0.134 0 0);
+  --surface-raised: oklch(0.159 0 0);
+  --surface-hover: oklch(0.19 0 0);
+  /* The header of the focused window. Neutral, with only enough lift to separate it from the body. */
+  --surface-active: oklch(0.225 0.004 129);
+
+  /*
+   * The hairline that bounds a surface.
+   *
+   * It carries the separation that lightness used to, so every panel, window and card draws one.
+   * Solid rather than translucent white: the value has to hold over a window body, a canvas, and
+   * black, and an alpha edge changes lightness with whatever it covers.
+   */
+  --line: oklch(0.252 0 0);
+  --line-strong: oklch(0.32 0 0);
+
+  /* Grain is off on surfaces. A surface is flat, which is what makes the hairline the only edge. */
+  --grain: none;
+
+  /* Fine static noise, tiled. The ground is otherwise flat black. */
+  --ground-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.008'/%3E%3C/svg%3E");
+
+  /* All ink tokens use a warm hue against the cool ground. */
+  --ink: oklch(0.96 0.008 85);
+  --ink-muted: oklch(0.72 0.012 85);
+  /* Faint ink has a 4.54 contrast ratio on raised surfaces. */
+  --ink-faint: oklch(0.62 0.012 85);
+  /* Disabled text uses lower contrast to show its state. */
+  --ink-disabled: oklch(0.55 0.012 85);
+
+  /* The accent marks brand and active states. */
+  --accent: oklch(0.78 0.15 55);
+  --accent-strong: oklch(0.84 0.16 60);
+  --accent-wash: oklch(0.78 0.15 55 / 0.12);
+
+  /* State colors stay cool beside the warm accent. */
+  --positive: oklch(0.8 0.13 165);
+  --danger: oklch(0.68 0.19 22);
+
+  /* Canvas 2D reads these RGB channels directly. */
+  --dot-rest: rgb(116 126 146);
+  --dot-lift: rgb(255 186 122);
+
+  /*
+   * Depth is a wash, not a drop shadow.
+   *
+   * A heavy shadow needs a ground lighter than the shadow to read at all. On black there is nothing
+   * left to darken, so a large soft shadow only greys the area around a window. What remains is a
+   * short spread that separates a lifted surface from the one under it.
+   */
+  --lift-1: 0 1px 2px oklch(0 0 0 / 0.5);
+  --lift-2: 0 2px 6px oklch(0 0 0 / 0.55);
+  --lift-3: 0 6px 20px oklch(0 0 0 / 0.6);
+
+  /* Use swift for state changes. Use settle for movement. */
+  --ease-swift: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --radius: 0.75rem;
+  --radius-pill: 999px;
+  /* Shared UI primitives read these radius tokens. */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* These tokens provide shadcn and Base UI compatibility. */
+  --background: var(--ground);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--ink);
+  --primary: var(--accent);
+  --primary-foreground: oklch(0.16 0.02 55);
+  /* Secondary controls use a visible fill on all surface levels. */
+  --secondary: var(--surface-hover);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface);
+  --muted-foreground: var(--ink-muted);
+  --accent-foreground: var(--ink);
+  --destructive: var(--danger);
+  --destructive-foreground: var(--ink);
+  --border: var(--line);
+  --input: var(--line-strong);
+  --ring: var(--accent);
+}
+
+/* Tailwind utilities read these inline theme tokens. */
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  /* UI accent means a hover surface. The brand accent marks active state. */
+  --color-accent: var(--surface-hover);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Bare transition utilities use the swift timing curve. */
+  --default-transition-timing-function: var(--ease-swift);
+}
+
+/* This layer keeps app treatments above framework rules and below utility rules. */
+@layer components {
+  /*
+   * The grain sits on the viewport, not the grid.
+   *
+   * The grid moves with the camera and repaints as it goes. This does not move at all, so the
+   * texture survives a pan without costing the pan anything.
+   *
+   * It lightens rather than blends: on a pure black ground every mode that preserves black —
+   * overlay, multiply, soft-light — leaves the noise invisible, so it carries its own low alpha.
+   */
+  [data-slot="viewport"]::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image: var(--ground-grain);
+    background-size: 120px 120px;
+  }
+
+  /* These tokens apply the app palette to framework chrome. */
+  [data-slot="viewport"] {
+    --icx-background: transparent;
+    /*
+     * Two rules of lines, both far below the hairline that bounds a surface.
+     *
+     * The framework default is a blue-grey the rest of this palette does not use, and at full
+     * strength it competes with the windows. These sit near the floor of what a display can show:
+     * enough to feel the space move under a pan, not enough to look at. The minor rule stays so
+     * the ground still subdivides between the major lines.
+     */
+    --icx-grid-major: color-mix(in oklab, var(--line) 5%, transparent);
+    --icx-grid-minor: color-mix(in oklab, var(--line) 2%, transparent);
+    /* Grain is the first background layer for all window surfaces. */
+    --icx-body-background: var(--grain), var(--surface);
+    --icx-header-idle: var(--grain), var(--surface);
+    /*
+     * The active header lifts, it does not tint. Mixing the warm accent into it made the header
+     * read brown against a neutral canvas. The accent underline already names the active window.
+     */
+    --icx-header-active: var(--grain), var(--surface-active);
+    /* A window is bounded by its hairline. The active one brightens the same line. */
+    --icx-idle-border: var(--line);
+    --icx-active-border: var(--line-strong);
+    /* The gutter shows the ground between split panes. */
+    --icx-group-gutter: var(--ground);
+    /* Group chrome uses the app surface and ink tokens. */
+    --icx-group-tab-fg: var(--ink-faint);
+    --icx-group-surface-radius: var(--radius);
+    --icx-group-surface-shadow: var(--lift-2);
+    --icx-active-accent: var(--accent);
+    --icx-selection-border: var(--accent);
+    --icx-selection-bounds: var(--accent-wash);
+    /*
+     * The mark an undo leaves. Accent, because it names the thing just acted on, which is what the
+     * accent means everywhere else here — a selected connector, an active window.
+     *
+     * The framework default is a cool blue-grey from before this palette went black and neutral,
+     * and it would read as a stray colour rather than as the app speaking.
+     */
+    --icx-revealed-change: var(--accent);
+    --icx-color-foreground: var(--ink);
+    --icx-color-accent: var(--accent);
+    --icx-color-surface-raised: var(--surface-raised);
+
+    /* HUD tokens apply the floating-panel treatment. */
+    /* The translucent panel preserves the framework backdrop blur. */
+    --icx-hud-panel-bg: color-mix(in srgb, var(--surface) 92%, transparent);
+    --icx-hud-panel-border: var(--line);
+    --icx-hud-panel-shadow: var(--lift-2);
+
+    /* Framework controls use the app timing curve. */
+    --icx-transition-duration: 150ms;
+    --icx-transition-timing: var(--ease-swift);
+    --icx-hud-divider: var(--border);
+    --icx-hud-button-fg: var(--ink-muted);
+    --icx-hud-button-hover-fg: var(--ink);
+    --icx-hud-button-hover-bg: var(--surface-hover);
+    --icx-hud-button-hover-border: transparent;
+    --icx-hud-button-active-fg: var(--accent);
+    --icx-hud-button-active-bg: var(--accent-wash);
+    /* Disabled controls use lower-contrast ink. */
+    --icx-hud-button-disabled-fg: var(--ink-disabled);
+    --icx-hud-zoom-readout-fg: var(--ink-muted);
+    --icx-hud-dock-item-fg: var(--ink-muted);
+
+    --icx-surface-radius: 12px;
+    --icx-surface-shadow: var(--lift-2);
+
+    /* Window controls have no fill until pointer interaction. */
+    --icx-control-bg: transparent;
+    --icx-control-border: transparent;
+    --icx-control-fg: var(--ink-faint);
+    --icx-control-hover-bg: var(--surface-hover);
+    --icx-control-hover-border: transparent;
+    --icx-control-hover-fg: var(--ink);
+    --icx-host-control-bg: transparent;
+    --icx-host-control-border: transparent;
+    --icx-host-control-fg: var(--ink-faint);
+    --icx-host-control-hover-bg: var(--surface-hover);
+    --icx-host-control-hover-border: transparent;
+
+    /* Active material and elevation replace frame strokes and corner marks. */
+    --icx-chrome-stroke: transparent;
+    --icx-corner: transparent;
+
+    --icx-title-fg: var(--ink-faint);
+  }
+
+  /* Both header states remove the framework active border. */
+  [data-slot="window"] [data-slot="window-header"],
+  [data-slot="window"][data-active] [data-slot="window-header"] {
+    border-bottom-color: transparent;
+  }
+
+  /* The control radius matches the rails. */
+  [data-slot="window-control"] {
+    border-radius: 7px;
+  }
+
+  /*
+   * Hidden controls float over the header rather than reserving space in it.
+   *
+   * Measured: the controls are 92px of a 201px header, held at opacity 0. Nearly half the header
+   * was spent on buttons nobody could see, and the title truncated to pay for it. Taking them out
+   * of flow gives the title the whole width until a pointer actually arrives.
+   *
+   * They carry the header's own fill so a long title passes behind them rather than through them
+   * when they appear.
+   */
+  [data-slot="window-header"] {
+    position: relative;
+  }
+
+  [data-slot="window-controls"] {
+    position: absolute;
+    right: 8px;
+    padding-left: 10px;
+    background: var(--icx-header-idle);
+    opacity: 0;
+    transition: opacity 160ms var(--ease-swift);
+  }
+
+  [data-slot="window"][data-active] [data-slot="window-controls"] {
+    background: var(--icx-header-active);
+  }
+
+  [data-slot="window"]:hover [data-slot="window-controls"],
+  [data-slot="window"][data-active] [data-slot="window-controls"],
+  [data-slot="window"]:focus-within [data-slot="window-controls"] {
+    opacity: 1;
+  }
+
+  /*
+   * Chrome is set in the mono face. Prose is not.
+   *
+   * Every label in this interface is a name, an id, a count, or a state — things read by
+   * recognition rather than by sentence. A uniform advance makes a column of them line up and
+   * makes one character's difference visible, which is why editors and diagram tools use it.
+   *
+   * The line stops at content. A note body is writing, and writing in a fixed pitch is slower to
+   * read; that keeps `--font-sans` and is the reason this is a selector list rather than a change
+   * to the body font.
+   */
+  [data-slot="window-title"],
+  [data-slot="hud-dock-item"],
+  [data-slot="hud-zoom-readout"],
+  [data-slot="group-tab-label"] {
+    font-family: var(--font-mono);
+  }
+
+  /* Window titles use sentence case at content-reading size. */
+  [data-slot="window-title"] {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    text-transform: none;
+  }
+
+  /* The command dialog uses the raised-surface treatment. */
+  [data-slot="dialog-content"]:has([data-slot="command"]) {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--lift-3);
+  }
+
+  [data-slot="dialog-backdrop"] {
+    background: oklch(0 0 0 / 0.66);
+  }
+
+  /* A hairline divides the list from the field, as it does everywhere else. */
+  [data-slot="command-list"] {
+    background: transparent;
+    border-top: 1px solid var(--line);
+  }
+
+  [data-slot="command-footer"] {
+    background: transparent;
+    border-top: 1px solid var(--line);
+  }
+
+  /* The accent marks the selected command row. */
+  [data-slot="command-item"][data-selected="true"] {
+    background: var(--accent-wash);
+  }
+
+  [data-slot="command-item"][data-selected="true"] [data-slot="command-item-icon"] {
+    background: var(--accent);
+    color: var(--primary-foreground);
+  }
+
+  /* The body shows the title. Window metadata supplies the accessible name. */
+  [data-slot="window"]:is([data-kind="note"], [data-kind="link"]) [data-slot="window-title"] {
+    display: none;
+  }
+
+  /* End alignment puts the sole header child at the right edge. */
+  [data-slot="window"]:is([data-kind="note"], [data-kind="link"]) [data-slot="window-header"] {
+    justify-content: flex-end;
+  }
+
+  /* The active window uses the highest surface elevation. */
+  [data-slot="window"][data-active] {
+    --icx-surface-shadow: var(--lift-3);
+  }
+
+  /* The dock uses the floating-panel treatment. */
+  [data-slot="hud-dock"] {
+    padding: 4px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    box-shadow: var(--lift-2);
+  }
+
+  /* Dock items add a surface only during pointer interaction. */
+  [data-slot="hud-dock-item"] {
+    max-width: 12rem;
+    padding: 6px 12px;
+    overflow: hidden;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    border: 0;
+    color: var(--icx-hud-dock-item-fg);
+    font-size: 12px;
+    letter-spacing: -0.005em;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition:
+      background-color 100ms var(--ease-swift),
+      color 100ms var(--ease-swift);
+  }
+
+  [data-slot="hud-dock-item"]:hover {
+    background: var(--surface-hover);
+    color: var(--ink);
+  }
+
+  [data-slot="hud-dock-item"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    /* Font smoothing reduces uneven glyph edges. */
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Keep document resets in a layer below utilities. */
+}

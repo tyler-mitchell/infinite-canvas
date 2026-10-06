@@ -1,0 +1,3 @@
+coverage/
+.attest/
+test/__screenshots__/

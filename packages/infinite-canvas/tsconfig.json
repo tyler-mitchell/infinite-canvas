@@ -12,7 +12,7 @@
     // an ambient node global here becomes a `@types/node` requirement for anyone who
     // typechecks it — which is exactly how a single `process.env.NODE_ENV` compiled green here
     // and broke the playground build. The one such reference declares `process` locally instead.
-    "types": ["node"],
+    "types": ["node", "vite-plus/client"],
     "skipLibCheck": true,
 
     /* Bundler mode */
@@ -28,5 +28,5 @@
     "noUnusedLocals": true,
     "isolatedModules": true
   },
-  "include": ["src", "scripts"]
+  "include": ["src", "legacy", "scripts"]
 }

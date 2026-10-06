@@ -1,32 +1,36 @@
-# 🐸 Bumpy
+# Bumpy
 
-This directory is used by [bumpy](https://bumpy.varlock.dev) to manage versioning and changelogs.
+This directory contains unreleased entries for [Bumpy](https://bumpy.varlock.dev).
 
-Bumpy is a modern versioning tool for JavaScript/TypeScript projects (monorepos and single packages). It uses **bump files** — small markdown files in this directory — to declare pending version changes. These files are consumed during the release process to compute version bumps, update changelogs, and publish packages.
+Each bump file maps package names to version levels and contains a changelog entry. Bumpy consumes these files during a release.
 
-## How it works
+## Release flow
 
-1. When you make a change that should trigger a release, create a bump file (typically one per PR)
-2. Bump files accumulate on your main branch until you're ready to release
-3. At release time, bumpy merges all pending bumps into a release plan, updates versions and changelogs, and publishes packages
+1. Create one bump file for each consumer-visible change.
+2. If the change grows, update the same file.
+3. Keep unreleased bump files on main.
 
-## Creating bump files
+At release time, Bumpy combines the files into a release plan. The plan updates versions and changelogs, then publishes packages.
 
-### Interactive
+## Create a bump file
+
+### Interactive command
 
 ```bash
 pnpm bumpy add
 ```
 
-### Non-interactive (useful for AI-assisted development)
+### Non-interactive command
 
 ```bash
 pnpm bumpy add --packages "package-name:minor,other-package:patch" --message "Description of changes" --name "my-change"
 ```
 
-### By hand
+### Manual file
 
-Create a `.md` file in this directory with YAML frontmatter mapping package names to bump levels (`major`, `minor`, `patch`, or `none`), and a markdown body for the changelog entry:
+Create a `.md` file in this directory. Put package names and bump levels in the YAML frontmatter.
+
+Use `major`, `minor`, `patch`, or `none` as each bump level. Put the changelog entry after the frontmatter.
 
 ```markdown
 ---
@@ -36,28 +40,32 @@ Create a `.md` file in this directory with YAML frontmatter mapping package name
 Added a new feature.
 ```
 
-### From conventional commits
+### Conventional Commits
 
 ```bash
 pnpm bumpy generate
 ```
 
-### Empty bump files
+### Empty bump file
 
-For PRs that intentionally don't need a release (docs, CI, etc.):
+For a change that does not require a release, create an empty bump file:
 
 ```bash
 pnpm bumpy add --empty --name "docs-update"
 ```
 
-## Keeping bump files up to date
+## Maintain a bump file
 
-As a PR evolves, make sure its bump file stays in sync. If the scope of changes grows (e.g., a patch becomes a new feature), update the bump level and description to match. Reviewers and AI assistants should treat the bump file as part of the PR — just like tests and docs.
+Keep the bump level and description synchronized with the change. If a fix becomes a feature, change the level from patch to minor.
 
-## Files in this directory
+Treat the bump file as part of the change.
 
-- `_config.json` — bumpy configuration
-- `README.md` — this file
-- `*.md` (other than README.md) — pending bump files
+## Directory contents
 
-📖 Full documentation: https://bumpy.varlock.dev
+| Path               | Purpose               |
+| ------------------ | --------------------- |
+| `_config.json`     | Bumpy configuration   |
+| `README.md`        | This guide            |
+| Other `*.md` files | Unreleased bump files |
+
+Full documentation: https://bumpy.varlock.dev

@@ -1,0 +1,62 @@
+{
+  "name": "polkadot",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
+  "scripts": {
+    "dev": "vp dev --port 3000",
+    "build": "vp build",
+    "preview": "vp preview",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@chenglou/pretext": "catalog:",
+    "@fontsource-variable/geist": "catalog:",
+    "@fontsource-variable/geist-mono": "catalog:",
+    "@hyphened/infinite-canvas": "workspace:*",
+    "@legendapp/state": "catalog:",
+    "@lexical/code": "catalog:",
+    "@lexical/code-shiki": "catalog:",
+    "@lexical/headless": "catalog:",
+    "@lexical/link": "catalog:",
+    "@lexical/list": "catalog:",
+    "@lexical/markdown": "catalog:",
+    "@lexical/react": "catalog:",
+    "@lexical/rich-text": "catalog:",
+    "@lexical/selection": "catalog:",
+    "@lexical/utils": "catalog:",
+    "@surrealdb/wasm": "workspace:*",
+    "@tanstack/hotkeys": "catalog:",
+    "@tanstack/react-router": "catalog:",
+    "@typegpu/react": "catalog:",
+    "arktype": "catalog:",
+    "lexical": "catalog:",
+    "liquid-gooey": "catalog:",
+    "lucide-react": "catalog:",
+    "motion": "catalog:",
+    "p-queue": "catalog:",
+    "p-timeout": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "surreal-inspector": "workspace:*",
+    "surrealdb": "catalog:",
+    "typegpu": "catalog:",
+    "ui": "workspace:*"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@tanstack/router-plugin": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "@webgpu/types": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "~6.0.2",
+    "unplugin-typegpu": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

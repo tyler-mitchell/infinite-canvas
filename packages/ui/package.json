@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./tv": "./src/lib/tv.ts",
     "./package.json": "./package.json"
   },
   "scripts": {
@@ -14,6 +15,7 @@
   "dependencies": {
     "@base-ui/react": "catalog:",
     "clsx": "catalog:",
+    "cmdk": "catalog:",
     "lucide-react": "catalog:",
     "tailwind-merge": "catalog:",
     "tailwind-variants": "catalog:"

@@ -9,8 +9,8 @@
     "infinite-canvas",
     "pan-zoom",
     "react",
-    "react-three-fiber",
     "spatial",
+    "typegpu",
     "webgpu",
     "window-manager",
     "workspace"
@@ -35,16 +35,26 @@
   ],
   "exports": {
     ".": "./src/index.ts",
-    "./scene": "./src/scene.ts",
+    "./legacy": "./legacy/index.ts",
+    "./legacy/core": "./legacy/core.ts",
+    "./legacy/scene": "./legacy/scene.ts",
+    "./react": "./src/react/index.ts",
     "./package.json": "./package.json",
-    "./theme.css": "./src/theme.css"
+    "./style.css": "./dist/style.css",
+    "./theme.css": "./src/theme.css",
+    "./legacy/theme.css": "./legacy/theme.css"
   },
   "publishConfig": {
     "exports": {
       ".": "./dist/index.mjs",
-      "./scene": "./dist/scene.mjs",
+      "./legacy": "./dist/legacy.mjs",
+      "./legacy/core": "./dist/legacy/core.mjs",
+      "./legacy/scene": "./dist/legacy/scene.mjs",
+      "./react": "./dist/react.mjs",
       "./package.json": "./package.json",
-      "./theme.css": "./dist/theme.css"
+      "./style.css": "./dist/style.css",
+      "./theme.css": "./dist/theme.css",
+      "./legacy/theme.css": "./dist/legacy/theme.css"
     },
     "access": "public",
     "provenance": true
@@ -54,47 +64,112 @@
     "prepack": "vp run build",
     "test": "vp test",
     "check": "vp check",
+    "typecheck": "vp check --no-fmt --no-lint",
     "verify:api-doc": "node ./scripts/verify-api-doc.mjs",
     "verify:pure-core": "node ./scripts/verify-pure-core.mjs",
-    "verify": "vp run build && pnpm run verify:consumer && node ./scripts/verify-artifact.mjs && node ./scripts/verify-api-doc.mjs && node ./scripts/verify-pure-core.mjs && node ./scripts/verify-api-stability.mjs",
+    "verify": "vp run build && pnpm run verify:consumer && node ./scripts/verify-api-doc.mjs && node ./scripts/verify-pure-core.mjs && node ./scripts/verify-api-stability.mjs",
     "verify:consumer": "node ./scripts/verify-consumer-install.ts",
     "prepublishOnly": "vp run verify",
     "verify:api-stability": "node ./scripts/verify-api-stability.mjs"
   },
   "dependencies": {
+    "@ark/util": "catalog:",
     "@legendapp/state": "catalog:",
     "@tanstack/hotkeys": "catalog:",
-    "@zumer/snapdom": "catalog:"
+    "@tanstack/react-hotkeys": "catalog:",
+    "@thi.ng/arrays": "catalog:",
+    "@thi.ng/compare": "catalog:",
+    "@zumer/snapdom": "catalog:",
+    "arktype": "catalog:",
+    "motion": "catalog:",
+    "typegpu": "catalog:",
+    "webmcp-types": "catalog:"
   },
   "devDependencies": {
-    "@react-three/fiber": "catalog:",
+    "@ark/attest": "catalog:",
+    "@base-ui/react": "catalog:",
+    "@base-ui/utils": "catalog:",
+    "@hyphened/math": "workspace:*",
+    "@typegpu/noise": "catalog:",
+    "@typegpu/react": "catalog:",
+    "@typegpu/sdf": "catalog:",
     "@types/node": "^25.6.2",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "@types/three": "catalog:",
     "@typescript/native-preview": "7.0.0-dev.20260509.2",
+    "@vitest/browser-playwright": "catalog:",
+    "@webgpu/types": "catalog:",
     "bumpp": "^11.1.0",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "three": "catalog:",
     "typescript": "^6.0.3",
+    "unplugin-typegpu": "catalog:",
+    "use-resize-observer": "catalog:",
+    "use-webmcp-tool": "catalog:",
     "vite-plus": "catalog:"
   },
   "peerDependencies": {
-    "@react-three/fiber": ">=10.0.0-canary.dbbe704 <11",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "three": ">=0.181.0"
+    "@base-ui/react": "catalog:",
+    "@base-ui/utils": "catalog:",
+    "@typegpu/noise": "^0.12.0",
+    "@typegpu/react": "^0.12.0",
+    "@typegpu/sdf": "^0.12.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "use-resize-observer": "catalog:"
   },
   "peerDependenciesMeta": {
-    "@react-three/fiber": {
+    "@base-ui/react": {
       "optional": true
     },
-    "three": {
+    "@base-ui/utils": {
+      "optional": true
+    },
+    "@typegpu/noise": {
+      "optional": true
+    },
+    "@typegpu/react": {
+      "optional": true
+    },
+    "@typegpu/sdf": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "use-resize-observer": {
       "optional": true
     }
   },
   "engines": {
     "node": ">=20"
+  },
+  "inlinedDependencies": {
+    "@thi.ng/api": "8.12.28",
+    "@thi.ng/binary": "3.6.17",
+    "@thi.ng/bitfield": "2.4.44",
+    "@thi.ng/checks": "3.11.1",
+    "@thi.ng/defmulti": "3.0.105",
+    "@thi.ng/distance": "3.0.51",
+    "@thi.ng/dlogic": "2.1.129",
+    "@thi.ng/errors": "2.6.17",
+    "@thi.ng/geom": "8.3.38",
+    "@thi.ng/geom-isec": "4.0.95",
+    "@thi.ng/grid-iterators": "4.0.172",
+    "@thi.ng/intervals": "4.2.142",
+    "@thi.ng/layout": "4.1.21",
+    "@thi.ng/logger": "3.3.11",
+    "@thi.ng/math": "5.15.17",
+    "@thi.ng/matrices": "3.0.54",
+    "@thi.ng/memoize": "4.0.52",
+    "@thi.ng/object-utils": "1.3.21",
+    "@thi.ng/strings": "3.12.10",
+    "@thi.ng/transducers": "9.7.0",
+    "@thi.ng/vectors": "8.7.0",
+    "d3-interpolate": "3.0.1",
+    "use-webmcp-tool": "0.3.0"
   }
 }

@@ -1,102 +1,98 @@
 # Infinite Canvas
 
-**A spatial window manager for the web.** Not a whiteboard — a desktop.
+A spatial window manager for the web.
 
-Windows are the primary object: you open, focus, pin, minimize, maximize,
-move, resize, snap, and arrange them on an infinite orthographic plane. Each
-window body is ordinary React DOM, so anything you can build in a component
-can live inside one. An optional, transparent WebGPU surface sits behind and above
-the window plane for programmable, camera-synchronized scene content.
+Users can open, focus, pin, minimize, maximize, move, resize, snap, and arrange windows on an infinite plane. Each window body contains React DOM. An optional transparent WebGPU surface adds programmable scene content above and behind the window plane.
 
 ```bash
 npm install @hyphened/infinite-canvas react react-dom
 ```
 
-→ **[Quick start and package docs](packages/infinite-canvas/README.md)**
-· **[API reference](docs/API.md)** · **[Roadmap](docs/ROADMAP.md)**
+- [Quick start and package docs](packages/infinite-canvas/README.md)
+- [API reference](docs/API.md)
+- [Roadmap](docs/ROADMAP.md).
 
----
+## Core contracts
 
-## Why this exists
+### Pure core
 
-The infinite-canvas landscape is whiteboards, diagram editors, and PKM
-canvases — tldraw, Miro, FigJam, Excalidraw, Obsidian Canvas. They are drawing
-surfaces first.
+The core implements geometry, state transitions, selection, snapping, stacking, groups, history, and camera navigation as pure functions over plain data.
 
-This is the other thing. The lineage is **i3, AeroSpace, Dockview, FancyZones,
-PowerToys Workspaces** — desktop window management, transplanted onto an
-infinite plane and exposed as a React framework. Almost nobody is building
-that.
+The `store`, `rasterization`, and `visibility` boundary modules use Legend State. The `verify-pure-core.mjs` script rejects import paths from the pure core to React, Legend State, or `three`.
 
-## The four bets
+### GPU and DOM
 
-1. **A pure, state-library-agnostic core.** Geometry, the reducer, selection,
-   snapping, stacking, groups, history, and camera navigation are pure
-   functions over plain data, testable without rendering. Legend State is
-   confined to four files, all at the React or programmatic boundary — `store`,
-   `rasterization`, `visibility`, `canvas-handle` — and appears nowhere in
-   derivation. `verify-pure-core.mjs` crawls the import graph and fails the build if a
-   pure-core module can reach React, Legend State, or `three`.
+WebGPU owns the programmable spatial layer. DOM owns the window chrome and bodies. Both layers use the canonical camera.
 
-   This sentence has now been wrong in both directions. It claimed a test enforced the
-   boundary when none did; it was corrected to "no test enforces it yet"; the gate landed
-   on 2026-07-08 and the correction outlived it by a month, while the same README said
-   seventy lines further down that something checks. Under-claiming is the politer error
-   and still an error.
+DOM content cannot enter the WebGPU render pass or interleave with scene geometry.
 
-2. **An explicit GPU/DOM seam, stated honestly.** WebGPU owns the programmable
-   spatial layer; window chrome and bodies are DOM, projected from the same
-   canonical camera. Arbitrary DOM content does _not_ participate in the
-   WebGPU render pass and cannot be depth-interleaved with scene geometry.
-   The framework documents that boundary rather than pretending otherwise.
+The optional scene layer uses `three`.
 
-3. **One canonical mutation path.** Pointer gestures, keyboard shortcuts, UI
-   buttons, and programmatic drivers all compile down to the same named
-   commands. It is what makes automation work today, and what will keep
-   undo/redo and multiplayer tractable when they land.
+### Dispatch
 
-4. **Genuinely headless.** Framework components emit structure, geometry, and
-   a stable `data-slot` attribute vocabulary — and no visual identity at all.
-   `theme.css` is opt-in: a single cascade layer over that contract, so your
-   styles always win. A test fails the build if a framework component ever
-   emits a literal `className`.
+Pointer gestures, keyboard shortcuts, UI buttons, and programmatic drivers dispatch the same typed actions.
+
+### Headless output
+
+Framework components emit structure, geometry, and stable `data-slot` attributes. They do not emit a visual design.
+
+The optional `theme.css` file defines one cascade layer. Consumer styles override this layer. A test rejects literal `className` values in framework components.
 
 ## Status
 
-**0.1.0 — pre-1.0.** The API may change between minor versions. What is
-documented works and is tested; nothing below is aspirational.
+Version 0.2.0 is pre-1.0. The API can change between minor versions.
 
-|              |                                                                                                               |
-| ------------ | ------------------------------------------------------------------------------------------------------------- |
-| Tests        | 400+, including packaging, accessibility, headless-boundary, pure-core-boundary and action-coverage contracts |
-| Bundle       | ~40 KB gzipped without scene layers, excluding peers                                                          |
-| Runtime deps | 3 — `@legendapp/state`, `@tanstack/hotkeys`, and `@zumer/snapdom` (lazily imported)                           |
-| Requires     | React 19. `three` and `@react-three/fiber` are optional peers, needed only for scene layers                   |
+| Measure              | Value                                                                                                      |
+| -------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Tests                | 400+ across packaging, accessibility, headless-boundary, pure-core-boundary, and action-coverage contracts |
+| Bundle               | Approximately 40 KB gzipped without scene layers or peer dependencies                                      |
+| Runtime dependencies | `@legendapp/state`, `@tanstack/hotkeys`, and dynamically imported `@zumer/snapdom`                         |
+| Required peer        | React 19                                                                                                   |
+| Optional peers       | `three` and `@react-three/fiber` for scene layers                                                          |
 
-**Implemented:** infinite pan/zoom canvas · window lifecycle · selection,
-marquee, and group move · snapping with edge/center/gap guides · keyboard
-command layer, including directional window focus · camera navigation · versioned, document-scoped persistence ·
-typed drag & drop with spatial target resolution · window groups with split, tab,
-and accordion layouts, docked by Alt+drag · undo/redo · layout recipes · read-only R3F scene layers ·
-custom chrome via `renderFrame` · headless theming.
+### Implemented
 
-**Not implemented yet:** per-window dock history · group-local focus, focus trapping, and a complete
-accessibility story · far-zoom semantic level-of-detail. Each is a defined
-program with exit criteria in [the roadmap](docs/ROADMAP.md), not a wish.
+- Infinite pan and zoom
+- Window lifecycle
+- Selection, marquee, and group movement
+- Edge, center, and gap snapping guides
+- Keyboard commands with directional window focus
+- Camera navigation
+- Versioned, document-scoped persistence
+- Typed drag and drop with spatial target resolution
+- Split, tab, and accordion window groups
+- Docking with Alt+drag
+- Undo and redo
+- Layout recipes
+- Read-only R3F scene layers
+- Per-kind semantic summaries at far zoom
+- Custom chrome through `renderFrame`
+- Headless theming.
+
+### Planned
+
+These features are not implemented:
+
+- Per-window dock history
+- Full accessibility support.
+
+The [roadmap](docs/ROADMAP.md) gives the exit criteria for each feature.
 
 ## Repository
 
-| Path                       |                                                                                                           |
-| -------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `packages/infinite-canvas` | the published library, `@hyphened/infinite-canvas`                                                        |
-| `apps/playground`          | showcases; also the framework's integration test bed                                                      |
-| `packages/ui`              | private UI kit, used only by the playground                                                               |
-| `docs/`                    | requirements, roadmap, API reference, research                                                            |
-| `reference/`               | prior-art source, kept on disk for mining; **not in the repository** (see [SHIP_PLAN](docs/SHIP_PLAN.md)) |
+| Path                       | Purpose                                                                  |
+| -------------------------- | ------------------------------------------------------------------------ |
+| `packages/infinite-canvas` | Published `@hyphened/infinite-canvas` library                            |
+| `apps/playground`          | Showcases and the framework integration test bed                         |
+| `packages/ui`              | Private shared React component package                                   |
+| `docs/`                    | Requirements, roadmap, API reference, and research                       |
+| `reference/`               | Local prior-art source for research. This path is not in the repository. |
+
+See [SHIP_PLAN](docs/SHIP_PLAN.md) for the local prior-art directory.
 
 ## Development
 
-Requires Node ≥ 22.12 and pnpm 11.5.2 (`corepack enable`).
+Install Node.js 22.12 or later. Install pnpm 11.5.2. Enable Corepack with `corepack enable`.
 
 ```bash
 pnpm install
@@ -105,15 +101,16 @@ pnpm exec vp check                  # format, lint, typecheck
 pnpm exec vp run -r test            # tests
 ```
 
-The playground consumes the framework through source-linked exports, so
-framework edits hot-reload with no build step. See
-[CONTRIBUTING.md](CONTRIBUTING.md) — in particular the two invariants
-contributors most often break. The **headless boundary** is enforced by
-`src/headless-boundary.test.ts`. The **pure core's import boundary** is enforced by
-`packages/infinite-canvas/scripts/verify-pure-core.mjs`, which crawls the import
-graph from every pure-core root and fails CI if the reducer can reach React,
-Legend State, or `three`. It held by construction until 2026-07-08; now something
-checks.
+The playground imports framework source. Framework changes hot-reload without a build.
+
+Before you contribute, read [CONTRIBUTING.md](CONTRIBUTING.md).
+
+This guide explains the headless and pure-core boundaries.
+
+These files enforce the boundaries:
+
+- `packages/infinite-canvas/src/headless-boundary.test.ts`
+- `packages/infinite-canvas/scripts/verify-pure-core.mjs`.
 
 ## License
 

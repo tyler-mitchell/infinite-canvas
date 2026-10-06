@@ -1,0 +1,51 @@
+@layer canvas {
+  :where([data-slot="canvas-world"]) {
+    will-change: transform;
+  }
+
+  :where([data-slot="canvas-viewport"]:focus) {
+    outline: none;
+  }
+
+  :where([data-slot="canvas-window"]) {
+    transition:
+      transform var(--canvas-layout-motion, var(--canvas-default-layout-motion)),
+      width var(--canvas-layout-motion, var(--canvas-default-layout-motion)),
+      height var(--canvas-layout-motion, var(--canvas-default-layout-motion));
+  }
+
+  :where([data-slot="canvas-window"][data-direct]) {
+    transition: none;
+  }
+
+  :where(
+      [data-slot="canvas-viewport"][data-reduced-motion="always"],
+      [data-slot="canvas-viewport"][data-layout-motion="off"]
+    )
+    :where([data-slot="canvas-window"]) {
+    transition: none;
+  }
+
+  :where([data-slot="canvas-window"]) {
+    isolation: isolate;
+  }
+
+  :where([data-slot="canvas-alignment-guide"]) {
+    border: 0 solid var(--canvas-guide-color, Highlight);
+  }
+
+  :where([data-slot="canvas-alignment-guide"][data-axis="x"]) {
+    border-left-width: calc(var(--canvas-guide-width, 1px) * var(--canvas-screen-scale, 1));
+  }
+
+  :where([data-slot="canvas-alignment-guide"][data-axis="y"]) {
+    border-top-width: calc(var(--canvas-guide-width, 1px) * var(--canvas-screen-scale, 1));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :where([data-slot="canvas-viewport"][data-reduced-motion="user"])
+      :where([data-slot="canvas-window"]) {
+      transition: none;
+    }
+  }
+}

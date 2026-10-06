@@ -1,69 +1,70 @@
-# Infinite Canvas Framework — Architecture Plan
+# Infinite Canvas framework architecture plan
 
-Status: draft for review (2026-06-10). Mined from `reference/infinite-canvas`
-(README, FEATURE_TRACKER, SELECTION_AND_KEYBOARD_PLAN, RASTERIZATION_PLAN).
-Nothing here is ported yet; this is the map for doing it deliberately.
+Status: draft for review from 2026-06-10.
+Source: `reference/infinite-canvas`. Files: README, FEATURE_TRACKER, SELECTION_AND_KEYBOARD_PLAN, and RASTERIZATION_PLAN.
+This document records the plan before the port started.
 
 ## Mission
 
-Turn the kek-monorepo infinite-canvas experiment into a standalone,
-publishable framework. The experiment is the most evolved implementation and
-is treated as the spec; this repo is where it becomes the product, with the
-demo app as a thin consumer — the same boundary discipline the experiment
-already enforced ("route as a thin consumer").
+The target was a standalone, publishable framework based on the most developed kek-monorepo experiment.
+That experiment supplied the specification.
+The demo remained a thin consumer, or "route as a thin consumer".
 
-## What the reference implementation proved
+## Reference evidence
 
-The experiment is far past prototype. Shipped and test-covered:
+Status: observed.
 
-- **2D world model**: windows, camera, viewport, rects; pure geometry,
-  stacking, interaction, and camera-navigation modules; deterministic reducer.
-- **Selection + keyboard**: full selection model (replace/add/toggle/clear/
-  select-all, marquee, group move, typed non-window targets), command registry
-  on `@tanstack/hotkeys` core, contextual command queries. All five phases of
-  SELECTION_AND_KEYBOARD_PLAN are implemented.
-- **Extension seams**: `renderFrame` custom chrome slots, read-only R3F
-  `sceneLayers` (world/screen space) over projected window proxies, spatial
-  target resolvers, typed drag/drop contracts, graph connector helpers.
-- **Persistence**: versioned, ArkType-validated, registry-normalized,
-  document-scoped.
-- **Rasterization** (mid-flight): five-lane LOD plan (live DOM, semantic
-  summary/icon, snapshot via `@zumer/snapdom`, future HTML-in-Canvas, far
-  proxy). Slices 0–3 are at least started; slices 4 (WebGPU texture
-  presentation) and 5 (HTML-in-Canvas adapter) are not.
+- **2D model.** It included windows, camera, viewport, rectangles, pure geometry, stacking, input, navigation, and a deterministic reducer.
+- **Selection.** It included replace, add, toggle, clear, select-all, marquee, group movement, and typed non-window targets.
+- **Keyboard.** It used the core of `@tanstack/hotkeys`, contextual queries, and all five SELECTION_AND_KEYBOARD_PLAN phases.
+- **Extensions.** They included `renderFrame`, read-only `sceneLayers`, projected proxies, spatial targets, drag contracts, and connector helpers.
+- **Persistence.** It was versioned, ArkType-validated, registry-normalized, and document-scoped.
 
-Architectural bets the reference docs say to preserve unless the stack
-materially changes:
+The raster plan had five lanes:
 
-1. **WebGPU/R3F owns the programmable spatial layer; React DOM owns window
-   bodies.** The hybrid seam is explicit and deliberate. Core window chrome
-   stays in the DOM host (no cross-layer drift); scene layers are decorative.
-2. **The reducer is pure and state-library agnostic.** Legend State is an
-   adapter at the React boundary (`store.tsx`), never inside core derivation.
-3. **Commands are the single mutation path.** Pointer, keyboard, UI buttons,
-   and future agents all resolve through named commands → reducer actions.
-4. **Consumers get read-only context + framework actions.** No direct Three
-   object edits, DOM reads, or raw signal access from consumer code.
+1. Live DOM.
+2. A semantic summary or icon.
+3. A snapshot from `@zumer/snapdom`.
+4. Future HTML-in-Canvas.
+5. A far proxy.
 
-## Proposed workspace shape
+Slices 0 through 3 were in progress.
+No work existed for slice 4, WebGPU texture presentation.
+No work existed for slice 5, the HTML-in-Canvas adapter.
 
-- **`packages/infinite-canvas`** — the framework. One package to start, with
-  the layering kept as internal module boundaries (mirroring the reference
-  file structure, which is already clean). Split into `core` / `react` /
-  scene-layer packages only when a real consumer needs the pure core without
-  React — premature splitting multiplies release surface for no user.
-- **`apps/playground`** — the consumer/demo app, replacing `apps/website`.
-  Hosts the showcase stages (the reference has 11 routes' worth: normal,
-  custom-frames, scene-chrome, scene-layers, workflow-board, drop-tray,
-  stress-live, stress-raster, frustum-devtools, raster-devtools). Showcases
-  double as the framework's integration test bed.
-- **`packages/utils`** — template placeholder; delete when the first real
-  package lands.
-- Scaffold with `vp create vite:library` / `vp create vite:application` so
-  catalog/workspace wiring stays canonical.
+## Architecture decisions
 
-Internal layering inside `packages/infinite-canvas` (top depends on bottom,
-never the reverse):
+| Decision         | Contract                                                                                                          |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Render ownership | WebGPU and R3F own the spatial layer. React DOM owns chrome and bodies.                                           |
+| Layer alignment  | Core chrome stays in the DOM host. Scene layers contain decorative content and world content.                     |
+| State            | The reducer is pure. Legend State stays in the React adapter in `store.tsx`.                                      |
+| Mutations        | Named commands map pointer, keyboard, UI, and future agent input to reducer actions.                              |
+| Consumer access  | Consumers get read-only context and actions. They cannot edit Three objects, read the DOM, or access raw signals. |
+
+## Proposed workspace
+
+| Path                       | Purpose                                                                     |
+| -------------------------- | --------------------------------------------------------------------------- |
+| `packages/infinite-canvas` | One framework package with internal module boundaries.                      |
+| `apps/playground`          | A normal consumer and integration application that replaces `apps/website`. |
+| `packages/utils`           | A template placeholder that leaves after the first real package arrives.    |
+
+A package split required a real consumer boundary.
+The possible names were `core` and `react` under `packages/infinite-canvas`.
+The split required a consumer that needed the pure core without React. An early split increased the release
+API without a consumer need.
+
+The reference described 11 playground routes.
+The playground covered normal windows, custom frames, scene chrome, scene layers, and a workflow board.
+It also covered a drop tray, live stress, raster stress, frustum tools, and raster tools.
+
+The plan used `vp create vite:library` and `vp create vite:application`.
+These commands kept catalog and workspace configuration consistent.
+
+## Internal layers
+
+The first line depends on the lines that follow it:
 
 ```
 consumer surface   index barrel, factory, registry, presence helpers
@@ -75,58 +76,41 @@ pure core          types, geometry, reducer, interaction, input-policy,
                    spatial-target, scene-model, persistence, commands
 ```
 
-The pure core has no React/Three/Legend imports — that's the property that
-makes the reducer testable and the state library swappable, and it's the
-first thing to protect with a lint boundary (the reference has
-`framework-boundary.test.ts` for exactly this).
+The pure core has no React, Three, or Legend State imports.
+This boundary keeps the reducer testable and the state adapter replaceable.
+The reference used `framework-boundary.test.ts` to enforce it.
 
-## Porting strategy
+## Port sequence
 
-Port in dependency order, tests first-class at every step. The reference has
-extensive colocated tests — they port alongside their modules and define
-"done" for each phase.
+Each phase moved modules with their colocated tests.
+Those tests defined "done" for each phase.
 
-1. **Phase 1 — pure core.** Types, geometry, reducer, interaction,
-   input-policy, selection, snapping, stacking, camera-navigation,
-   spatial-target, persistence, commands, plus their tests. Zero framework
-   dependencies beyond ArkType, so this phase is also where stack decisions
-   bite least. Exit: `vp run -r test` green on the core with the reference
-   test suite passing unmodified (minus import paths).
-2. **Phase 2 — adapters.** Legend State store, hotkeys keyboard boundary,
-   runtime/factory/registry. First external-stack commitments land here.
-3. **Phase 3 — render composition.** `infinite-canvas.tsx`, window frames,
-   scene layers, visibility, rasterization. R3F/WebGPU commitment lands here.
-4. **Phase 4 — playground showcases.** Port stages incrementally, starting
-   with the normal sample document, then workflow-board (it exercises the
-   widest API surface), then the stress/devtools stages.
-5. **Phase 5 — resume the open tracks.** Rasterization slices 4–5, undo/redo
-   transactions, snap hysteresis (flagged `risk` in the tracker),
-   accessibility/focus hardening, spatial index. The dynamic-grid motion
-   study becomes a backdrop option once the scene-layer seam is ported.
+| Phase         | Work                                                                                                                              | Exit or effect                                                                                   |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| 1. Pure core  | Port types, geometry, reducer, input, selection, snapping, stacking, camera, spatial targets, persistence, and commands.          | ArkType is the only framework dependency. `vp run -r test` passes with import-path changes only. |
+| 2. Adapters   | Port the Legend State store, hotkey boundary, runtime, factory, and registry.                                                     | This phase adds the first external stack choices.                                                |
+| 3. Rendering  | Port `infinite-canvas.tsx`, frames, scene layers, visibility, and rasterization.                                                  | This phase adds the R3F and WebGPU choices.                                                      |
+| 4. Playground | Port the normal document, workflow board, stress routes, and developer tools.                                                     | The workflow board uses the largest part of the API.                                             |
+| 5. Open work  | Add texture presentation, HTML-in-Canvas, history, snap hysteresis, accessibility, focus, a spatial index, and the grid backdrop. | The tracker marks snap hysteresis as `risk`. The backdrop waits for the scene-layer seam.        |
 
-Throughout: reference imports use kek's `#/` alias and are intentionally
-broken — every ported file gets its imports rewritten to package-relative
-paths, and `reference/**` stays excluded from fmt/lint.
+The reference used the `#/` alias.
+Each ported file required package-relative imports.
+The `reference/**` files stayed outside formatting and lint scopes.
 
-## Open decisions (need Tyler)
+## Open decisions in the draft
 
-1. **Stack parity.** The reference runs React 19, Legend State 3 beta, R3F
-   v10 canary + drei, Tailwind 4, TanStack Router. Reference docs say
-   preserve the Legend State and R3F bets, but beta/canary deps are a real
-   cost for a standalone framework. Decide per-layer: core (no decision
-   needed), state adapter (Legend State 3 beta vs. alternatives), scene
-   (R3F v10 canary vs. waiting for stable), playground router (TanStack vs.
-   plain Vite multipage).
-2. **Package naming/scope.** `@something/infinite-canvas`? Affects
-   `vp create` invocations, so it's the first blocker for Phase 1.
-3. **Tailwind.** Framework CSS strategy: the reference uses Tailwind 4
-   classes inside framework-rendered chrome. A publishable framework probably
-   wants its own CSS (vanilla/inline/tokens) rather than imposing Tailwind on
-   consumers.
-4. **Dynamic grid placement.** Aesthetics experiment (`reference/
-infinite-canvas-dynamic-grid`) could become a built-in backdrop module, a
-   separate package, or stay a playground-only showcase. No need to decide
-   before Phase 3.
-5. **Visual parity tooling.** kek's `packages/visual-parity` exists for
-   image-comparison testing of canvas aesthetics. Worth pulling in around
-   Phase 4–5 if we want pixel-regression coverage of the grid/raster work.
+- **Stack.** The reference used React 19, Legend State 3 beta, R3F v10 canary, Drei, Tailwind 4, and TanStack Router.
+  The core required no decision, and the adapter choice was Legend State or another adapter.
+  The scene choice was R3F canary or stable.
+  The playground choice was TanStack Router or plain Vite pages.
+  Beta and canary packages increased the consumer cost.
+- **Package scope.** The scope affected the first `vp create` command.
+  The unresolved example was `@something/infinite-canvas`.
+- **CSS.** The reference used Tailwind 4 in framework chrome.
+  The package needed vanilla CSS, inline values, or tokens without a Tailwind requirement.
+- **Grid.** The experiment lived in `reference/
+infinite-canvas-dynamic-grid`.
+  It can become a built-in backdrop, a package, or a playground example.
+  This choice did not block work before Phase 3.
+- **Visual comparison.** kek-monorepo had `packages/visual-parity`.
+  The draft proposed evaluation near Phases 4 and 5 for pixel regressions in grid and raster changes.

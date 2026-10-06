@@ -1,40 +1,3 @@
-/**
- * The synthetic interaction harness the performance profile keeps promising.
- *
- * `research/performance-profile.md` closes with "the protocol above is reproducible via
- * the synthetic drivers in this doc's history" — which is to say the drivers were never in
- * the tree, and every number in that document was produced by code nobody can re-run. P2
- * tranche 1 is landed and unmeasured for exactly that reason: re-deriving the harness costs
- * more than reading the diff, so nobody does it, so the tables stay stale.
- *
- * This is that harness, in the repository. **Building it needs no browser; running it does.**
- * That asymmetry is the whole point: the moment someone opens `/stress` they can measure
- * rather than re-litigate.
- *
- * ## Protocol
- *
- * One input event per animation frame, matching the 2026-06-10 runs. Frame duration is the
- * delta between successive `requestAnimationFrame` timestamps, which measures the whole
- * frame — event handling, React reconciliation, style recalc, layout, paint — because that
- * is what a user feels. The first frame after a gesture starts is discarded: it carries the
- * cost of `startMove`/`startPan` and is not representative of the steady state.
- *
- * ## Reading the numbers
- *
- * `p95` matters more than `mean`. A pan that averages 12ms but spikes to 40 twice a second
- * feels broken, and the mean will not say so. Both are reported.
- *
- * The embedded preview browser underclocks `rAF` under load, so **ratios and slopes are the
- * finding; absolutes want real hardware.** Compare a run against another run from the same
- * browser, never against a number in a document.
- *
- * ## Usage
- *
- *     // http://localhost:5173/stress?count=40
- *     await window.__canvasBench.run({ gesture: "pan" })
- *     await window.__canvasBench.table()   // every gesture, markdown, ready to paste
- */
-
 import {
   REGRESSION_FLOOR_MS,
   REGRESSION_MARGIN,
@@ -54,14 +17,12 @@ type BenchmarkResult = Readonly<{
   windows: number;
 }>;
 
-/** Frames to measure after the warm-up frame is discarded. ~1.5s at 60fps, as in 2026-06-10. */
+/** The benchmark measures 90 frames after warm-up, approximately 1.5 seconds at 60 fps. */
 const BENCHMARK_FRAMES = 90;
 
-/** Wheel deltas per frame. Large enough to move, small enough not to fling off the windows. */
 const PAN_DELTA_PX = 12;
 const ZOOM_DELTA_PX = 4;
 
-/** Pointer travel per frame during a drag, in screen pixels. */
 const DRAG_DELTA_PX = 3;
 
 const nextFrame = async (): Promise<number> =>
@@ -79,7 +40,6 @@ const getViewport = (): HTMLElement => {
   return viewport;
 };
 
-/** The active window's header — what a user grabs, and what `startMove` listens on. */
 const getDragHandle = (): HTMLElement => {
   const header = document.querySelector<HTMLElement>("[data-slot='window-header']");
 
@@ -92,11 +52,7 @@ const getDragHandle = (): HTMLElement => {
 
 const getWindowCount = (): number => document.querySelectorAll("[data-slot='window']").length;
 
-/**
- * `deltaMode: 0` is pixel mode, which is what a trackpad sends and what the framework's
- * wheel normalization treats as authoritative. `ctrlKey` is the pinch-zoom convention every
- * browser uses, and the canvas routes it to zoom rather than pan.
- */
+/** Pixel-mode wheel events model trackpad pan and pinch zoom. */
 const dispatchWheel = (target: HTMLElement, isZoom: boolean): void => {
   target.dispatchEvent(
     new WheelEvent("wheel", {
@@ -137,8 +93,7 @@ const summarize = (
 ): BenchmarkResult => {
   const sorted = [...durations].sort((left, right) => left - right);
   const meanMs = durations.reduce((total, ms) => total + ms, 0) / durations.length;
-  // Nearest-rank p95: the smallest sample at or above the 95th percentile. No interpolation,
-  // because an interpolated frame time is a frame that never happened.
+  // Nearest-rank p95 keeps each result tied to an observed frame.
   const p95Ms = sorted[Math.min(Math.ceil(sorted.length * 0.95) - 1, sorted.length - 1)] ?? 0;
 
   return {
@@ -151,23 +106,13 @@ const summarize = (
   };
 };
 
-/**
- * Drive one gesture for `BENCHMARK_FRAMES` frames and report the frame times.
- *
- * A drag dispatches `pointermove` on `window`, not on the header, because the framework's
- * interaction listeners are mount-scoped on `window` — a drag that only moved the header
- * would measure nothing and pass. That is not hypothetical: the same assumption, inverted,
- * is what let the "move/resize/pan/marquee listener gap" ship, where a `pointermove` in the
- * same frame as its `pointerdown` was silently dropped.
- */
+/** This function measures one gesture after one warm-up frame. */
 const run = async ({
   gesture,
 }: Readonly<{ gesture: BenchmarkGesture }>): Promise<BenchmarkResult> => {
   const viewport = getViewport();
   const windows = getWindowCount();
-  // A drag grabs the header where the header is. The delta arithmetic would survive grabbing
-  // at the viewport's centre — `startMove` records whatever `originPointer` it is handed —
-  // but a driver that grabs somewhere the user never could is measuring a fiction.
+  // The drag starts at the center of the real handle.
   const origin = (gesture === "drag" ? getDragHandle() : viewport).getBoundingClientRect();
   const originX = origin.left + origin.width / 2;
   const originY = origin.top + origin.height / 2;
@@ -176,12 +121,13 @@ const run = async ({
     dispatchPointer(getDragHandle(), "pointerdown", originX, originY);
   }
 
-  // Warm-up: absorbs `startPan`/`startMove` and the first reconciliation.
+  // The first frame includes interaction setup, so exclude it.
   let previous = await nextFrame();
   const durations: number[] = [];
 
   for (let frame = 0; frame < BENCHMARK_FRAMES; frame += 1) {
     if (gesture === "drag") {
+      // The drag moves on window because the listener is mount-scoped there.
       dispatchPointer(window, "pointermove", originX + frame * DRAG_DELTA_PX, originY);
     } else {
       dispatchWheel(viewport, gesture === "zoom");
@@ -199,20 +145,11 @@ const run = async ({
   return summarize(gesture, windows, durations);
 };
 
-/**
- * Every gesture, as a markdown row ready to paste into `performance-profile.md`.
- *
- * **The gestures are not independent.** Each mutates the camera the next one starts from: a
- * pan moves the world, a zoom changes the scale every subsequent frame is drawn at, and a
- * drag leaves a window somewhere new. That is tolerable for the ratios this harness exists to
- * find, and it is not tolerable for a strict comparison — reload between rows, and never
- * compare a `table()` row against a `run()` taken from a fresh page.
- */
 const runAllGestures = async (): Promise<readonly BenchmarkResult[]> => {
   const results: BenchmarkResult[] = [];
 
   for (const gesture of ["pan", "zoom", "drag"] as const) {
-    // Sequential on purpose: two gestures at once measure their interference, not themselves.
+    // The sequence prevents concurrent input.
     results.push(await run({ gesture }));
   }
 
@@ -232,12 +169,11 @@ const table = async (): Promise<string> => {
   ].join("\n");
 };
 
-/** Record every gesture, shaped for pasting into `benchmark-baseline.ts`'s `RUNS`. */
+/** This function shapes results for RUNS. */
 const baseline = async (): Promise<Readonly<Record<number, BenchmarkBaselineRun>>> => {
   const [pan, zoom, drag] = await runAllGestures();
 
-  // Not a cast. `runAllGestures` returns three results today; a baseline silently missing a
-  // gesture is a baseline that approves whatever that gesture later does.
+  // The baseline rejects incomplete gesture results.
   if (pan === undefined || zoom === undefined || drag === undefined) {
     throw new Error("Benchmark did not produce all three gestures; refusing to record.");
   }
@@ -255,21 +191,7 @@ type BenchmarkComparison = Readonly<{
   status: "pass" | "regressed" | "unrecorded";
 }>;
 
-/**
- * Compare this machine against the committed baseline.
- *
- * **`unrecorded` is not `pass`.** With no baseline for this window count, there is nothing to
- * compare against, and reporting success would make the gate a decoration. It is the same rule
- * `verify-api-doc.mjs` follows when the barrel grows a form its parser cannot see: refuse,
- * loudly, rather than approve vacuously.
- *
- * A gesture regresses when its `p95` exceeds the baseline by both `REGRESSION_MARGIN` **and**
- * `REGRESSION_FLOOR_MS`. Either alone produces a gate nobody trusts: the fraction alone fires
- * on sub-millisecond jitter, the floor alone lets a 40ms frame become 41 forever.
- *
- * This cannot fail CI today. Nothing runs a browser in CI. What it can do is turn "is this
- * slower?" from an argument into a command, and be ready the day a headless runner exists.
- */
+/** This function compares p95 values with the current window-count baseline. */
 const compare = async (): Promise<BenchmarkComparison> => {
   const results = await runAllGestures();
   const windows = results[0]?.windows ?? 0;
@@ -318,7 +240,7 @@ declare global {
   }
 }
 
-/** Dev-only, like `__canvas`. A benchmark harness has no business in a production bundle. */
+/** This function exposes the benchmark only in development builds. */
 export function exposeCanvasBenchmark(): void {
   if (!import.meta.env.DEV) {
     return;

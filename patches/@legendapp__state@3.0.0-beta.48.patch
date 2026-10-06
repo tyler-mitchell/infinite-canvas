@@ -1,0 +1,56 @@
+diff --git a/index.d.mts b/index.d.mts
+--- a/index.d.mts
++++ b/index.d.mts
+@@ -16 +16 @@
+-interface ObservableObjectFunctions<T = Record<string, any>> extends ObservablePrimitive<T>, ObservableObjectFns<T> {
++export interface ObservableObjectFunctions<T = Record<string, any>> extends ObservablePrimitive<T>, ObservableObjectFns<T> {
+diff --git a/index.d.ts b/index.d.ts
+--- a/index.d.ts
++++ b/index.d.ts
+@@ -16 +16 @@
+-interface ObservableObjectFunctions<T = Record<string, any>> extends ObservablePrimitive<T>, ObservableObjectFns<T> {
++export interface ObservableObjectFunctions<T = Record<string, any>> extends ObservablePrimitive<T>, ObservableObjectFns<T> {
+diff --git a/helpers/undoRedo.js b/helpers/undoRedo.js
+--- a/helpers/undoRedo.js
++++ b/helpers/undoRedo.js
+@@ -16,3 +16,3 @@ function undoRedo(obs$, options) {
+-  obs$.onChange(({ getPrevious }) => {
+-    if (restoringFromHistory)
++  obs$.onChange(({ getPrevious, isFromPersist, isFromSync }) => {
++    if (restoringFromHistory || isFromPersist || isFromSync)
+       return;
+diff --git a/helpers/undoRedo.mjs b/helpers/undoRedo.mjs
+--- a/helpers/undoRedo.mjs
++++ b/helpers/undoRedo.mjs
+@@ -14,3 +14,3 @@ function undoRedo(obs$, options) {
+-  obs$.onChange(({ getPrevious }) => {
+-    if (restoringFromHistory)
++  obs$.onChange(({ getPrevious, isFromPersist, isFromSync }) => {
++    if (restoringFromHistory || isFromPersist || isFromSync)
+       return;
+diff --git a/sync.js b/sync.js
+index 7ea378f28456e51c4f0de242a02d05f07c53b9ca..a0cb539fed1ea1fc50bbf282b0f843ef8f55dee4 100644
+--- a/sync.js
++++ b/sync.js
+@@ -1335,6 +1335,8 @@ function syncObservable(obs$, syncOptionsOrSynced) {
+             };
+             if (state.isPromise(got)) {
+               got.then(handle).catch((error) => {
++                syncState$.numPendingGets.set((v) => v - 1);
++                syncState$.isGetting.set(syncStateValue.numPendingGets > 0);
+                 onGetError(
+                   error,
+                   { getParams, syncOptions, source: "get", type: "get", retry: getParams },
+diff --git a/sync.mjs b/sync.mjs
+index a387516a92587563e2df7a8cdd9b7804225900b8..a0989bbff85863354638351ac6fe5cd043831d6e 100644
+--- a/sync.mjs
++++ b/sync.mjs
+@@ -1333,6 +1333,8 @@ function syncObservable(obs$, syncOptionsOrSynced) {
+             };
+             if (isPromise$1(got)) {
+               got.then(handle).catch((error) => {
++                syncState$.numPendingGets.set((v) => v - 1);
++                syncState$.isGetting.set(syncStateValue.numPendingGets > 0);
+                 onGetError(
+                   error,
+                   { getParams, syncOptions, source: "get", type: "get", retry: getParams },

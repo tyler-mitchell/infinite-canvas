@@ -2,10 +2,40 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "polkadot",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "apps/polkadot", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "polkadot-2",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "apps/polkadot", "exec", "vp", "dev", "--port", "3001"],
+      "port": 3001
+    },
+    {
+      "name": "polkadot-ui",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "packages/polkadot-ui", "exec", "vp", "dev", "--port", "3400"],
+      "port": 3400
+    },
+    {
       "name": "playground",
-      "runtimeExecutable": "vp",
-      "runtimeArgs": ["run", "playground#dev"],
-      "port": 5173
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "apps/playground", "exec", "vp", "dev", "--port", "3300"],
+      "port": 3300
+    },
+    {
+      "name": "compositor-poc",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "apps/compositor-poc", "dev"],
+      "port": 3100
+    },
+    {
+      "name": "handoff",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dlx", "serve", "--no-clipboard", "--listen", "3200", "docs/handoff"],
+      "port": 3200
     }
   ]
 }

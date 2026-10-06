@@ -4,35 +4,10 @@ import {
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
   InfiniteCanvasDesktop,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { useState } from "react";
 import { CommandPalette } from "../showcases/command-palette.tsx";
-import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 import { exposeCanvasVerification } from "../showcases/verify.ts";
-
-/**
- * Real interactive content inside window bodies — P6's exit criterion, and the surface FR-9's
- * focus containment needs in order to be falsifiable at all.
- *
- * Every other showcase puts *inert* content in its windows: a paragraph, a swatch, a label. Inert
- * content cannot reveal the body-content contract's failure modes, because none of them are about
- * painting. They are about **input ownership** — who gets the pointer, who gets the caret, who
- * gets the wheel — and you cannot test that with a div that wants none of them.
- *
- * So this route is deliberately made of the widgets that fight a canvas hardest:
- *
- * - **A form.** Text inputs want the caret, drag-select want the pointer the marquee also wants,
- *   and `Tab` wants an order the desktop also has opinions about. If focus containment is wrong,
- *   this is where it shows: `Tab` should cycle these fields and stop, never walking into the
- *   window beside it.
- * - **A scrollable list.** The wheel is contested. A canvas zooms on wheel; a list scrolls on it.
- *   `wheelBehavior: "native-scroll"` is the framework's answer, and this is where it is exercised.
- * - **Text selection.** Dragging across a paragraph must select the paragraph, not marquee-select
- *   the windows behind it. `textSelection: "native"` is the opt-in, and dragging here proves it.
- *
- * Nothing here uses a component library, deliberately. Plain platform controls test the
- * *framework*; a component library would test the component library's escape hatches.
- */
 
 type BodyContentWindowKind = "form" | "list" | "prose";
 
@@ -41,11 +16,6 @@ const CONTROL_CLASS =
 
 const LABEL_CLASS = "grid gap-1 text-[10px] uppercase tracking-wider text-muted-foreground";
 
-/**
- * A form with the four control types that behave differently under a transform: text, select,
- * checkbox, and a multi-line field. The submit button reports into local state rather than
- * anywhere real — the point is the interaction, not the payload.
- */
 function ContactForm() {
   const [submitted, setSubmitted] = useState<string | null>(null);
 
@@ -55,8 +25,7 @@ function ContactForm() {
       onSubmit={(event) => {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
-        // `FormData.get` returns `string | File | null`, so the values are narrowed rather than
-        // stringified — `String(file)` would render "[object File]" into the UI.
+        // `String(file)` returns "[object File]" for a File, so this code narrows the value.
         const name = data.get("name");
         const tier = data.get("tier");
 
@@ -107,11 +76,6 @@ function ContactForm() {
   );
 }
 
-/**
- * Enough rows that the list must scroll inside its own body. The window kind declares
- * `wheelBehavior: "native-scroll"`, so a wheel here scrolls the list rather than zooming the
- * canvas — the contested-wheel case the contract exists to settle.
- */
 function ActivityList() {
   const rows = Array.from({ length: 40 }, (_, index) => ({
     id: index,
@@ -134,15 +98,14 @@ function ActivityList() {
 const registry = defineInfiniteCanvasWindowRegistry<BodyContentWindowKind>({
   form: {
     kind: "form",
-    // Text controls need the caret and the native selection behaviour that comes with it.
-    // Without this the framework suppresses selection so a drag can marquee instead.
+    // Native text selection gives controls the caret and drag selection.
     renderBody: () => <ContactForm />,
     textSelection: "native",
   },
   list: {
     kind: "list",
     renderBody: () => <ActivityList />,
-    // The wheel belongs to the list, not the camera, while the pointer is over this body.
+    // Native scroll gives the wheel to the list instead of the camera.
     wheelBehavior: "native-scroll",
   },
   prose: {
@@ -203,11 +166,10 @@ function BodyContentShowcase() {
   return (
     <div className="absolute inset-0">
       <InfiniteCanvasDesktop
+        tools
         initialState={initialState}
-        renderOverlay={(context) => {
-          exposeCanvasDevHandle(context);
-          // `window.__canvasVerify.all()` in the console. This route is where the focus checks
-          // have something to check — it is the only one with tabbable controls in a body.
+        renderOverlay={() => {
+          // This route supplies the tabbable controls for focus checks.
           exposeCanvasVerification();
 
           return <CommandPalette />;

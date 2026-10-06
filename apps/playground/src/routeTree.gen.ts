@@ -9,73 +9,26 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WorkspacesRouteImport } from './routes/workspaces'
-import { Route as WorkflowBoardRouteImport } from './routes/workflow-board'
-import { Route as WelcomeRouteImport } from './routes/welcome'
-import { Route as StressRouteImport } from './routes/stress'
-import { Route as StageTemplateRouteImport } from './routes/stage-template'
-import { Route as PortalsRouteImport } from './routes/portals'
-import { Route as PersistenceRouteImport } from './routes/persistence'
-import { Route as NormalRouteImport } from './routes/normal'
-import { Route as GroupsRouteImport } from './routes/groups'
-import { Route as DropTrayRouteImport } from './routes/drop-tray'
-import { Route as CustomFramesRouteImport } from './routes/custom-frames'
-import { Route as BodyContentRouteImport } from './routes/body-content'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BodyContentRouteImport } from './routes/body-content'
+import { Route as CustomFramesRouteImport } from './routes/custom-frames'
+import { Route as DropTrayRouteImport } from './routes/drop-tray'
+import { Route as GroupsRouteImport } from './routes/groups'
+import { Route as NormalRouteImport } from './routes/normal'
+import { Route as PackingRouteImport } from './routes/packing'
+import { Route as PersistenceRouteImport } from './routes/persistence'
+import { Route as PortalsRouteImport } from './routes/portals'
+import { Route as ReadingRouteImport } from './routes/reading'
+import { Route as StageTemplateRouteImport } from './routes/stage-template'
+import { Route as StressRouteImport } from './routes/stress'
+import { Route as StripRouteImport } from './routes/strip'
+import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as WorkflowBoardRouteImport } from './routes/workflow-board'
+import { Route as WorkspacesRouteImport } from './routes/workspaces'
 
-const WorkspacesRoute = WorkspacesRouteImport.update({
-  id: '/workspaces',
-  path: '/workspaces',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const WorkflowBoardRoute = WorkflowBoardRouteImport.update({
-  id: '/workflow-board',
-  path: '/workflow-board',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const WelcomeRoute = WelcomeRouteImport.update({
-  id: '/welcome',
-  path: '/welcome',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const StressRoute = StressRouteImport.update({
-  id: '/stress',
-  path: '/stress',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const StageTemplateRoute = StageTemplateRouteImport.update({
-  id: '/stage-template',
-  path: '/stage-template',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PortalsRoute = PortalsRouteImport.update({
-  id: '/portals',
-  path: '/portals',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PersistenceRoute = PersistenceRouteImport.update({
-  id: '/persistence',
-  path: '/persistence',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NormalRoute = NormalRouteImport.update({
-  id: '/normal',
-  path: '/normal',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GroupsRoute = GroupsRouteImport.update({
-  id: '/groups',
-  path: '/groups',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DropTrayRoute = DropTrayRouteImport.update({
-  id: '/drop-tray',
-  path: '/drop-tray',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CustomFramesRoute = CustomFramesRouteImport.update({
-  id: '/custom-frames',
-  path: '/custom-frames',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BodyContentRoute = BodyContentRouteImport.update({
@@ -83,9 +36,74 @@ const BodyContentRoute = BodyContentRouteImport.update({
   path: '/body-content',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const CustomFramesRoute = CustomFramesRouteImport.update({
+  id: '/custom-frames',
+  path: '/custom-frames',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DropTrayRoute = DropTrayRouteImport.update({
+  id: '/drop-tray',
+  path: '/drop-tray',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroupsRoute = GroupsRouteImport.update({
+  id: '/groups',
+  path: '/groups',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NormalRoute = NormalRouteImport.update({
+  id: '/normal',
+  path: '/normal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PackingRoute = PackingRouteImport.update({
+  id: '/packing',
+  path: '/packing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PersistenceRoute = PersistenceRouteImport.update({
+  id: '/persistence',
+  path: '/persistence',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalsRoute = PortalsRouteImport.update({
+  id: '/portals',
+  path: '/portals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReadingRoute = ReadingRouteImport.update({
+  id: '/reading',
+  path: '/reading',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StageTemplateRoute = StageTemplateRouteImport.update({
+  id: '/stage-template',
+  path: '/stage-template',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StressRoute = StressRouteImport.update({
+  id: '/stress',
+  path: '/stress',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StripRoute = StripRouteImport.update({
+  id: '/strip',
+  path: '/strip',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkflowBoardRoute = WorkflowBoardRouteImport.update({
+  id: '/workflow-board',
+  path: '/workflow-board',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkspacesRoute = WorkspacesRouteImport.update({
+  id: '/workspaces',
+  path: '/workspaces',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -96,10 +114,13 @@ export interface FileRoutesByFullPath {
   '/drop-tray': typeof DropTrayRoute
   '/groups': typeof GroupsRoute
   '/normal': typeof NormalRoute
+  '/packing': typeof PackingRoute
   '/persistence': typeof PersistenceRoute
   '/portals': typeof PortalsRoute
+  '/reading': typeof ReadingRoute
   '/stage-template': typeof StageTemplateRoute
   '/stress': typeof StressRoute
+  '/strip': typeof StripRoute
   '/welcome': typeof WelcomeRoute
   '/workflow-board': typeof WorkflowBoardRoute
   '/workspaces': typeof WorkspacesRoute
@@ -111,10 +132,13 @@ export interface FileRoutesByTo {
   '/drop-tray': typeof DropTrayRoute
   '/groups': typeof GroupsRoute
   '/normal': typeof NormalRoute
+  '/packing': typeof PackingRoute
   '/persistence': typeof PersistenceRoute
   '/portals': typeof PortalsRoute
+  '/reading': typeof ReadingRoute
   '/stage-template': typeof StageTemplateRoute
   '/stress': typeof StressRoute
+  '/strip': typeof StripRoute
   '/welcome': typeof WelcomeRoute
   '/workflow-board': typeof WorkflowBoardRoute
   '/workspaces': typeof WorkspacesRoute
@@ -127,10 +151,13 @@ export interface FileRoutesById {
   '/drop-tray': typeof DropTrayRoute
   '/groups': typeof GroupsRoute
   '/normal': typeof NormalRoute
+  '/packing': typeof PackingRoute
   '/persistence': typeof PersistenceRoute
   '/portals': typeof PortalsRoute
+  '/reading': typeof ReadingRoute
   '/stage-template': typeof StageTemplateRoute
   '/stress': typeof StressRoute
+  '/strip': typeof StripRoute
   '/welcome': typeof WelcomeRoute
   '/workflow-board': typeof WorkflowBoardRoute
   '/workspaces': typeof WorkspacesRoute
@@ -144,10 +171,13 @@ export interface FileRouteTypes {
     | '/drop-tray'
     | '/groups'
     | '/normal'
+    | '/packing'
     | '/persistence'
     | '/portals'
+    | '/reading'
     | '/stage-template'
     | '/stress'
+    | '/strip'
     | '/welcome'
     | '/workflow-board'
     | '/workspaces'
@@ -159,10 +189,13 @@ export interface FileRouteTypes {
     | '/drop-tray'
     | '/groups'
     | '/normal'
+    | '/packing'
     | '/persistence'
     | '/portals'
+    | '/reading'
     | '/stage-template'
     | '/stress'
+    | '/strip'
     | '/welcome'
     | '/workflow-board'
     | '/workspaces'
@@ -174,10 +207,13 @@ export interface FileRouteTypes {
     | '/drop-tray'
     | '/groups'
     | '/normal'
+    | '/packing'
     | '/persistence'
     | '/portals'
+    | '/reading'
     | '/stage-template'
     | '/stress'
+    | '/strip'
     | '/welcome'
     | '/workflow-board'
     | '/workspaces'
@@ -190,10 +226,13 @@ export interface RootRouteChildren {
   DropTrayRoute: typeof DropTrayRoute
   GroupsRoute: typeof GroupsRoute
   NormalRoute: typeof NormalRoute
+  PackingRoute: typeof PackingRoute
   PersistenceRoute: typeof PersistenceRoute
   PortalsRoute: typeof PortalsRoute
+  ReadingRoute: typeof ReadingRoute
   StageTemplateRoute: typeof StageTemplateRoute
   StressRoute: typeof StressRoute
+  StripRoute: typeof StripRoute
   WelcomeRoute: typeof WelcomeRoute
   WorkflowBoardRoute: typeof WorkflowBoardRoute
   WorkspacesRoute: typeof WorkspacesRoute
@@ -201,81 +240,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/workspaces': {
-      id: '/workspaces'
-      path: '/workspaces'
-      fullPath: '/workspaces'
-      preLoaderRoute: typeof WorkspacesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/workflow-board': {
-      id: '/workflow-board'
-      path: '/workflow-board'
-      fullPath: '/workflow-board'
-      preLoaderRoute: typeof WorkflowBoardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/welcome': {
-      id: '/welcome'
-      path: '/welcome'
-      fullPath: '/welcome'
-      preLoaderRoute: typeof WelcomeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/stress': {
-      id: '/stress'
-      path: '/stress'
-      fullPath: '/stress'
-      preLoaderRoute: typeof StressRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/stage-template': {
-      id: '/stage-template'
-      path: '/stage-template'
-      fullPath: '/stage-template'
-      preLoaderRoute: typeof StageTemplateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/portals': {
-      id: '/portals'
-      path: '/portals'
-      fullPath: '/portals'
-      preLoaderRoute: typeof PortalsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/persistence': {
-      id: '/persistence'
-      path: '/persistence'
-      fullPath: '/persistence'
-      preLoaderRoute: typeof PersistenceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/normal': {
-      id: '/normal'
-      path: '/normal'
-      fullPath: '/normal'
-      preLoaderRoute: typeof NormalRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/groups': {
-      id: '/groups'
-      path: '/groups'
-      fullPath: '/groups'
-      preLoaderRoute: typeof GroupsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/drop-tray': {
-      id: '/drop-tray'
-      path: '/drop-tray'
-      fullPath: '/drop-tray'
-      preLoaderRoute: typeof DropTrayRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/custom-frames': {
-      id: '/custom-frames'
-      path: '/custom-frames'
-      fullPath: '/custom-frames'
-      preLoaderRoute: typeof CustomFramesRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/body-content': {
@@ -285,11 +254,102 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BodyContentRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/custom-frames': {
+      id: '/custom-frames'
+      path: '/custom-frames'
+      fullPath: '/custom-frames'
+      preLoaderRoute: typeof CustomFramesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/drop-tray': {
+      id: '/drop-tray'
+      path: '/drop-tray'
+      fullPath: '/drop-tray'
+      preLoaderRoute: typeof DropTrayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/groups': {
+      id: '/groups'
+      path: '/groups'
+      fullPath: '/groups'
+      preLoaderRoute: typeof GroupsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/normal': {
+      id: '/normal'
+      path: '/normal'
+      fullPath: '/normal'
+      preLoaderRoute: typeof NormalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/packing': {
+      id: '/packing'
+      path: '/packing'
+      fullPath: '/packing'
+      preLoaderRoute: typeof PackingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/persistence': {
+      id: '/persistence'
+      path: '/persistence'
+      fullPath: '/persistence'
+      preLoaderRoute: typeof PersistenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portals': {
+      id: '/portals'
+      path: '/portals'
+      fullPath: '/portals'
+      preLoaderRoute: typeof PortalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reading': {
+      id: '/reading'
+      path: '/reading'
+      fullPath: '/reading'
+      preLoaderRoute: typeof ReadingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stage-template': {
+      id: '/stage-template'
+      path: '/stage-template'
+      fullPath: '/stage-template'
+      preLoaderRoute: typeof StageTemplateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stress': {
+      id: '/stress'
+      path: '/stress'
+      fullPath: '/stress'
+      preLoaderRoute: typeof StressRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/strip': {
+      id: '/strip'
+      path: '/strip'
+      fullPath: '/strip'
+      preLoaderRoute: typeof StripRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/workflow-board': {
+      id: '/workflow-board'
+      path: '/workflow-board'
+      fullPath: '/workflow-board'
+      preLoaderRoute: typeof WorkflowBoardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/workspaces': {
+      id: '/workspaces'
+      path: '/workspaces'
+      fullPath: '/workspaces'
+      preLoaderRoute: typeof WorkspacesRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -302,10 +362,13 @@ const rootRouteChildren: RootRouteChildren = {
   DropTrayRoute: DropTrayRoute,
   GroupsRoute: GroupsRoute,
   NormalRoute: NormalRoute,
+  PackingRoute: PackingRoute,
   PersistenceRoute: PersistenceRoute,
   PortalsRoute: PortalsRoute,
+  ReadingRoute: ReadingRoute,
   StageTemplateRoute: StageTemplateRoute,
   StressRoute: StressRoute,
+  StripRoute: StripRoute,
   WelcomeRoute: WelcomeRoute,
   WorkflowBoardRoute: WorkflowBoardRoute,
   WorkspacesRoute: WorkspacesRoute,

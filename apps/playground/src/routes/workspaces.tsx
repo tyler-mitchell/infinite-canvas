@@ -1,212 +1,25 @@
-import {
-  createInfiniteCanvasState,
-  createInfiniteCanvasWindow,
-  defineInfiniteCanvasWindowRegistry,
-  InfiniteCanvasDesktop,
-  useInfiniteCanvasActions,
-  useInfiniteCanvasSelector,
-  useInfiniteCanvasStore,
-} from "@hyphened/infinite-canvas";
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef } from "react";
-import { Button } from "ui";
-
-import { CommandPalette } from "../showcases/command-palette.tsx";
-import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
-import { CanvasThemeSwitcher } from "../showcases/theme-switcher.tsx";
-
-/**
- * Workspaces — virtual desktops, not nested canvases.
- *
- * A canvas inside a canvas needs a second camera and a second input plane, which is a
- * different program. A workspace is one canvas and a membership filter: a named set of
- * windows, carrying the camera and selection you left it at.
- *
- * The switcher below is deliberately thin. Everything it does is a command or an action the
- * framework already exposes — `workspace.cycle` and `workspace.showAll` are in the palette
- * under Mod+K, and this bar is only a faster way to reach the same verbs. The one thing it
- * does that no command can is *create* a workspace, because a palette entry cannot invent a
- * name.
- */
-
-type Kind = "brief" | "note";
-
-const windowDefinitions = defineInfiniteCanvasWindowRegistry<Kind>({
-  brief: {
-    kind: "brief",
-    renderBody: ({ window }) => (
-      <div className="flex h-full flex-col gap-2 p-3 text-sm">
-        <p className="font-medium">{window.title}</p>
-        <p className="text-muted-foreground">
-          Switch desktops and come back — the camera and selection you left are restored, and the
-          switch is a single undo entry.
-        </p>
-      </div>
-    ),
-  },
-  note: {
-    kind: "note",
-    renderBody: ({ window }) => <p className="p-3 text-sm text-muted-foreground">{window.title}</p>,
-  },
-});
-
-const paneAt = (id: string, kind: Kind, title: string, x: number, y: number) =>
-  createInfiniteCanvasWindow<Kind>({
-    id,
-    kind,
-    minSize: { height: 140, width: 220 },
-    rect: { height: 200, width: 320, x, y },
-    title,
-  });
-
-/**
- * Two desktops with different work on them, and one window on neither — so "show all" is
- * visibly different from either workspace rather than a synonym for one of them.
- */
-const RESEARCH = ["sources", "notes"];
-const WRITING = ["draft", "outline"];
-
-const initialState = createInfiniteCanvasState<Kind>({
-  activeWindowId: "sources",
-  windows: [
-    paneAt("sources", "brief", "sources.md", -520, -160),
-    paneAt("notes", "note", "reading notes", -160, -160),
-    paneAt("draft", "brief", "draft.md", -520, 120),
-    paneAt("outline", "note", "outline", -160, 120),
-    paneAt("scratch", "note", "scratch (on no desktop)", 220, -20),
-  ],
-});
-
-function WorkspaceSwitcher() {
-  const actions = useInfiniteCanvasActions<Kind>();
-  const store = useInfiniteCanvasStore<Kind>();
-  const sequenceRef = useRef(0);
-  const workspaces = useInfiniteCanvasSelector((state) => state.workspaces);
-  const activeWorkspaceId = useInfiniteCanvasSelector((state) => state.activeWorkspaceId);
-  const activeWindowId = useInfiniteCanvasSelector((state) => state.activeWindowId);
-
-  return (
-    <div className="pointer-events-auto absolute bottom-4 left-4 flex items-center gap-1.5 rounded-lg border border-border bg-popover/90 p-1.5 backdrop-blur">
-      <CanvasThemeSwitcher />
-      <span className="mx-1 h-4 w-px bg-border" />
-      <Button
-        onClick={() => {
-          actions.executeCommand({ type: "workspace.showAll" });
-        }}
-        size="xs"
-        variant={activeWorkspaceId === null ? "secondary" : "ghost"}
-      >
-        All windows
-      </Button>
-      {workspaces.map((workspace) => (
-        <Button
-          key={workspace.id}
-          onClick={() => {
-            actions.dispatch({ type: "workspace.activate", workspaceId: workspace.id });
-          }}
-          size="xs"
-          variant={activeWorkspaceId === workspace.id ? "secondary" : "ghost"}
-        >
-          {workspace.title}
-        </Button>
-      ))}
-      <span className="mx-1 h-4 w-px bg-border" />
-      {/*
-       * Sending the active window to another desktop — the operation a virtual desktop exists
-       * for, and the one this bar could not reach until the verb existed.
-       *
-       * `workspace.moveActiveWindow` is parameterized, like `workspace.create`: a palette entry
-       * cannot invent which desktop, so a surface that lists them is what supplies the argument.
-       * That is the whole reason this control is here rather than in the palette.
-       *
-       * Only desktops the window is not already on are offered, so every button visibly does
-       * something. Dock two panes together first and send one: the shell goes as a unit,
-       * because membership is group-complete.
-       */}
-      <span className="px-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-        send to
-      </span>
-      {workspaces
-        .filter((workspace) => !workspace.windowIds.includes(activeWindowId ?? ""))
-        .map((workspace) => (
-          <Button
-            disabled={activeWindowId === null}
-            key={workspace.id}
-            onClick={() => {
-              actions.executeCommand({
-                type: "workspace.moveActiveWindow",
-                workspaceId: workspace.id,
-              });
-            }}
-            size="xs"
-            variant="ghost"
-          >
-            → {workspace.title}
-          </Button>
-        ))}
-      <span className="mx-1 h-4 w-px bg-border" />
-      {/*
-       * The affordance this route was missing, and the omission hid a real defect.
-       *
-       * A workspace is a membership filter, and until 2026-08-12 a window opened while a desktop
-       * was active joined no desktop — so the window layer dropped it on the frame it was
-       * created and nothing appeared. The route existed to demonstrate workspaces and had no way
-       * to open a window on one, which is exactly why nobody met the bug here. Press this on
-       * "Research", then switch to "Writing": the new pane belongs to the desktop it was made on
-       * and does not follow you.
-       */}
-      <Button
-        onClick={() => {
-          // Peek, don't subscribe: the camera is needed once, on click, and a subscription would
-          // re-render this bar on every pan frame.
-          const { camera } = store.state$.peek();
-          sequenceRef.current += 1;
-          const ordinal = sequenceRef.current;
-          const cascade = (ordinal % 5) * 28;
-
-          actions.openWindow(
-            createInfiniteCanvasWindow<Kind>({
-              id: `scratch-${ordinal}`,
-              kind: "note",
-              minSize: { height: 140, width: 220 },
-              rect: {
-                height: 200,
-                width: 320,
-                x: camera.center.x - 160 + cascade,
-                y: camera.center.y - 100 + cascade,
-              },
-              title: `note ${ordinal}`,
-            }),
-          );
-        }}
-        size="xs"
-        variant="ghost"
-      >
-        New window
-      </Button>
-      <span className="mx-1 h-4 w-px bg-border" />
-      {/* Cycling is a command, so it is in the palette too. This is the same verb. */}
-      <Button
-        onClick={() => {
-          actions.executeCommand({ direction: "next", type: "workspace.cycle" });
-        }}
-        size="xs"
-        variant="ghost"
-      >
-        Next
-      </Button>
-      <Button
-        onClick={() => {
-          actions.executeCommand({ type: "workspace.removeActiveWindow" });
-        }}
-        size="xs"
-        variant="ghost"
-      >
-        Drop window
-      </Button>
-    </div>
-  );
-}
+import { syncState, type Observable } from "@legendapp/state";
+import { observer } from "@legendapp/state/react";
+import { ObservablePersistLocalStorage } from "@legendapp/state/persist-plugins/local-storage";
+import { syncObservable } from "@legendapp/state/sync";
+import { useRef, useState } from "react";
+import { Button, buttonVariants } from "ui";
+import {
+  createCanvasState,
+  documentTransform,
+  type Canvas,
+  type WindowState,
+} from "@hyphened/infinite-canvas";
+import {
+  CanvasTools,
+  CanvasViewport,
+  CommandTrigger,
+  WindowDragHandle,
+} from "@hyphened/infinite-canvas/react";
+import "@hyphened/infinite-canvas/theme.css";
+import { CanvasCommands } from "../showcases/canvas-commands";
+import { WindowControls } from "../showcases/sample-canvas";
 
 export const Route = createFileRoute("/workspaces")({
   component: WorkspacesShowcase,
@@ -219,44 +32,220 @@ export const Route = createFileRoute("/workspaces")({
   },
 });
 
+const WorkspaceWindow = observer(function WorkspaceWindow({
+  canvas,
+  window,
+}: {
+  canvas: Canvas;
+  window: Observable<WindowState>;
+}) {
+  return (
+    <>
+      <WindowDragHandle className="flex h-9 shrink-0 items-center justify-between border-b border-white/10 px-3">
+        <span className="text-xs">{window.title.get()}</span>
+        <WindowControls canvas={canvas} window={window} />
+      </WindowDragHandle>
+      <div className="min-h-0 flex-1 overflow-auto p-3 text-sm" data-canvas-scroll="native">
+        <p>{window.title.get()}</p>
+        {window.kind.get() === "brief" && (
+          <p className="mt-2 text-white/50">
+            Each workspace retains its camera and selection. Window edits remain shared.
+          </p>
+        )}
+      </div>
+    </>
+  );
+});
+
+const WorkspaceSwitcher = observer(function WorkspaceSwitcher({ canvas }: { canvas: Canvas }) {
+  const sequence = useRef(0);
+  const activeWorkspaceId = canvas.state.document.activeWorkspaceId.get();
+  const activeWindowId = canvas.computed.view.activeWindowId.get();
+  const workspaces = canvas.computed.workspaces;
+  const workspaceIds = workspaces.map((workspace) => workspace.id.get());
+  const ghostButton = buttonVariants({ size: "xs", variant: "ghost" });
+  const error = syncState(canvas.state.document).error.get();
+  return (
+    <div
+      data-canvas-control
+      className="absolute bottom-4 left-4 z-70 flex max-w-[calc(100%-2rem)] flex-wrap items-center gap-1.5 rounded-lg border border-white/15 bg-neutral-950/95 p-1.5"
+    >
+      <CommandTrigger
+        command={canvas.commands.activateWorkspace}
+        input={{ workspaceId: null }}
+        className={buttonVariants({
+          size: "xs",
+          variant: activeWorkspaceId === null ? "secondary" : "ghost",
+        })}
+      >
+        All windows
+      </CommandTrigger>
+      {workspaces.map((workspace) => (
+        <CommandTrigger
+          key={workspace.id.get()}
+          command={canvas.commands.activateWorkspace}
+          input={{ workspaceId: workspace.id.get() }}
+          className={buttonVariants({
+            size: "xs",
+            variant: activeWorkspaceId === workspace.id.get() ? "secondary" : "ghost",
+          })}
+        >
+          {workspace.title.get()}
+        </CommandTrigger>
+      ))}
+      <span className="px-1 text-[10px] uppercase text-white/40">Send to</span>
+      {workspaces
+        .filter((workspace) => !workspace.windowIds.includes(activeWindowId ?? ""))
+        .map((workspace) => (
+          <CommandTrigger
+            key={workspace.id.get()}
+            className={ghostButton}
+            disabled={activeWindowId === null}
+            command={canvas.commands.moveWindowsToWorkspace}
+            input={{
+              workspace: workspace.id.get(),
+              windows: activeWindowId === null ? [] : [activeWindowId],
+            }}
+          >
+            → {workspace.title.get()}
+          </CommandTrigger>
+        ))}
+      <Button
+        size="xs"
+        variant="ghost"
+        onClick={() => {
+          sequence.current += 1;
+          const center = canvas.computed.camera.center.peek();
+          const cascade = (sequence.current % 5) * 28;
+          void canvas.commands.openWindow.run({
+            kind: "note",
+            title: `Note ${sequence.current}`,
+            rect: {
+              x: center.x - 160 + cascade,
+              y: center.y - 100 + cascade,
+              width: 320,
+              height: 200,
+            },
+          });
+        }}
+      >
+        New window
+      </Button>
+      <CommandTrigger
+        className={ghostButton}
+        disabled={workspaces.length === 0}
+        command={canvas.commands.activateWorkspace}
+        input={{
+          workspaceId:
+            workspaceIds[
+              (workspaceIds.indexOf(activeWorkspaceId ?? "") + 1) % workspaceIds.length
+            ] ?? null,
+        }}
+      >
+        Next
+      </CommandTrigger>
+      <CommandTrigger
+        className={ghostButton}
+        disabled={activeWindowId === null}
+        command={canvas.commands.removeWorkspaceWindows}
+        input={{
+          workspace: activeWorkspaceId ?? "",
+          windows: activeWindowId === null ? [] : [activeWindowId],
+        }}
+      >
+        Drop window
+      </CommandTrigger>
+      {error != null && (
+        <p role="alert" className="text-xs text-red-300">
+          The workspace could not be saved: {String(error)}
+        </p>
+      )}
+    </div>
+  );
+});
+
 function WorkspacesShowcase() {
+  const [canvas] = useState(() => {
+    const canvas = createCanvasState({
+      windowDefinitions: {
+        brief: { minSize: { width: 220, height: 140 } },
+        note: { minSize: { width: 220, height: 140 } },
+      },
+      document: {
+        content: {
+          windows: {
+            sources: {
+              kind: "brief",
+              title: "sources.md",
+              rect: { x: -520, y: -160, width: 320, height: 200 },
+            },
+            notes: {
+              kind: "note",
+              title: "reading notes",
+              rect: { x: -160, y: -160, width: 320, height: 200 },
+            },
+            draft: {
+              kind: "brief",
+              title: "draft.md",
+              rect: { x: -520, y: 120, width: 320, height: 200 },
+            },
+            outline: {
+              kind: "note",
+              title: "outline",
+              rect: { x: -160, y: 120, width: 320, height: 200 },
+            },
+            scratch: {
+              kind: "note",
+              title: "scratch (on no desktop)",
+              rect: { x: 220, y: -20, width: 320, height: 200 },
+            },
+          },
+          workspaces: {
+            research: { title: "Research", windowIds: ["sources", "notes"] },
+            writing: { title: "Writing", windowIds: ["draft", "outline"] },
+          },
+        },
+        canvasView: { activeWindowId: "sources" },
+        workspaceViews: {
+          research: {
+            camera: { center: { x: -340, y: -60 }, zoom: 1 },
+            activeWindowId: "sources",
+            selection: {
+              targets: { "window:sources": { type: "window", id: "sources" } },
+              anchor: "window:sources",
+            },
+            stackingOrder: ["window:notes", "window:sources"],
+          },
+          writing: {
+            camera: { center: { x: -340, y: 220 }, zoom: 1 },
+            activeWindowId: null,
+            selection: { targets: {}, anchor: null },
+            stackingOrder: ["window:draft", "window:outline"],
+          },
+        },
+      },
+    });
+    syncObservable(canvas.state.document, {
+      persist: {
+        name: "playground.workspaces",
+        plugin: ObservablePersistLocalStorage,
+        transform: documentTransform(canvas),
+      },
+      onError: (error) => console.warn("Workspace persistence failed.", error),
+    });
+    return canvas;
+  });
   return (
     <div className="absolute inset-0">
-      <InfiniteCanvasDesktop
-        // The workspaces themselves are seeded here rather than by a button, because the
-        // interesting thing to demonstrate is switching between sets that already have work
-        // on them — not the act of making an empty one.
-        initialState={{
-          ...initialState,
-          workspaces: [
-            {
-              camera: { center: { x: -340, y: -60 }, zoom: 1 },
-              id: "research",
-              selection: { anchorWindowId: "sources", windowIds: ["sources"] },
-              title: "Research",
-              windowIds: RESEARCH,
-            },
-            {
-              camera: { center: { x: -340, y: 220 }, zoom: 1 },
-              id: "writing",
-              selection: { anchorWindowId: null, windowIds: [] },
-              title: "Writing",
-              windowIds: WRITING,
-            },
-          ],
-        }}
-        renderOverlay={(context) => {
-          exposeCanvasDevHandle(context);
-          return (
-            <>
-              <CommandPalette />
-              <WorkspaceSwitcher />
-            </>
-          );
-        }}
-        storageKey="infinite-canvas-playground-workspaces"
-        windowDefinitions={windowDefinitions}
-      />
+      <CanvasViewport
+        canvas={canvas}
+        emptyCanvasDrag="marquee"
+        renderWindow={(window) => <WorkspaceWindow canvas={canvas} window={window} />}
+      >
+        <CanvasCommands canvas={canvas} />
+        <CanvasTools canvas={canvas} />
+        <WorkspaceSwitcher canvas={canvas} />
+      </CanvasViewport>
     </div>
   );
 }

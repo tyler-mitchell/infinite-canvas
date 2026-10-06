@@ -1,0 +1,1903 @@
+# `@hyphened/math` research
+
+Objective: a comprehensive mathematics library whose operations hold **one semantic contract across
+CPU and TypeGPU**. The 2D infinite canvas is the incubator — the first consumer that surfaces
+requirements — not the scope boundary. First consumer: the layout engine rebuild in
+`packages/infinite-canvas/next` (`docs/layout-engine.md`).
+
+> **Scope correction, 2026-09-17.** Everything below this banner up to "TypeGPU runs on the CPU" was
+> written against a narrower objective: "a 2D canvas math package scoped to named call sites in
+> `next`". The owner corrected it. Findings about representation, naming, sources and algorithms
+> still hold; the **two-tier split is on the wrong axis** and the rule "no function without a named
+> call site in `next`" was the wrong filter. Both are superseded by the section named above.
+
+## TypeGPU runs the same function on the CPU and the GPU
+
+This is the load-bearing fact for the whole library, and it is measured, not inferred. A throwaway
+test inside `packages/infinite-canvas` (which has `typegpu` as a dependency; removed after running,
+because that package is not mine to edit) asserted all four of these and passed:
+
+```ts
+import { d, std } from "typegpu";
+
+// 1. std operates on d vector instances on the CPU
+expect(std.dot(d.vec2f(1, 2), d.vec2f(3, 4))).toBe(11);
+expect(std.length(d.vec2f(3, 4))).toBe(5);
+expect(std.mix(0, 10, 0.25)).toBe(2.5);
+
+// 2. a 'use gpu' function is callable as plain JavaScript
+const rotate = (v: d.v2f, angle: number) => {
+  "use gpu";
+  const c = std.cos(angle);
+  const s = std.sin(angle);
+  return d.vec2f(c * v.x - s * v.y, s * v.x + c * v.y);
+};
+const turned = rotate(d.vec2f(1, 0), Math.PI / 2); // { x: ~0, y: ~1 }
+
+// 3. the environment probes report a CPU context
+expect(std.isBeingTranspiled()).toBe(false);
+expect(std.getTargetShaderLanguage()).toBe(undefined);
+
+// 4. vector arithmetic works on the CPU
+expect(std.add(d.vec2f(1, 2), d.vec2f(3, 4))).toEqual(d.vec2f(4, 6));
+```
+
+So parity between CPU and GPU is **structural, not tested into existence**: one implementation, two
+execution contexts, with `std.isBeingTranspiled()` available for the rare place they must differ.
+
+> **Correction.** An earlier version of this section claimed precision parity is structural. **It is
+> not, and the claim is withdrawn.** Storage is f32 on both sides, but _arithmetic_ is not: a
+> `'use gpu'` body evaluates in JavaScript's f64 on the CPU and in f32 per operation on the GPU.
+> Measured, same expression `(a + b) - c` with `a = 1e7, b = 0.1, c = 1e7`:
+>
+> ```txt
+> tgpu.fn, declared f32 return : 0.10000000149011612   f64 maths, one round on return
+> plain 'use gpu' callback     : 0.09999999962747097   pure f64, never rounded
+> true f32 per operation       : 0                     1e7 + 0.1 == 1e7 in f32
+> ```
+>
+> The GPU returns 0 where the CPU returns 0.1. So **parity of the rule is structural; parity of
+> numbers must be tested with a tolerance and never asserted bitwise.** Two consequences: exported
+> functions use `tgpu.fn` with a declared return type, never a plain callback, so at least the
+> result is rounded once; and no decision may depend on the two sides agreeing at a classification
+> boundary. This was found by Fable's probe on a real headless WebGPU device and reproduced here.
+>
+> A second trap from the same source: constant folding runs on the CPU in f64, so a fixture built
+> from **literal** arguments tests the resolver rather than the GPU. Fixture inputs must come from
+> buffers.
+
+`src/typegpu.probe.test.ts` settles the storage question. Storage is f32 on both sides, which is
+still worth having — it is the layout and the round-trip that agree, not the arithmetic:
+
+```ts
+// f32 ON THE CPU, not f64 — the CPU holds the value the shader will hold
+d.vec2f(0.1, 100.7).x === Math.fround(0.1); // true
+d.vec2f(0.1, 100.7).x === 0.1; // false
+
+// std computes in f32 too
+std.add(d.vec2f(0.1, 0.2), d.vec2f(0.2, 0.1)).x
+  === Math.fround(Math.fround(0.1) + Math.fround(0.2)); // true
+  === 0.1 + 0.2;                                        // false
+```
+
+That is the trap the hand-written `{ x: number; y: number }` tier falls into and TypeGPU does not:
+`Point` arithmetic runs in double precision and will not match the shader, which is the same class
+of defect as the `Float32Array` rounding recorded further down, but silent and everywhere.
+
+```ts
+// WGSL text, headless, no device and no browser — the GPU side is testable in the normal suite
+const lengthSquared = tgpu.fn(
+  [d.vec2f],
+  d.f32,
+)((v) => {
+  "use gpu";
+  return std.dot(v, v);
+});
+tgpu.resolve([lengthSquared]); // "fn lengthSquared(v: vec2f) -> f32 { return dot(v, v); }"
+lengthSquared(d.vec2f(3, 4)); // 25 — the same function, on the CPU
+```
+
+Two conditions on that, both load-bearing:
+
+- **The GPU side needs the build plugin.** Without `unplugin-typegpu` in the Vite config,
+  `'use gpu'` functions still run as plain JavaScript but `tgpu.resolve` returns an empty string.
+  The plugin is now in this package's `vite.config.ts`; any consumer that wants WGSL needs it too.
+- `tgpu.resolve({ externals })` is deprecated and returns empty; the current form is
+  `tgpu.resolve([resolvable])`.
+
+And the rectangle representation is already right, by measurement:
+
+```ts
+const Rect = d.struct({ position: d.vec2f, size: d.vec2f });
+d.sizeOf(Rect); // 16 — four floats, no padding
+d.alignmentOf(Rect); // 8
+d.sizeOf(d.arrayOf(Rect, 4)); // 64 — stride 16, exactly RECT_STRIDE = 4
+```
+
+So the buffer tier's memory layout survives the correction intact. What changes is its owner: the
+schema becomes `d.struct`, not hand-written offsets, and the same schema then types the CPU value,
+the WGSL type and the buffer in one declaration.
+
+What this costs the package as written:
+
+- `Point = { x: number; y: number }` is the wrong currency. `d.v2f` is the type that works in both
+  contexts, carries its own WGSL layout, and needs no conversion at the buffer boundary.
+- Roughly thirty functions here are hand-rolled duplicates of `std`, and the `std` versions are
+  strictly better because they also run on the GPU: `dot`, `cross`, `magnitude` (`std.length`),
+  `distance`, `normalize`, `clamp`, `lerp` (`std.mix`), `mod`, and the `Math.*` wrappers around
+  `sign`, `floor`, `round`, `fract`, `min`, `max`, `abs`, `atan2`, `smoothstep`, `step`.
+- What survives as genuinely ours is the domain algebra with no WGSL equivalent: rectangles, maximal
+  rectangles, occupancy, axis access, camera spaces, Hilbert order, the heap, the spring, the arc.
+
+## Where the dual-target boundary actually falls
+
+Established by `src/dual-target.probe.test.ts`, not by reasoning about WGSL. **An operation is
+dual-target when its output shape and its iteration bounds are statically known.** That region is far
+larger than it first looks, because a variable-length result reshapes into a fixed capacity plus a
+count — which is what WGSL wants anyway.
+
+The case I expected to fail is the one that matters most, and it passes. `subtractRect` is the core
+of maximal-rectangles free-space search and returns zero to four pieces:
+
+```ts
+const Pieces = d.struct({ items: d.arrayOf(Rect, 4), count: d.u32 });
+
+const subtractRect = tgpu.fn(
+  [Rect, Rect],
+  Pieces,
+)((rect, other) => {
+  "use gpu";
+  const pieces = d.arrayOf(Rect, 4)();
+  let count = d.u32(0);
+  // ... the four maximal pieces, each guarded, each written at pieces[count]
+  return Pieces({ items: pieces, count });
+});
+```
+
+It resolves to WGSL and, run on the CPU, returns the same four pieces with the same geometry as the
+object-tier version. Runtime-bounded loops resolve too (`for (let i = d.u32(0); i < count; i++)`),
+so reductions over a range are dual-target as well.
+
+One rule cost a resolution error and is worth carrying: **assignment copies must be explicit.**
+`pieces[0] = rect` fails with "references cannot be assigned"; `pieces[0] = Rect(rect)` is correct.
+TypeGPU's error message names the fix, which is the only reason this took one attempt.
+
+What is genuinely CPU-only, then, is narrower than "anything with a list":
+
+| Operation                                                                                               | Side | Why                                                          |
+| ------------------------------------------------------------------------------------------------------- | ---- | ------------------------------------------------------------ |
+| Rectangle predicates, intersection, union of two, transforms, camera spaces, spring, arc, Hilbert index | dual | fixed shape in, fixed shape out                              |
+| `subtractRect`, and any bounded-capacity result                                                         | dual | fixed capacity plus a count                                  |
+| Reductions over a range or a storage buffer                                                             | dual | runtime-bounded loop                                         |
+| The binary heap                                                                                         | CPU  | unbounded, pointer-chasing, grows during use                 |
+| The occupancy grid, all of it                                                                           | CPU  | its state is a `Uint32Array`, which is not a `d.*` schema    |
+| An R-tree build, `pruneContainedRects`, `unionRects(Rect[])` over a JS array                            | CPU  | allocation and JS-array iteration; the buffer forms are dual |
+
+So the package needs an explicit CPU-only region, but it is small and it is a property of the
+storage, not of the mathematics.
+
+### `mat3x3f` cannot cross the boundary in 0.12.3
+
+A padded matrix cannot survive its own constructor, so it can be neither a `tgpu.fn` parameter nor a
+`d.struct` field. `src/matrix-boundary.probe.test.ts` pins it — the defect is `mat3x3f`-specific, and
+the cause is visible in one function:
+
+```js
+// typegpu@0.12.3 data/matrix.js — createMatSchema.normalImpl
+for (const arg of args) {
+  if (typeof arg === "number") elements.push(arg);
+  // A mat3x3f instance has length 12 (padded storage), not 9.
+  else for (let i = 0; i < arg.length; ++i) elements.push(arg[i]);
+}
+if (elements.length !== 0 && elements.length !== options.columns * options.rows) {
+  throw new Error(`'${options.type}' constructor called with invalid number of arguments.`);
+}
+```
+
+`tgpu.fn` coerces every argument through `schemaCallWrapper(schema, arg)` → `schema(arg)`, so passing
+a `mat3x3f` always reaches that throw. Measured:
+
+| Form                      | 2x2 | 3x3               | 4x4 |
+| ------------------------- | --- | ----------------- | --- |
+| instance `.length`        | 4   | **12** (9 padded) | 16  |
+| `tgpu.fn` parameter       | OK  | **throws**        | OK  |
+| `d.struct` field, CPU set | OK  | **throws**        | OK  |
+
+Only `mat3x3f` is affected, because only `mat3x3f` pads.
+
+The sharpest statement is the struct case: `d.InferInput` types a `mat3x3f` field as `m3x3f`, and an
+`m3x3f` is exactly the value that throws — **the only value the type accepts is the one that fails.**
+Note the copy form `schema(instance)` is not itself public API; the `.d.ts` overloads admit 0 or 3
+arguments, never 1. The defect is that `tgpu.fn` and `d.struct` reach that form internally.
+
+Status: observed, `typegpu@0.12.3`. Worth an upstream report.
+
+**Consequence for this package: the 2D affine is a struct of three `vec2f` columns, not a matrix.**
+That is also the domain-correct shape — CSS `matrix()`, Canvas2D `setTransform`, SVG `matrix()`,
+`DOMMatrix` and `glam::Affine2` all carry a 3x2, never a padded 3x3. It is 24 bytes against 48, and
+it sidesteps the defect rather than working around it.
+
+```ts
+export const Transform = d.struct({ xAxis: d.vec2f, yAxis: d.vec2f, origin: d.vec2f });
+
+// Composition is the only thing a matrix would have given for free. It is three lines:
+// the outer transform applied to the inner one's columns, axes as directions, origin as a point.
+export const composeTransforms = tgpu.fn(
+  [Transform, Transform],
+  Transform,
+)((outer, inner) => {
+  "use gpu";
+  return Transform({
+    xAxis: transformDirection(outer, inner.xAxis),
+    yAxis: transformDirection(outer, inner.yAxis),
+    origin: transformPoint(outer, inner.origin),
+  });
+});
+```
+
+The direction/point split that a homogeneous matrix encodes in the `w` component becomes two named
+functions, which is clearer at the call site than remembering to pass `0` or `1`.
+
+Test strength note: a transposed inverse passes every diagonal fixture. `scaleAndShift` and the pure
+scales are blind to it; only a rotation or a skew catches it. `transform.test.ts` carries both, and
+breaking the inverse fails three tests where it once failed one.
+
+## The migration keeps the vocabulary
+
+`src/rect-schema.probe.test.ts` settles what the conversion costs. The answer is: much less than the
+"rewrite everything on `d.v2f`" reading suggests, because the rectangle schema can keep its own field
+names.
+
+```ts
+const Rect = d.struct({ x: d.f32, y: d.f32, width: d.f32, height: d.f32 });
+const Paired = d.struct({ position: d.vec2f, size: d.vec2f });
+
+d.sizeOf(Rect) === d.sizeOf(Paired); // true — both 16 bytes
+d.sizeOf(d.arrayOf(Rect, 8)) === d.sizeOf(d.arrayOf(Paired, 8)); // true
+Rect({ x: 0.1, y: 0, width: 0, height: 0 }).x === Math.fround(0.1); // f32, as the shader will hold it
+```
+
+Same sixteen bytes, same array stride, and `rect.x` / `rect.width` still read as they do today. CSS
+and the DOM use `x, y, width, height`; so does every call site in `next`; so does this schema.
+
+Predicates keep their shape too — `d.bool` is a valid return type, so no `u32` encoding leaks into
+the API:
+
+```ts
+const containsPoint = tgpu.fn(
+  [Rect, d.vec2f],
+  d.bool,
+)((rect, point) => {
+  "use gpu";
+  return (
+    point.x >= rect.x &&
+    point.x <= rect.x + rect.width &&
+    point.y >= rect.y &&
+    point.y <= rect.y + rect.height
+  );
+});
+```
+
+And vector maths composes over scalar fields without a paired-vector representation:
+
+```ts
+const distanceToRect = tgpu.fn(
+  [Rect, d.vec2f],
+  d.f32,
+)((rect, point) => {
+  "use gpu";
+  const nearest = d.vec2f(
+    std.clamp(point.x, rect.x, rect.x + rect.width),
+    std.clamp(point.y, rect.y, rect.y + rect.height),
+  );
+  return std.distance(point, nearest);
+});
+```
+
+So the migration cost is **construction sites, not read sites**: `{ x: 0, y: 0, width: 1, height: 1 }`
+becomes `Rect({ x: 0, y: 0, width: 1, height: 1 })`. Field access, function names, return types and
+edge rules are all unchanged, which is why this can be one atomic flip per module rather than a
+half-migrated representation.
+
+Status: runtime-proven for the schema, the boolean return and the vector composition. The atomic
+conversion of `rect.ts` itself is not done.
+
+Adding `typegpu` as a dependency of this package needs the owner's consent.
+
+Scope: scalars, 2D points, rectangles, axis access, affine transforms, camera spaces, free-space
+search, occupancy, a rectangle index, scan-line helpers, a heap, interpolation.
+Not in scope: layout algorithms (owned by `@hyphened/layout`), DOM, animation scheduling.
+
+Exact sources are captured under `sources/`. Call sites are named by path; they are not copied.
+
+## Implementation map
+
+| Build need               | Source affordance                                                    | Project implication                                                                              | Status   |
+| ------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | -------- |
+| Scalar vocabulary        | `sources/thi.ng-math.interval.d.ts`, `sources/thi.ng-math.prec.d.ts` | `clamp` / `roundTo` / `mod` names; `roundTo` serves both device-pixel rounding and step snapping | observed |
+| Approximate equality     | `sources/pmndrs-math.scalar.ts` `equals`                             | relative-plus-absolute epsilon, not a bare `abs(a-b) < eps`                                      | observed |
+| Min/max over a list      | none in thi.ng (`extrema.d.ts` is local extrema)                     | own `minOf` / `maxOf`; d3 precedent; replaces `Math.min(...spread)` in `unionRects`              | observed |
+| Rectangle representation | `sources/pmndrs-math.box2.ts`                                        | names adopted, representation rejected — see "Representation"                                    | observed |
+| Vector names             | `sources/pmndrs-math.vec2.ts`                                        | `add` `subtract` `scale` `length` `distance` `normalize` `dot` `cross` `angle` `lerp`            | observed |
+| Affine transform         | `sources/pmndrs-math.mat2d.ts`                                       | `[a, b, c, d, tx, ty]`; `invert` and `multiply` formulas                                         | observed |
+| Rectangle index          | `sources/flatbush.index.js`                                          | packed Hilbert R-tree in one `ArrayBuffer`; reimplement, see "Index"                             | observed |
+| Spatial ordering         | `sources/flatbush.index.js` `hilbert()`                              | public-domain bit-twiddle, 16-bit domain                                                         | observed |
+| Spring step              | `sources/pmndrs-math.spring-core.ts`                                 | closed-form damped oscillator; **substeps are not needed** — see "Spring"                        | observed |
+| Easing                   | `sources/pmndrs-math.easing.ts`                                      | pure `(t) => number`, no time ownership                                                          | observed |
+| Free-space search        | `docs/research/layout-engine.md` § Q4 (Jylänki 2010 § 2.4)           | maximal rectangles = subtract + prune-contained                                                  | observed |
+| Scan-line neighbours     | `docs/research/layout-engine.md` § Q4 (Dwyer et al. 2005 § 3)        | sort open/close events per axis; separation constraints                                          | observed |
+
+## Representation
+
+`sources/pmndrs-math.box2.ts` is min/max:
+
+```ts
+// sources/pmndrs-math.box2.ts
+export type Box2 = [minX: number, minY: number, maxX: number, maxY: number];
+```
+
+Our state, the DOM and the layout contract are position-plus-size:
+
+```ts
+// packages/infinite-canvas/next/geometry.ts — current, unchanged
+export type Point = { x: number; y: number };
+export type Size = { width: number; height: number };
+export type Rect = Point & Size;
+```
+
+Both tiers keep position-plus-size. The buffer tier is the same four numbers in order, which is
+one WebGPU `vec4f`:
+
+```ts
+// target — src/buffer.ts
+// stride 4: x, y, width, height
+const rects = new Float32Array(capacity * 4);
+```
+
+Rejected: converting to min/max at the boundary. `thing-umbrella-evaluation` records the cost of a
+half-migrated representation ("no converters ... must be one atomic flip, never per-call adapters").
+
+Status: target
+
+## Argument convention
+
+Object tier takes one object argument, matching the call sites it replaces:
+
+```ts
+// packages/infinite-canvas/next/geometry.ts — current
+export function containsPoint({
+  rect,
+  point,
+  padding = 0,
+}: {
+  rect: Rect;
+  point: Point;
+  padding?: number;
+}): boolean;
+```
+
+Scalars stay positional — the established mathematical signature, no field names worth stating:
+
+```ts
+// sources/thi.ng-math.interval.d.ts
+export declare const clamp: FnN3; // clamp(x, min, max)
+```
+
+Buffer tier puts the output first, as both references do:
+
+```ts
+// sources/pmndrs-math.mat2d.ts
+export function multiply(out: Mat2d, a: Mat2d, b: Mat2d): Mat2d;
+```
+
+Status: target
+
+## Duplication the package removes
+
+`clamp` and `sum` are defined privately in the layout module:
+
+```ts
+// packages/infinite-canvas/next/layout/tracks.ts:4
+const clamp = ({ value, min, max }: { value: number; min: number; max: number }) =>
+  Math.max(min, Math.min(max, value));
+
+const sum = (values: readonly number[]) => values.reduce((total, value) => total + value, 0);
+```
+
+`sum` is defined a second time one directory over:
+
+```ts
+// packages/infinite-canvas/next/layout/kinds.ts:48
+const sum = (values: readonly number[]) => values.reduce((total, value) => total + value, 0);
+```
+
+Axis access is private to `kinds.ts` and is written back through computed keys:
+
+```ts
+// packages/infinite-canvas/next/layout/kinds.ts:43
+const axes = {
+  horizontal: { position: "x", extent: "width", cross: "height" },
+  vertical: { position: "y", extent: "height", cross: "width" },
+} as const;
+
+const oriented = ({ axis, along, across }: { axis: Axis; along: number; across: number }): Size =>
+  axis === "horizontal" ? { width: along, height: across } : { width: across, height: along };
+
+// kinds.ts:89 — the write form this package must type without a cast
+rect: { ...rect, [position]: offsets[index], [extent]: sizes[index] }
+```
+
+`unionRects` spreads the whole list into `Math.min`, twice per axis:
+
+```ts
+// packages/infinite-canvas/next/geometry.ts:21
+const x = Math.min(...rects.map((rect) => rect.x));
+```
+
+Status: observed
+
+## Index
+
+Flatbush is one `ArrayBuffer`: an 8-byte header, then `numNodes * 4` coordinates, then `numNodes`
+indices. Level bounds are computed up front:
+
+```js
+// sources/flatbush.index.js:63
+let n = numItems;
+let numNodes = n;
+this._levelBounds = [n * 4];
+do {
+  n = Math.ceil(n / this.nodeSize);
+  numNodes += n;
+  this._levelBounds.push(numNodes * 4);
+} while (n !== 1);
+```
+
+`finish()` maps each item centre into a 16-bit Hilbert domain, sorts, then packs parents bottom-up:
+
+```js
+// sources/flatbush.index.js:164
+const hilbertMax = (1 << 16) - 1;
+const sx = hilbertMax / width;
+const sy = hilbertMax / height;
+const x = (sx * ((itemMinX + itemMaxX) / 2 - minX)) | 0;
+const y = (sy * ((itemMinY + itemMaxY) / 2 - minY)) | 0;
+hilbertValues[i] = hilbert(x, y);
+```
+
+Two details a reimplementation must keep, both easy to miss:
+
+```js
+// sources/flatbush.index.js:295 — a fully-contained subtree is one contiguous leaf range,
+// so the traversal is skipped entirely rather than descended
+let pos = nodeIndex;
+for (let l = level; l > 0; l--) pos = indices[pos >> 2];
+const leafEnd = Math.min(pos + (end - nodeIndex) * this.nodeSize ** level, numItems4);
+```
+
+```js
+// sources/flatbush.index.js:337 — nodes and leaves share one queue; the LSB tags a leaf
+q.push((boxes.length - 4) << 1, 0);
+```
+
+Costs of reimplementing rather than depending on `flatbush@4.6.2`:
+
+- It stores `minX, minY, maxX, maxY`; our rects are `x, y, width, height`. Either the index converts
+  on `add` (a per-item conversion, acceptable at build time) or it stores our layout and adjusts the
+  four comparisons in `search` and `neighbors`.
+- `neighbors` needs a priority queue. Flatbush imports `flatqueue`; the brief already requires a heap
+  for overlap removal, so one heap serves both and the dependency disappears.
+- Default `ArrayType` is `Float64Array`. A GPU-readable buffer wants `Float32Array`; the Hilbert
+  quantisation is already 16-bit, so ordering is unaffected, but stored coordinates lose precision.
+- `sort` is a hand-written 3-median quicksort over three parallel arrays, ~30 lines.
+
+**Decision: the R-tree is not built.** `search` and `neighbors` are satisfied by linear scans over the
+same `Float32Array` — `intersectingIndices` and `nearestIndices` in `src/buffer.ts`. `hilbertOrder`
+ships, because stable spatial ordering of a GPU buffer is its own consumer.
+
+**The crossover is UNMEASURED.** An earlier note of mine put it near 10^5 rectangles with per-query
+figures in microseconds; those were arithmetic, not a benchmark, and are withdrawn. What is actually
+known: Flatbush's own README measures 1,000,000 rectangles indexed in 109 ms and 10,000 small
+searches in 31-150 ms on an M1 Pro. Nothing here has been timed. Before anyone trades ~150 lines for
+the tree, measure the linear scan at the real rectangle count on the real path.
+
+Status: observed, except the crossover, which is unresolved
+
+## Spring
+
+The design handoff records a spring that diverged at a 95 ms tick and was fixed with fixed 16 ms
+substeps. That is the signature of numeric integration. The closed-form solution has no such failure:
+
+```ts
+// sources/pmndrs-math.spring-core.ts:17
+export function coefficients(smoothTime: number, dampingRatio: number, delta: number): void {
+  const omega = 2 / Math.max(0.0001, smoothTime);
+
+  if (Math.abs(dampingRatio - 1) < 1e-4) {
+    // critically damped — a double root at -omega
+    const e = Math.exp(-omega * delta);
+    coef.pp = e * (1 + omega * delta);
+    coef.pv = e * delta;
+    coef.vp = -e * omega * omega * delta;
+    coef.vv = e * (1 - omega * delta);
+  }
+  // under-damped and over-damped branches omitted here; see the captured file
+}
+```
+
+`delta` appears only inside `Math.exp`, `Math.cos` and `Math.sin`, so the map is exact and stable at
+any step. Substeps are therefore not built: the brief's "fixed 16 ms substeps" requirement is
+satisfied by removing the integrator, not by scheduling it.
+
+Status: runtime-proven. `interpolate.test.ts` steps one long `delta` against many short ones and
+they agree; replacing the body with semi-implicit Euler fails that test, the 95 ms stability test and
+the no-overshoot test, and reverting makes all three pass.
+
+## Coverage
+
+| Area                                                                        | State                                                                 |
+| --------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| thi.ng `math` surface (`interval`, `fit`, `prec`, `eqdelta`, `mix`, `step`) | captured                                                              |
+| thi.ng `vectors`, `matrices`, `geom-isec`, `geom-closest-point`             | evaluated secondhand only (memory note `thing-umbrella-evaluation`)   |
+| thi.ng `heaps`, `morton`, `intervals` READMEs                               | read; `.d.ts` not captured                                            |
+| pmndrs/math `box2`, `vec2`, `mat2d`, `scalar`, `spring-core`, `easing`      | captured                                                              |
+| pmndrs/math `segment2`, `polygon2`, `circle`                                | not read                                                              |
+| Flatbush source and README                                                  | captured                                                              |
+| wgpu-matrix                                                                 | README only; `dst`-last, not `dst`-first — see note below             |
+| gl-matrix                                                                   | not read directly; reached through pmndrs/math, which is a port of it |
+| Jylänki 2010, Dwyer et al. 2005, CSS Grid 2 § 8.5                           | read in `docs/research/layout-engine.md`, not re-read here            |
+
+Correction to the brief: wgpu-matrix puts `dst` **last**, not first — "an optional destination
+parameter as the final argument". thi.ng and pmndrs/math put the output first. The buffer tier
+follows thi.ng and pmndrs/math (output first).
+
+Correction to the brief: `mathcat`'s successor `pmndrs/math` does have a `box2` module, captured
+here. The brief's "no `box2`" holds for `mathcat` itself, which was not read.
+
+## Modules built
+
+Adopt from these signatures; the source adds nothing a caller needs.
+
+```ts
+// src/scalar.ts
+export const EPSILON = 1e-6;
+export function clamp(value: number, min: number, max: number): number; // min wins when the bounds cross
+export function lerp(from: number, to: number, amount: number): number; // exact at 0 and 1
+export function norm(value: number, from: number, to: number): number; // 0 for an empty range
+export function sum(values: readonly number[]): number;
+export function minOf(values: readonly number[]): number; // Infinity when empty
+export function maxOf(values: readonly number[]): number; // -Infinity when empty
+export function roundTo(value: number, step: number): number; // device pixels: roundTo(v, 1 / scale)
+export function mod(value: number, length: number): number; // always non-negative
+export function approxEquals(a: number, b: number, epsilon?: number): boolean;
+```
+
+```ts
+// src/vector.ts
+export type Point = { x: number; y: number };
+export function addPoints(a: Point, b: Point): Point;
+export function subtractPoints(a: Point, b: Point): Point;
+export function scalePoint(point: Point, factor: number): Point;
+export function dot(a: Point, b: Point): number; // distance along a direction
+export function cross(a: Point, b: Point): number; // signed distance across it
+export function magnitude(point: Point): number;
+export function distance(a: Point, b: Point): number;
+export function normalize(point: Point): Point; // zero vector in, zero vector out
+export function angle(point: Point): number; // atan2(y, x)
+export function lerpPoint(from: Point, to: Point, amount: number): Point;
+```
+
+```ts
+// src/size.ts
+export type Size = { width: number; height: number };
+export type FitMode = "contain" | "cover" | "horizontal" | "vertical";
+export function fitScale(input: { size: Size; within: Size; mode: FitMode }): number;
+```
+
+```ts
+// src/axis.ts — replaces the private `axes` table and `oriented` in next/layout/kinds.ts
+export type Axis = "horizontal" | "vertical";
+export const axes: Record<Axis, AxisFields>; // main, cross, mainPosition, crossPosition, crossAxis
+export function sizeOnAxis(input: { axis: Axis; main: number; cross: number }): Size;
+export function placeOnAxis(input: {
+  axis: Axis;
+  rect: Rect;
+  position: number;
+  extent: number;
+}): Rect;
+```
+
+Reads go through the table (`rect[axes[axis].main]` types without a cast). `placeOnAxis` is the only
+writer, so the computed-key spread in `kinds.ts` disappears.
+
+```ts
+// src/rect.ts
+export type Rect = Point & Size;
+export type Insets = { top: number; right: number; bottom: number; left: number };
+export type ResizeHandle =
+  "north" | "south" | "east" | "west" | "north-east" | "north-west" | "south-east" | "south-west";
+
+export function centerOfRect(rect: Rect): Point;
+export function areaOfRect(rect: Rect): number;
+export function aspectRatioOfRect(rect: Rect): number;
+export function containsPoint(input: { rect: Rect; point: Point; padding?: number }): boolean;
+export function containsRect(input: { rect: Rect; other: Rect }): boolean;
+export function intersectsRect(input: { rect: Rect; other: Rect }): boolean; // edge contact counts
+export function overlapsRect(input: { rect: Rect; other: Rect }): boolean; // needs shared area
+export function intersectionRect(input: { rect: Rect; other: Rect }): Rect | null;
+export function unionRects(rects: readonly Rect[]): Rect | null;
+export function gapBetweenRects(input: { rect: Rect; other: Rect }): Point; // negative is the overlap
+export function insetRect(input: { rect: Rect; by: number | Insets }): Rect; // extents floor at 0
+export function outsetRect(input: { rect: Rect; by: number | Insets }): Rect;
+export function translateRect(input: { rect: Rect; by: Point }): Rect;
+export function scaleRectAbout(input: { rect: Rect; origin: Point; factor: number }): Rect;
+export function clampPointToRect(input: { point: Point; rect: Rect }): Point;
+export function clampRectWithin(input: { rect: Rect; bounds: Rect }): Rect; // oversized aligns to the min edge
+export function alignRectIn(input: { bounds: Rect; size: Size; align: Point }): Rect; // align is a fraction per axis
+export function approxEqualsRect(input: { rect: Rect; other: Rect; epsilon?: number }): boolean;
+export function lerpRect(input: {
+  from: Rect;
+  to: Rect;
+  amount: number;
+  sizeAmount?: number;
+}): Rect;
+export function resizeRect(input: {
+  rect: Rect;
+  handle: ResizeHandle;
+  delta: Point;
+  minSize: Size;
+  maxSize?: Size;
+  aspectRatio?: number;
+}): Rect;
+```
+
+Two deliberate omissions from the brief's rectangle list:
+
+- **Placement regions** (halves, quarters, centre, fill) stay with the consumer. `alignRectIn` is the
+  geometry; the region-to-size table in `next/placement.ts` is policy about how big a dropped window
+  should be, which is not mathematics.
+- **`overlapOfRects`** is `gapBetweenRects` negated, so it would be an indirection. Dwyer's rule
+  ("an x constraint only when the x overlap is smaller than the y overlap") reads directly off the
+  signed gap.
+
+`corners` and `edges` are not built: no call site asks for them. Alignment candidate lines will be
+built with the snapping module, from edge fractions, which is what `next/alignment.ts` already does.
+
+### Free space: subtraction and pruning
+
+```ts
+// src/rect.ts — the maximal-rectangles substrate
+export function subtractRect(input: { rect: Rect; other: Rect }): Rect[]; // 0 to 4 maximal pieces
+export function pruneContainedRects(rects: readonly Rect[]): Rect[];
+```
+
+Source read before writing: `sources/maxrects.MaxRectsBinPack.cpp`, `SplitFreeNode` and
+`PruneFreeList` (Jylänki's own implementation of section 2.4). Three details it settles:
+
+```cpp
+// sources/maxrects.MaxRectsBinPack.cpp — SplitFreeNode
+// 1. the overlap test is edge-EXCLUSIVE: a touching neighbour splits nothing
+if (usedNode.x >= freeNode.x + freeNode.width || usedNode.x + usedNode.width <= freeNode.x ||
+    usedNode.y >= freeNode.y + freeNode.height || usedNode.y + usedNode.height <= freeNode.y)
+    return false;
+
+// 2. each piece starts as a copy of the whole free rectangle and changes ONE field,
+//    so it keeps the full opposite extent and is maximal; the pieces overlap each other
+Rect newNode = freeNode;
+newNode.height = usedNode.y - newNode.y;
+```
+
+3. Containment pruning runs twice in the reference — among the new pieces, then new against old.
+   `pruneContainedRects` over one list covers both, at the same O(n²).
+
+Two divergences, both deliberate:
+
+- `subtractRect` returns `[rect]` when the two do not overlap, where `SplitFreeNode` returns `false`
+  and leaves the caller to keep the original. Set difference is the honest contract and it removes a
+  branch from every call site.
+- Pruning is a separate function over a list, not folded into insertion. The caller decides when to
+  pay for it; the search loop (scoring rule, anchor) belongs to the layout package, not here.
+
+The test that matters is the sampled form of Jylänki's Proposition 7: every probe rectangle that
+fits in the free area fits inside **one** returned piece. A non-maximal split passes the shape tests
+and fails that one.
+
+Status: runtime-proven. Edge contact needed a partial-extent neighbour to test: a full-height
+touching neighbour produces the same answer under an edge-inclusive test, so the first version of
+that test passed against the bug.
+
+### Occupancy grid
+
+```ts
+// src/occupancy.ts — cell units; one bit per cell, rows padded to whole 32-bit words
+export type GridPosition = { column: number; row: number };
+export type GridSpan = { columns: number; rows: number };
+export type GridArea = GridPosition & GridSpan;
+export type OccupancyGrid = { columns: number; words: Uint32Array };
+
+export function createOccupancyGrid(input: { columns: number; rows?: number }): OccupancyGrid;
+export function occupancyRows(grid: OccupancyGrid): number;
+export function isAreaFree(input: { grid: OccupancyGrid; area: GridArea }): boolean;
+export function markArea(input: { grid: OccupancyGrid; area: GridArea }): OccupancyGrid;
+export function findFreeArea(input: {
+  grid: OccupancyGrid;
+  span: GridSpan;
+  from?: GridPosition;
+}): GridPosition | null;
+```
+
+`markArea` writes into the buffer and returns the grid to use next — a different object when rows
+were added. Always rebind. This is the flat tier, so it mutates and uses loop variables.
+
+Source: `sources/css-grid-2.8.5-auto-placement.txt`, extracted from the specification. It makes
+exactly three demands of the structure:
+
+```txt
+// sources/css-grid-2.8.5-auto-placement.txt:105
+Increment the column position of the auto-placement cursor until either this item's grid area
+does not overlap any occupied grid cells, or the cursor's column position, plus the item's
+column span, overflow the number of columns in the implicit grid
+```
+
+```txt
+// sources/css-grid-2.8.5-auto-placement.txt:114
+Otherwise, increment the auto-placement cursor's row position
+(creating new rows in the implicit grid as necessary),
+set its column position to the start-most column line
+```
+
+`findFreeArea` is that loop, and nothing more. **The cursor is the caller's state**, which is the
+whole sparse-versus-dense difference: sparse carries the cursor between items, dense resets it to
+the start. Passing `from` or omitting it selects the packing, so no `dense` flag is needed here and
+the flow policy stays in the layout package.
+
+Rows past the end are implicit and always free, so a span that fits the width can never fail to
+place: `findFreeArea` returns `null` only when the span is wider than the grid, which the spec says
+the caller prevents by widening the grid first ("If the largest column span ... is larger than the
+width of the implicit grid, add columns to the end").
+
+Status: runtime-proven. The test that carries it is an end-to-end dense placement of eight spans
+followed by an all-pairs overlap check.
+
+### Buffer tier
+
+```ts
+// src/buffer.ts — 4 floats per rectangle, which is one WebGPU vec4f
+export const RECT_STRIDE = 4;
+export function createRectBuffer(capacity: number): Float32Array;
+export function writeRect(rects: Float32Array, index: number, rect: Rect): void;
+export function readRect(rects: Float32Array, index: number): Rect;
+export function boundsOfRects(rects: Float32Array, count: number): Rect | null;
+export function intersectingIndices(rects: Float32Array, count: number, query: Rect): number[];
+```
+
+The id-to-index map is the caller's, as the brief sets out. `count` is passed rather than derived
+from `rects.length`, because a buffer is sized to capacity and filled to a count.
+
+The tier boundary is held by agreement tests, not by inspection: `boundsOfRects` is asserted equal
+to `unionRects`, and `intersectingIndices` equal to filtering with `intersectsRect`, over the same
+sample. A drift in either edge rule fails there. Edge-inclusive intersection is the rule both use;
+switching the buffer form to edge-exclusive fails the agreement test on a zero-area query that
+touches a rectangle's right edge.
+
+Not built, and why: `transformRects` and `lerpRects` over a range have no caller yet. They are three
+lines each on top of `transformRect` and `lerpRect`, and building them now would be machinery with
+no consumer. Ask and they land.
+
+Status: runtime-proven.
+
+### Precision is the tier boundary
+
+`Float32Array` rounds; the object tier is `number`, which is f64. That is the only semantic
+difference between the tiers, and it is real:
+
+```ts
+writeRect(buffer, 0, { x: 0.1, y: 0.2, width: 100.7, height: 50.3 });
+readRect(buffer, 0); // { x: 0.10000000149011612, ... } — not the rectangle that went in
+```
+
+So the agreement tests assert two different things, and the first one alone is a trap:
+
+```ts
+// exact, because every value in `exact` is representable in f32
+expect(boundsOfRects(buffer, count)).toEqual(unionRects(exact.slice(0, count)));
+
+// approximate, because these values are not
+expect(approxEqualsRect({ rect: fromBuffer, other: fromObjects, epsilon: 1e-6 })).toBe(true);
+```
+
+The first version of this suite had only the exact form, and it was green — because the sample was
+accidentally made of f32-exact values (`100`, `-40`, `0.25`, `7.5`). Swapping one for `100.7` fails
+it. A passing test over a lucky sample.
+
+**Consequence for consumers: a rectangle that round-trips through the buffer tier is not `===` the
+one that went in.** Any "did this change?" check across that boundary uses `approxEqualsRect`.
+
+The same hazard, one layer down, is recorded in the owner's own adapter:
+`kek-monorepo/packages/arktype-adapters/src/typegpu/index.ts:167` — "The ABI serializer WRAPS
+out-of-range values silently (measured: -1 packs as 4294967295)", which is why every integer keyword
+there carries both bounds.
+
+Status: runtime-proven.
+
+### WGSL layout is TypeGPU's, not this package's
+
+This package must not carry a table of WGSL alignments. `typegpu` is already a dependency of
+`packages/infinite-canvas` and a catalog entry, and it computes layout. Measured here rather than
+read off a specification:
+
+```txt
+$ node -e 'import * as d from "typegpu/data"' …
+vec2f      size 8    align 8
+vec4f      size 16   align 16
+mat2x2f    size 16   align 8
+mat3x3f    size 48   align 16      // 12 floats, not 9 — the classic padding trap
+mat4x4f    size 64   align 16
+arrayOf(vec4f, 4)    size 64, stride 16
+struct{3 x vec2f}    size 24   align 8
+struct{vec4f, vec2f} size 32   align 16
+```
+
+Two results that settle open questions:
+
+- **`RECT_STRIDE = 4` is right.** `arrayOf(vec4f, N)` has a 16-byte stride, which is four floats, so
+  a `Float32Array` of rectangles _is_ an `array<vec4f>` with no padding and no repacking step.
+- **`Transform` has no WGSL matrix type.** TypeGPU exposes only `mat2x2f`, `mat3x3f`, `mat4x4f` —
+  square only, no `mat3x2f`. The six floats go as three `vec2f` columns, which measures 24 bytes with
+  zero padding; `struct{vec4f, vec2f}` measures 32 and wastes eight.
+
+When a schema for these buffers is needed, its owner is
+`kek-monorepo/packages/arktype-adapters/src/typegpu` (`createTypeGpuStructFromArkTypeObject`), not a
+hand-written layout here. One hazard to carry across, recorded at its line 431: **ArkType yields
+object props alphabetically, and in a GPU struct field order is the memory layout** — measured 64 vs
+80 bytes per instance for one row type and 144 vs 160 for another, which is why that function takes
+an explicit `order`. `next` validates its document with ArkType, so this lands on any struct built
+from a `next` schema.
+
+Status: observed, by measurement.
+
+That measurement stood, and then I overrode it: on the advice that WGSL has no `mat3x2f` I rebuilt
+`transform.ts` on `d.mat3x3f`, which the defect above made unusable. The 24-byte three-column layout
+measured here was right the first time. **A measurement in this document outranks later advice about
+the same question.**
+
+Shipped, dual-target, `src/transform.ts`:
+
+```ts
+export const Transform = d.struct({ xAxis: d.vec2f, yAxis: d.vec2f, origin: d.vec2f });
+
+export const identityTransform: TgpuFn<[], typeof Transform>;
+export const translationTransform: TgpuFn<[d.Vec2f], typeof Transform>;
+export const scalingTransform: TgpuFn<[d.Vec2f], typeof Transform>;
+export const rotationTransform: TgpuFn<[d.F32], typeof Transform>;
+
+// Inner runs first, matching the matrix reading order it replaces.
+export const composeTransforms: TgpuFn<[typeof Transform, typeof Transform], typeof Transform>;
+
+// A direction ignores origin; a point adds it. This replaces the homogeneous w component.
+export const transformDirection: TgpuFn<[typeof Transform, d.Vec2f], d.Vec2f>;
+export const transformPoint: TgpuFn<[typeof Transform, d.Vec2f], d.Vec2f>;
+
+export const transformDeterminant: TgpuFn<[typeof Transform], d.F32>; // zero means not invertible
+export const invertTransform: TgpuFn<[typeof Transform], typeof Transform>; // identity when collapsed
+export const transformRect: TgpuFn<[typeof Transform, typeof Rect], typeof Rect>; // AABB of 4 corners
+```
+
+`invertTransform` returns the identity for a collapsed plane rather than a null, because WGSL has no
+optional return and the Finite Math Assumption bans a NaN sentinel. `transformDeterminant` is the
+public invertibility test; the fallback is a defined value, not a concealed failure, and
+`transform.test.ts` asserts both halves.
+
+`transformRect` takes all four corners, so it is the true bounding rectangle under rotation and
+exact under translate-plus-scale. A two-corner version passes a 90-degree test and fails at 45.
+
+Status: runtime-proven on the CPU path, WGSL resolution asserted; no GPU device run yet.
+
+```ts
+// src/camera.ts
+export type Camera = { center: Point; zoom: number };
+export function cameraTransform(input: { camera: Camera; viewport: Size }): Transform; // world to screen
+export function worldToScreen(input: { point: Point; camera: Camera; viewport: Size }): Point;
+export function screenToWorld(input: { point: Point; camera: Camera; viewport: Size }): Point;
+export function cameraShowing(input: {
+  worldPoint: Point;
+  screenPoint: Point;
+  zoom: number;
+  viewport: Size;
+}): Camera;
+export function zoomCameraAbout(input: {
+  camera: Camera;
+  screenPoint: Point;
+  zoom: number;
+  viewport: Size;
+}): Camera;
+export function visibleWorldRect(input: { camera: Camera; viewport: Size; insets?: Insets }): Rect;
+export function zoomToFit(input: {
+  rect: Size;
+  viewport: Size;
+  insets?: Insets;
+  padding?: number;
+  mode?: FitMode;
+}): number;
+```
+
+### One conversion boundary
+
+The brief names the conversion boundary as a past bug source. Three places in `next` write the same
+formula by hand, each from a different direction:
+
+```ts
+// packages/infinite-canvas/next/state.ts:884 — wheel zoom
+const offset = { x: input.point.x - viewport.width / 2, y: input.point.y - viewport.height / 2 };
+center: { x: camera.center.x + offset.x / camera.zoom - offset.x / zoom, ... }
+
+// packages/infinite-canvas/next/state.computed.ts:94 — pan drag
+center: { x: pan.camera.center.x - (pointer.point.x - pan.point.x) / pan.camera.zoom, ... }
+
+// packages/infinite-canvas/next/camera.ts:285 — navigation framing
+x: rect.x + rect.width / 2 + offset.x - (insets.left + width * position.x - viewport.width / 2) / zoom
+```
+
+All three are `cameraShowing`: place the camera so that one world point lands on one screen point.
+`camera.test.ts` asserts each of the three against the hand-written formula, so adoption is
+behaviour-preserving, not a rewrite.
+
+Pan is deliberately not a function here: it is `scalePoint(screenDelta, 1 / camera.zoom)` at the
+call site, and wrapping that would be an indirection.
+
+`screenToWorld` and `worldToScreen` both go through `cameraTransform`, so the DOM path and the
+WebGPU path read one matrix and there is no second copy of the mapping to drift.
+
+Status: runtime-proven — 84 tests pass, and every rule above was proved by breaking the code and
+seeing its own test fail. Five tests were too weak on the first attempt and were strengthened:
+`lerp` endpoint exactness, `cross` sign, `clampPointToRect` away from the origin,
+`clampRectWithin` from the far side, and `transformRect` at 45 degrees.
+
+### Interpolation
+
+```ts
+// src/interpolate.ts — no ownership of time; the caller supplies delta
+export type SpringState = { value: number; velocity: number };
+export function stepSpring(input: {
+  state: SpringState;
+  target: number;
+  delta: number;
+  smoothTime: number;
+  dampingRatio?: number;
+}): SpringState;
+export function arcPoint(input: {
+  from: Point;
+  to: Point;
+  amount: number;
+  curvature: number;
+}): Point;
+```
+
+**The brief asks for "a critically damped spring step with fixed substeps". The substeps are not
+built, because they are not needed.** The design handoff records a spring that diverged at a 95 ms
+tick and was fixed by stepping it in fixed 16 ms pieces. That is the signature of numeric
+integration: semi-implicit Euler on a spring is stable only while `omega^2 * delta < 2`, and at
+`smoothTime = 0.3` (`omega = 6.67`) that ceiling is a 45 ms step. A 95 ms tick is past it, so the
+state runs away.
+
+The closed-form solution of the same differential equation has no such ceiling, because `delta`
+only ever appears inside `exp`, `cos` and `sin`:
+
+```ts
+// sources/pmndrs-math.spring-core.ts:22 — the critically damped branch
+const decay = Math.exp(-omega * delta);
+pp = decay * (1 + omega * delta);
+pv = decay * delta;
+vp = -decay * omega * omega * delta;
+vv = decay * (1 - omega * delta);
+```
+
+Proved by substitution, not by argument: replacing `stepSpring`'s body with the semi-implicit Euler
+integrator fails exactly three tests — one long step no longer equals many short ones, the 95 ms
+tick no longer stays finite and inside `[0, target]`, and the critically damped case overshoots.
+Reverting makes them pass. So the recorded defect is reproduced and fixed, and the test that names
+it would have caught it.
+
+Two divergences from the reference, both because this package must stay pure:
+
+- The reference writes its four coefficients into a shared module-level `coef` object. Here the
+  regime functions return them, so `stepSpring` has no hidden state and is safe to call from
+  anywhere.
+- The three regimes (critical, under-damped, over-damped) are a lookup of named functions rather
+  than a chain of branches, which keeps the nested conditional out.
+
+**Easing is not built.** `sources/pmndrs-math.easing.ts` is captured, but Motion owns easing in this
+repo today — `next/camera.ts:185` already passes `ease: [0.22, 1, 0.36, 1]` to it — and nothing in
+this package consumes an easing curve. The GPU path that would need its own evaluator does not
+exist yet. A cubic-bezier solver is the piece worth owning when it does.
+
+**A vector or rectangle spring is not built.** `stepSpring` is scalar; a `Point` or `Rect` spring is
+the same step per component, and the composition is clearer at the call site than a wrapper here.
+
+Status: runtime-proven.
+
+## The GPU has now run this, and the harness can tell agreement from luck
+
+This was the largest gap in the document: every claim rested on `tgpu.resolve` producing WGSL text,
+which proves generation and not execution. It is closed. `src/agreement.inspect.ts` runs the exported
+functions on a real WebGPU device through the `typegpu_inspector` MCP, which drives headless Chrome:
+
+```sh
+# The durable form. The same file re-runs for any agent; nothing lives only in a session transcript.
+inspect_typegpu target={kind:"module", path:"packages/math/src/agreement.inspect.ts"}
+```
+
+```txt
+agree    clamp, where std.clamp would give 0: gpu=10 cpu=10
+agree    containScale:                        gpu=0.5 cpu=0.5
+agree    cross:                               gpu=16 cpu=16
+agree    transformPoint x / y:                gpu=24,-17 cpu=24,-17
+agree    inverse round-trip x / y:            gpu=7,-4 cpu=7,-4
+agree    gapBetweenIntervals:                 gpu=-5 cpu=-5
+agree    overlapsInterval:                    gpu=1 cpu=1
+agree    subtractRect piece count:            gpu=4 cpu=4
+agree    subtractRect piece 0 (x,y,w,h):      gpu=0,0,100,40 cpu=0,0,100,40
+agree    subtractRect piece 1 (x,y,w,h):      gpu=0,65,100,35 cpu=0,65,100,35
+agree    subtractRect piece 2 (x,y,w,h):      gpu=0,0,30,100 cpu=0,0,30,100
+agree    subtractRect piece 3 (x,y,w,h):      gpu=50,0,50,100 cpu=50,0,50,100
+control  (1e7+0.1)-1e7:                       gpu=0 cpu=0.10000000149011612
+```
+
+**`subtractRect` is the result that matters most.** The dual-target boundary rests on the claim that
+a variable-length result reshapes into a fixed capacity plus a count; that claim was previously
+supported only by WGSL text and a CPU run. All four maximal free-space pieces and the count now come
+back byte-identical from a device, so the maximal-rectangles core is proven on the target it was
+designed for.
+
+Three properties make that evidence rather than decoration.
+
+**Inputs come from a uniform buffer, never literals.** The constant-folding trap recorded above says
+a fixture built from literals tests the resolver in f64, not the GPU. Every value enters through
+`root.createUniform(Input)`.
+
+**The harness carries its own control, and fails if the control ever agrees.** An
+agreement test that can only pass proves nothing, so the known-divergent expression runs beside the
+real ones:
+
+```ts
+const cpuDrift = drifting(1e7, 0.1, 1e7);
+if (gpu.drift === cpuDrift) {
+  throw new Error(
+    "The f32/f64 control agreed, so this harness cannot detect divergence and its passes mean nothing.",
+  );
+}
+```
+
+That control independently reproduces the f32/f64 divergence this document previously took on
+report: the GPU returns **0** where the CPU returns **0.10000000149011612**.
+
+**It was break-proofed.** Comparing `gpu.clamped` against a wrong constant made the run fail with
+`CPU and GPU disagree: clamp, where std.clamp would give 0`, so the failure path works.
+
+The most valuable single line is the first. `clamp(5, 10, 0) = 10` **on the device** proves the
+explicit `max(low, min(high, value))` survives WGSL compilation and keeps minimum-wins, where raw
+`std.clamp` leaves crossed bounds undefined. That rule was previously only argued.
+
+Two honest limits. The adapter is SwiftShader (`gpuType: "software"`) — a real WGSL compiler and real
+WebGPU semantics, but not a hardware driver, so driver-specific behaviour is still unobserved. And
+**this harness cannot catch a wrong rule, only a divergent one**: both sides execute the same source,
+so an incorrect `clamp` would agree perfectly. The vitest suite owns correctness; this owns
+divergence. Neither substitutes for the other.
+
+Status: runtime-proven on a software WebGPU device.
+
+## Every GPU-facing export is a `tgpu.fn`, and the measurement decided it
+
+> **Superseded in part, 2026-09-17.** The measurement below stands: for a function that must match a
+> shader, `tgpu.fn` beats a loose callback. The conclusion drawn from it — that _every_ export should
+> be one — was wrong, and is retracted in "A `tgpu.fn` cannot serve an f64 consumer" below. A
+> `tgpu.fn` rounds its arguments **and its return value** to f32 on every CPU call, so it cannot serve
+> a consumer that needs f64. The package now ships two adapters per shared operation.
+
+The modules disagreed: `interval.ts` and `scalar.ts` exported plain `'use gpu'` callbacks, the rest
+exported `tgpu.fn`. A callback stays polymorphic and never rounds; a `tgpu.fn` pins its WGSL
+signature and rounds the result once at its declared return type. The argument for each is plausible,
+so `src/rounding.inspect.ts` measures it instead: the same ten-step accumulation built both ways, run
+on the device and on the CPU.
+
+```ts
+// Identical maths. The only difference is the boundary form of the inner step.
+const addPinned = tgpu.fn(
+  [d.f32, d.f32],
+  d.f32,
+)((total, step) => {
+  "use gpu";
+  return total + step;
+});
+const addLoose = (total: number, step: number) => {
+  "use gpu";
+  return total + step;
+};
+```
+
+```txt
+gpu      pinned=10000000  loose=10000000     ← both shaders agree, so this measures the CPU side
+cpu      pinned=10000000  loose=10000001
+error    pinned=0         loose=1
+verdict  tgpu.fn is closer to the GPU
+```
+
+Ten composed steps are enough for the callback to drift a full unit, because f64 error accumulates
+across the whole chain, while the pinned form rounds at each boundary exactly as the GPU does. The
+harness refuses to report a verdict if the two GPU results differ, so it cannot be measuring the
+shader by accident.
+
+**Decision: every exported GPU-facing function is `tgpu.fn` with declared parameter and return
+types.** The 17 interval kernels and the scalar rules converted. The cost is polymorphism over
+`number`, which these functions never needed — the GPU half is f32-first because GPU storage is.
+
+One visible consequence, now pinned in `scalar.test.ts`: `roundTo(7.3, 0)` returns `Math.fround(7.3)`
+rather than `7.3`. That is the point. **The value a caller gets is the value the shader holds**, and a
+test that expected the f64 literal was asserting the wrong contract.
+
+### The conversion exposed two guarded divisions that a ternary would have broken
+
+`roundTo` and `inverseLerp` each guarded a division with a ternary. A runtime ternary compiles to
+WGSL `select`, **which evaluates both arms**, so the guard would not have prevented the division at
+all — only chosen the right answer afterwards, on a value the Finite Math Assumption says must not
+exist. Both became `if`/`return`, which genuinely branches, and both are now checked on device:
+
+```txt
+agree  roundTo with a zero step, guarding a divide:          gpu=5 cpu=5
+agree  inverseLerp over an empty range, guarding a divide:   gpu=0 cpu=0
+```
+
+A third division had no guard at all. `aspectRatioOfRect` computed `rect.width / rect.height` with a
+zero-height rectangle entirely reachable, and it **threw** rather than returning a wrong number,
+because a declared `d.f32` return rejects the infinity the Finite Math Assumption forbids:
+
+```txt
+Cannot convert value 'Infinity' to type f32 because of the Finite Math Assumption
+```
+
+It had **no test and no caller**, which is how it survived. It now returns 0 for a collapsed
+rectangle — the value `resizeRect`'s existing `aspectRatio > 0` guard already treats as absent — and
+that case is checked on device. Note the sequence: the `tgpu.fn` decision above is what surfaced it.
+A plain callback would have returned `Infinity` in silence.
+
+Auditing the neighbours turned up four more exports with no test at all — `outsetRect`, `rectRight`,
+`rectBottom`, `unionRect` — and one of them was a second defect. `rectRight` and `rectBottom`
+restated `start + length` inline instead of composing `intervalEnd`, so the edge rule had two owners
+and breaking `intervalEnd` did not fail them. Both now compose it, and breaking `intervalEnd` fails
+their tests.
+
+### An untested export is now a failing test, not a thing to remember
+
+Finding those by hand does not stop the next one, so the audit became a gate. It reads the barrel's
+runtime exports and the text of every sibling suite, and fails on any export no test names:
+
+```ts
+const suites = globSources("./*.test.ts", { query: "?raw", import: "default", eager: true });
+
+test("every runtime export is named by a test, so none ships unexercised", () => {
+  const names = Object.keys(api);
+  // Guards against the gate passing because it found nothing to check.
+  expect(Object.keys(suites).length).toBeGreaterThan(10);
+  expect(names.length).toBeGreaterThan(50);
+
+  expect(names.filter((name) => !new RegExp(`\\b${name}\\b`).test(body))).toEqual([]);
+});
+```
+
+It immediately found six more: `intersectionStart`, `unionStart`, `unionLength`,
+`insetIntervalStart`, `scaleIntervalAbout` and the `Intersection` schema — five of them interval
+kernels that `rect.ts` composes but nothing tested directly, which is exactly where a wrong edge rule
+hides behind a rectangle test that passes for the wrong reason. All six now have tests.
+
+Renaming an export makes the gate fail, which is how its failure path was checked rather than
+assumed. Two honest limits: it is a **coverage floor**, not proof — naming a symbol is not exercising
+it — and it sees runtime values only, never types.
+
+> **The gate shipped broken and ran zero times.** `import.meta.glob` must appear literally for Vite
+> to replace it. TypeScript rejected it (this package does not depend on `vite`, so `vite/client` is
+> unreachable), and the cast I used to satisfy the compiler defeated the transform, so the file threw
+> on load. Vitest reported that as a **file** failure while the **test** count still rose, and I read
+> only the test count — so a suite whose whole purpose is catching things that pass for the wrong
+> reason did exactly that, for two commits. The type is now declared locally, the literal call is
+> intact, and the rename check was repeated to confirm a real assertion failure rather than a load
+> failure. Read `Test Files`, not just `Tests`.
+
+Also found while converting: **a WGSL reserved keyword cannot be a `d.struct` field name.**
+`d.struct({ from: d.f32 })` throws `Invalid property key 'from'`. Parameter names are unaffected,
+because the resolver renames them. None of the shipped schemas use a reserved word.
+
+Status: runtime-proven on a software WebGPU device.
+
+## The camera rule has three owners today, and that is the whole case for this package
+
+The duplication is not hypothetical and it is not two copies. `worldToScreen` exists three times in
+this repository:
+
+| Where                                              | Form                     | Precision |
+| -------------------------------------------------- | ------------------------ | --------- |
+| `packages/math/src/camera.ts`                      | `tgpu.fn` over `d.vec2f` | f32       |
+| `infinite-canvas/src/compositor/backend/camera.ts` | `tgpu.fn` over `d.vec2f` | f32       |
+| `infinite-canvas/src/geometry.ts`                  | plain numbers, `{x, y}`  | **f64**   |
+
+The compositor copy carries the comment `identical to worldPointToScreenPoint`, which is the third
+copy's name — the duplication is known and maintained by hand. The two framework copies are not
+actually identical, because one computes in f64 and the other in f32, so DOM hit-testing and GPU
+rendering can place the same world point differently.
+
+`camera.test.ts` pins both halves of that. The incumbent formula is restated in the test rather than
+imported, so this package does not gain a dependency on the one it replaces:
+
+```ts
+test("the two disagree far from the origin, which is why one owner is the point", () => {
+  const far = Camera({ center: d.vec2f(1e7, 0), viewport: d.vec2f(800, 600), zoom: 1 });
+  const mine = worldToScreen(d.vec2f(1e7 + 0.1, 0), far);
+  const theirs = incumbent.worldToScreen(/* the f64 geometry.ts formula */);
+
+  expect(theirs.x).toBeCloseTo(400.1, 4); // the f64 copy keeps the tenth of a pixel
+  expect(mine.x).toBe(400); // f32 storage cannot, and the shader agrees with f32
+});
+```
+
+For ordinary coordinates the three agree, which is why the split has gone unnoticed. Far from the
+origin — a large canvas, which is the product — they do not.
+
+Status: runtime-proven on the CPU path. The replacement itself is not done: nothing in
+`packages/infinite-canvas` imports this package yet, and that migration is a separate piece of work
+in a package another session is actively changing.
+
+## The dual-target claim is now a gate, and the runtime already knew the answer
+
+Tyler asked twice whether this package has a shared interface or merely exports functions with
+matching signatures. The honest answer is the second — the contract is TypeGPU's, adopted rather
+than built — but the deficiency that answer exposes is real: `index.ts` re-exports fifteen modules
+flat, and nothing distinguishes what resolves to WGSL from what never can.
+
+That did not need a new abstraction. It needed the claim to be executable, and the partition is
+derivable at runtime rather than hand-maintained:
+
+```ts
+const kindOf = (name: string, value: unknown) => {
+  try {
+    const wgsl = tgpu.resolve([value as never]);
+    if (wgsl === "") return "empty";
+    if (wgsl.includes(`fn ${name}`)) return "emits";
+    return wgsl.includes(`struct ${name}`) ? "struct" : "empty";
+  } catch {
+    return "cpu"; // a plain function is not resolvable at all
+  }
+};
+```
+
+The package partitions cleanly: **68 exports emit a `fn`**, the 6 shared schemas emit a `struct`, and
+the rest are CPU-only.
+
+**`"empty"` is the state that must never occur, and it is the whole point.** This document already
+recorded that without `unplugin-typegpu` in the Vite config, `tgpu.resolve` returns an empty string
+**instead of throwing**. A build regression would therefore disarm every WGSL claim in this package
+with nothing failing anywhere. Removing the plugin was tried: all five assertions fail, the sharpest
+being `expected 0 to be greater than 60`.
+
+The gate also pins that no dual-target function has drifted into the CPU-only bucket, and vice
+versa, so the conversion-state table above can no longer quietly go stale the way its `isAreaFree`
+row did.
+
+### The split is built, and it needed no relocation at all
+
+An earlier version of this section concluded that a two-entry-point split "needs four functions
+relocated first". **That was wrong, and the error was over-thinking.** A module cut through by the
+split is handled by naming its exports in the entry file. No surgery, no new modules, nothing moved:
+
+```ts
+// src/index.ts — the dual-target surface
+export * from "./camera";
+export * from "./interval";
+// ... and the tgpu.fn half of rect.ts, named rather than starred
+export { containsPoint, subtractRect, unionRect /* … */ } from "./rect";
+
+// src/cpu.ts — iterates JS arrays, allocates, dispatches on strings, or carries f64 Infinity
+export * from "./buffer";
+export * from "./rect-index";
+export { pruneContainedRects, resizeRect, unionRects, type ResizeHandle } from "./rect";
+export { stepSpring, type SpringState } from "./interpolate";
+```
+
+The gate proves the separation rather than asserting it: nothing exported from the root is CPU-only,
+no **function** exported from `./cpu` resolves to WGSL, and any overlap between the two is a schema.
+
+**There are three kinds here, not two, and the first version of this split got that wrong.** Tracing
+what a CPU consumer actually writes is what exposed it: `resizeRect` lives in `./cpu` but needs
+`Rect` to construct its argument and `SizeLimits` to type its limits, and both were published only
+from the root — so using one CPU function meant importing from both entries.
+
+A schema does not _run_ anywhere. It is the data both halves speak, with no execution contract to
+disambiguate, so forbidding it from appearing in both bought nothing and cost every CPU consumer a
+second import. `./cpu` now re-exports `Rect`, `Size` and `SizeLimits`, and the overlap rule is
+narrowed to exactly that: an export may appear in both only if it resolves to a WGSL `struct`.
+
+Re-exporting `containsPoint` — a real `tgpu.fn` — from `./cpu` fails two assertions by name, so the
+looser rule still rejects what it is there to reject.
+
+### Nothing was testing the published surface, which is why that gap needed reasoning to find
+
+Every suite in this package imported module paths — `./rect`, `./axis`, `./interval`. None of that is
+what a consumer gets. The entry points were the one part of the package with no test behind them, so
+the missing `Rect` re-export could only be found by tracing a hypothetical caller by hand.
+
+`published-surface.test.ts` imports **only** `"./index"` and `"./cpu"` and runs a realistic task:
+screen-to-world hit testing, a spatial-index query checked against filtering every window, a resize,
+bounds, and a grid placement. Removing `Rect` from `./cpu` fails it at both the type level and at
+runtime, so it catches the exact class of gap that previously required a manual trace.
+
+It also pins the thing that makes the shared currency work: `Rect` imported from either entry is the
+**same object**, so a value built on one side is accepted by the other with no conversion.
+
+### `d.v2f` in a CPU-only signature is the currency, not a leak
+
+`nearestIndices` is pure JavaScript over a `Float32Array` and still takes a `d.v2f`. That looks like
+the package imposing its GPU dependency on CPU code, and it is not: the coordinates it compares
+against are f32 in that buffer, so `d.v2f` is the type that **matches the data**. An f64 pair there
+would reintroduce a divergence against the buffer it reads.
+
+That argument is local to `nearestIndices` and does not generalise: it held only because the data it
+compares against is already f32. Where the data is DOM geometry, f64 is what matches, which is why
+`Point` came back.
+
+`typegpu` is a peer dependency the consumer already owns, so reaching for `d.vec2f` costs them
+nothing. Re-exporting `d` from `./cpu` would hide the peer relationship and create two ways to reach
+one value. No change.
+
+The split sprang three traps, all the same shape — **a gate that keeps passing while its domain
+changes underneath it.**
+
+**It narrowed a gate.** `export-coverage.test.ts` read only `./index`, so splitting the barrel
+quietly stopped covering half the package, and it still passed because the half it could see was
+fully tested. It now reads both entries and asserts `./cpu` is non-trivial.
+
+**It opened a hole the entries cannot see.** Because both entries name a cut module's exports one by
+one, a function added to `rect.ts` or `interpolate.ts` reaches neither and ships nowhere. No gate
+that reads the entry points can detect what never arrived, so the check has to sweep the modules:
+
+```ts
+const modules = import.meta.glob(
+  ["./*.ts", "!./*.test.ts", "!./*.inspect.ts", "!./gpu.ts", "!./cpu.ts"],
+  { eager: true },
+);
+// every exported VALUE must be reachable from one of the two entries
+```
+
+The comparison is by value identity, not by name. An entry may publish a kernel under a different
+name than its module gives it — `containsPointKernel` ships as `containsPoint` from `./gpu` — and a
+name comparison calls that stranded while missing a genuine rename. Caught by the gate itself: the
+first run after the rename reported seven false strandings.
+
+Adding an export to `rect.ts`, and then to `interpolate.ts`, each fails with the file and symbol
+named.
+
+**And that sweep itself doubled the suite.** An eager glob _imports_ what it matches, so the first
+version pulled in every `*.test.ts` and registered the whole suite a second time — **560 tests where
+there were 285**, all green. Filtering after the glob is too late; the negative patterns have to be
+in it. This was caught by reading the count, not the pass.
+
+Two competing `declare global` blocks for `import.meta.glob` also merge into a shape neither caller
+satisfies, so the package declares it once, with overloads.
+
+### Where the split falls, module by module
+
+Established by reading every module, not by guessing: **the split falls on module boundaries
+everywhere except two files.**
+
+| Wholly GPU-facing                                   | Wholly CPU                                                              |
+| --------------------------------------------------- | ----------------------------------------------------------------------- |
+| `interval`, `scalar`, `vector`, `transform`, `size` | `buffer`, `queue`, `occupancy`, `order`, `reduce`, `rect-index`, `axis` |
+
+The ones that are cut through:
+
+- **`rect.ts`** — `unionRects`, `pruneContainedRects` and `resizeRect` are CPU. `containsPoint`,
+  `containsRect`, `intersectsRect` and `unionRect` exist **twice**: an f64 body on plain objects and
+  a `tgpu.fn` carrying the `Kernel` suffix. The remaining twenty-odd exports are GPU-only.
+- **`camera.ts`** — `screenToWorld`, `worldToScreen` and `visibleWorldRect` exist twice, for the same
+  reason; the last is what a DOM canvas culls with. The rest (`cameraShowing`, `panCamera`,
+  `zoomCameraAbout`, `viewportRect`, `screenToClip`) are kernels only, because nothing on the DOM path
+  calls them yet.
+- **`interpolate.ts`** — `stepSpring` is CPU; `arcPoint` and `arcControlPoint` are `tgpu.fn`.
+
+The modules are untouched; the entry files choose which half each name means.
+
+### `Size` and `SizeLimits` moved out of `axis.ts`, which was a dependency defect
+
+Taking the layout engine's `SizeLimits` shape made `rect.ts` import from `axis.ts` — and `axis.ts`
+is the module this document already flags as likely belonging to the layout package. A core module
+had come to depend on one that is slated to leave.
+
+Both are pure types, so they erase and carry no execution contract, which lets them sit in `size.ts`
+beside the dual-target fit functions without mixing the two. `rect.ts` now depends on `size.ts`,
+which is stable, and `axis.ts` imports `Size` from there like anyone else.
+
+Status: runtime-proven on the CPU path, and break-proofed by removing the plugin.
+
+## The spring poisoned its own state, and my earlier audit had cleared it
+
+An earlier pass through this package looked for unguarded divisions and reported `interpolate.ts`
+clean, on the grounds that `regimeOf` routes `dampingRatio → 1` to the closed-form critical branch
+before `/damped` can divide by zero. **That was wrong in two ways, and the code was reachable.**
+
+```ts
+const regimeOf = (dampingRatio: number) =>
+  Math.abs(dampingRatio - 1) < 1e-4 ? "critical" : dampingRatio < 1 ? "under" : "over";
+```
+
+`damped = omega * sqrt(1 - d²)` is zero whenever **|d| = 1**, so `d = -1` divides by zero too — and
+`regimeOf` sends it to `"under"`, not `"critical"`. Separately, **every comparison against `NaN` is
+false**, so a non-finite ratio fails both tests and falls through to `"over"`, where
+`sqrt(d² - 1)` and the `slow`/`fast` arithmetic produce `NaN`.
+
+Measured, all four giving `NaN` coefficients:
+
+```txt
+dampingRatio -1        -> under -> pv NaN
+dampingRatio NaN       -> over  -> pv NaN
+dampingRatio Infinity  -> over  -> pv NaN
+dampingRatio -Infinity -> under -> pv NaN
+negative delta, critical -> decay 785.77   (the decay runs backwards and grows the state)
+```
+
+A spring whose state becomes `NaN` stays `NaN` for every subsequent step, so one bad frame is
+permanent. The negative-delta case is not even subtle: one step took a value of 40 to **272762**.
+
+The fix is two guards at the entry point, each with a defined physical meaning rather than a
+fabricated default:
+
+```ts
+// No time passed means nothing moves. A negative delta would run the decay backwards.
+if (!Number.isFinite(delta) || delta <= 0) return state;
+const ratio = Number.isFinite(dampingRatio) && dampingRatio > 0 ? dampingRatio : 1;
+```
+
+**The lesson, which is the reason this is recorded at length: an audit that checks the boundary the
+author was thinking about is not an audit.** I checked `d → 1` because that is the case the code
+comments itself around, and missed `d = -1`, which is the same singularity mirrored, and `NaN`,
+which defeats the dispatch rather than the arithmetic. The `Record<Regime, …>` lookup itself is
+total and was never the risk — the hypothesis I went in with was the wrong one.
+
+Status: runtime-proven on the CPU path.
+
+## `buffer.ts` is not replaced by the schema, and the TODO saying so is retired
+
+> **Half retracted, 2026-09-17.** The conclusion that the packed `Float32Array` survives is right and
+> stands — the R-tree and the Hilbert sort read individual floats in tight loops, and
+> `readFromArrayBuffer` would allocate an object per element. But the _write_ path was duplicating an
+> affordance TypeGPU ships: `writeToArrayBuffer` serializes a schema into a plain `ArrayBuffer`
+> synchronously, with no device.
+>
+> ```ts
+> export function packRects(rects: readonly Rect[]): Float32Array {
+>   if (rects.length === 0) return new Float32Array(0);
+>   const schema = d.arrayOf(Rect, rects.length);
+>   const bytes = new ArrayBuffer(d.sizeOf(schema));
+>   writeToArrayBuffer(bytes, schema, rects as Rect[]);
+>   return new Float32Array(bytes);
+> }
+> ```
+>
+> `createRectBuffer` and `writeRect` are deleted. The layout now comes from the schema rather than
+> from a constant a separate test had to guard. Status: runtime-proven — reversing the written order
+> fails 8 tests across `buffer`, `order`, `rect-index` and the published surface.
+
+This document carried "replacement pending: hand-written offsets; `d.arrayOf(Rect, n)` supersedes
+it". Reading how the module is actually consumed settles it the other way. `rect-index.ts` and
+`order.ts` use it as a **CPU-side packed array that is never uploaded**. A TypeGPU buffer needs
+`root.createBuffer`, which needs a device. Routing it through the schema would demand a GPU device
+for code that never touches the GPU — strictly worse, and more code, not less.
+
+What was real is smaller: `RECT_STRIDE = 4` restates what the `Rect` schema already determines, and
+nothing tied the two together.
+
+My first instinct — derive the constant with `d.sizeOf(Rect) / 4` — is wrong, and worth recording
+because it is the more appealing answer. Deriving it makes a field added to `Rect` **silently**
+widen the stride while `writeRect` still writes four floats. Hard-coding the packing decision and
+pinning it to the schema in a test fails loudly instead:
+
+```ts
+test("a rectangle occupies exactly RECT_STRIDE floats, so a new field fails here", () => {
+  expect(d.sizeOf(Rect)).toBe(RECT_STRIDE * Float32Array.BYTES_PER_ELEMENT);
+});
+```
+
+Adding a field to `Rect` was tried, and it fails with `expected 20 to be 16`. The existing check
+(`buffer.length === 2 * RECT_STRIDE`) could never have caught it, because it used the constant to
+verify itself.
+
+**The general rule: derive a value when drift is harmless, assert it when drift is a defect.**
+
+Status: runtime-proven on the CPU path.
+
+## Two corrections from reading `occupancy.ts` end to end
+
+**This document claimed `isAreaFree` was dual-target. It is not, and never was.** It takes an
+`OccupancyGrid`, whose state is a `Uint32Array`. A `Uint32Array` is not a `d.*` schema, so the
+function cannot be a `tgpu.fn` parameter at all. A GPU occupancy search would need `d.arrayOf(d.u32,
+n)` in a storage buffer with the extents as uniforms — a different function, not this one. The claim
+came from reasoning about the algorithm's shape rather than its signature, which is the same mistake
+as reasoning about WGSL instead of measuring it. The whole module is CPU.
+
+**A silent corruption defect, found by the same read.** `isAreaFree` guarded negatives and the right
+edge; `markArea` guarded nothing. The two disagreed about what a valid area is, and the consequence
+was not a wrong answer but a wrong _write_:
+
+```ts
+// columns: 10, so one 32-bit word per row. Marking column 32:
+//   column >> 5           === 1
+//   row * perRow + 1      === 0 * 1 + 1  === words[1], which is row 1's word.
+// An area isAreaFree rejects silently occupied a cell in a different row.
+const areaWithinGrid = (grid: OccupancyGrid, area: GridArea) =>
+  area.column >= 0 &&
+  area.row >= 0 &&
+  area.columns > 0 &&
+  area.rows > 0 &&
+  area.column + area.columns <= grid.columns;
+```
+
+Both functions now go through that predicate, so they cannot drift apart again: `isAreaFree` returns
+false and `markArea` returns the grid unchanged. Three tests fail without the fix.
+
+`findFreeArea` was checked against the new guard rather than assumed safe: its own bounds are
+stricter, and a caller passing a negative `from` gets no match until row and column reach zero, so it
+can never return a position `markArea` would now refuse.
+
+Status: runtime-proven on the CPU path.
+
+## The R-tree, and what it made unnecessary
+
+> **Extended, 2026-09-17.** The index now answers `bounds` and `nearest` as well as `search`, and
+> `boundsOfRects` and `nearestIndices` are deleted rather than moved. The root box already holds the
+> extent, so the bounds cost nothing; `nearest` is a best-first walk over the tree, which is what
+> `queue.ts` was built for and had no consumer for until now.
+>
+> ```ts
+> // One min-heap holds items and nodes together. The low bit of the id says which.
+> enqueue(queue, isLeafLevel ? (entry << 1) + 1 : entry << 1, distance);
+> while (queue.length > 0 && (peek(queue)! & 1) === 1) {
+>   if (peekValue(queue)! > furthest) break;
+>   found.push(dequeue(queue)! >> 1);
+>   if (found.length === most) return found;
+> }
+> ```
+>
+> `nearest` orders by distance **only**. The deleted scan broke ties by index; a heap cannot promise
+> that, so the oracle sorts by distance alone, compares sets, and separately asserts the returned
+> distances are non-decreasing. Pinning a tie order would test the implementation, not the contract.
+>
+> Status: runtime-proven. Inverting the leaf bit fails exactly the three `nearest` tests.
+
+`hilbertOrder`, the binary heap, and `buffer.ts`'s two query functions were all machinery with no
+consumer: every reference to them was a test. They were written for a spatial index that did not
+exist. `src/rect-index.ts` is that index — a packed Hilbert R-tree after Flatbush — and building it
+gave `hilbertOrder` its real job, because the Hilbert sort **is** the packing step.
+
+The open question this settles: **boxes are stored min/max, not position and extent.**
+
+```ts
+// The search inner loop compares stored values directly. With x and width it would add on every
+// node it visits, which is the hot path.
+if (
+  boxes[position]! > queryMaxX ||
+  boxes[position + 1]! > queryMaxY ||
+  boxes[position + 2]! < queryMinX ||
+  boxes[position + 3]! < queryMinY
+) {
+  continue;
+}
+```
+
+`Rect` stays the public currency; the conversion happens once per item at build.
+
+The surface is deliberately small — `buildRectIndex(rects)` returning `{ count, search }`. No
+serialization, no `from()`, no filter callback, no tunable node size: Flatbush has all of those and
+nothing here needs them yet. k-nearest is not built either, and it is what the heap in `queue.ts` is
+waiting for.
+
+`intersectingIndices` is **deleted**. It was the linear scan this replaces, and keeping both would
+leave two owners for one query.
+
+Verification is an oracle rather than fixtures: the tree must return exactly what the `intersectsRect`
+predicate returns when applied to every item, checked across sizes that cross the 16-item node
+boundary (1, 2, 15, 16, 17, 32, 257, 1000) and over 60 queries against a thousand rectangles.
+
+**Not measured: that it prunes.** The oracle proves the answer is right, and a tree that degenerated
+into a full scan would pass it unchanged. Pruning is inherited from Flatbush's structure, which was
+read before writing, and it has not been separately observed here.
+
+Status: runtime-proven on the CPU path. No GPU form; search is a pointer chase with an unbounded
+work list, which the dual-target boundary above puts firmly on the CPU.
+
+## Conversion state
+
+The scope correction turned the work into one migration: every module whose mathematics is
+shape-stable becomes `tgpu.fn` over `d` schemas, and the rest is named CPU-only for a stated reason.
+
+| Module           | State                      | Note                                                        |
+| ---------------- | -------------------------- | ----------------------------------------------------------- |
+| `interval.ts`    | dual-target                | 17 `tgpu.fn` kernels; every edge rule stated once           |
+| `rect.ts`        | dual-target                | composes `interval`; `unionRects`/`pruneContainedRects` CPU |
+| `camera.ts`      | dual-target                | matches the compositor backend expression for expression    |
+| `transform.ts`   | dual-target                | 3x2 affine struct, not a matrix — see the defect above      |
+| `scalar.ts`      | dual-target                | now owns `clamp`; `lerp` deleted as `std.mix`               |
+| `vector.ts`      | dual-target                | 11 functions down to 3; `Point` deleted for `d.vec2f`       |
+| `reduce.ts`      | CPU by nature              | new; JS-array reductions, holds `minOf`/`maxOf`             |
+| `interpolate.ts` | split                      | `arcPoint` dual; the spring is still f64                    |
+| `size.ts`        | dual-target                | `containScale`/`coverScale`; the string `FitMode` is gone   |
+| `occupancy.ts`   | CPU by nature              | its state is a `Uint32Array`; see the correction below      |
+| `queue.ts`       | CPU by nature              | unbounded heap; still has no consumer until k-nearest       |
+| `order.ts`       | CPU, and staying           | its consumer is the R-tree build, which is CPU-only         |
+| `rect-index.ts`  | CPU by nature              | new; packed Hilbert R-tree, a chase over a work list        |
+| `buffer.ts`      | CPU by nature, and staying | a packed array that is never uploaded; see the note below   |
+| `axis.ts`        | **placement in question**  | CPU-only; owns `Size`; likely belongs to the layout package |
+
+### `Point` is gone, and `vector.ts` lost eight of eleven functions
+
+> **Half retracted, 2026-09-17.** Deleting the eight `std` duplicates was right and stands. Deleting
+> `Point` was wrong: `d.vec2f` is the currency **at the boundary**, not everywhere, and a DOM consumer
+> doing f64 hit-testing has no boundary to be at. `Point` is back in `vector.ts` as a plain
+> `{ x: number; y: number }`, exported as a type from both entries.
+
+`d.vec2f` is the currency at the CPU/GPU boundary. Eight functions were `std` under another name and
+are deleted outright:
+`addPoints`, `subtractPoints`, `scalePoint`, `dot`, `magnitude`, `distance`, `angle`, `lerpPoint`.
+Three survive because `std` genuinely cannot do them, and each one's test now asserts that difference
+at the survivor rather than in a separate probe, so `std-equivalence.probe.test.ts` is deleted:
+
+```ts
+// std.cross is three-dimensional and throws on a vec2f pair.
+export const cross: TgpuFn<[d.Vec2f, d.Vec2f], d.F32>;
+// std.normalize throws on a zero vector (Finite Math Assumption).
+export const normalizeOrZero: TgpuFn<[d.Vec2f], d.Vec2f>;
+// No std equivalent.
+export const perpendicular: TgpuFn<[d.Vec2f], d.Vec2f>;
+```
+
+`normalize` became `normalizeOrZero`: a name shared with `std.normalize` that behaves differently at
+the one input that matters is a trap.
+
+### One owner for clamping, proved by breaking it
+
+`clampToInterval` still called raw `std.clamp`, which this document had already measured as ignoring
+the minimum-wins rule when the bounds cross — while `clampIntervalWithin`, eight lines below it,
+spelled out `max(min(...))` to avoid exactly that. Two spellings of one rule, and the raw one was
+wrong: `clampToInterval(500, 30, -100)` returned **-70** instead of 30, reachable through
+`clampPointToRect` with a negative-width rectangle.
+
+```ts
+// src/scalar.ts — the single owner. std.clamp leaves crossed bounds undefined; CSS and WGSL do not.
+export const clamp = (value: number, low: number, high: number) => {
+  "use gpu";
+  return std.max(low, std.min(high, value));
+};
+
+// src/interval.ts — the (start, length) parameterisation composes it instead of restating it.
+export const clampToInterval = (value: number, start: number, length: number) => {
+  "use gpu";
+  return clamp(value, start, start + length);
+};
+```
+
+Breaking `clamp` to `min(high, max(low, value))` fails four tests across three files, including the
+rectangle-level consumer. That is the check that the ownership is real rather than tidy naming.
+
+`norm` became `inverseLerp`: in a canvas-scoped package `norm` was unambiguous, but in a general
+mathematics library `norm` is the magnitude of a vector. `sum` was deleted as a plain `reduce` with
+no invariant. `minOf`/`maxOf` were nearly deleted with it and should not have been — a test recorded
+that `Math.max(...values)` **throws** on a 200 000-element list, which is the invariant that earns
+them their place. They moved to `reduce.ts`, because they iterate a JS array and so can never be
+dual-target. Their `Infinity` identity is therefore no longer an f32 problem.
+
+### `Size` is not a duplicate of `d.vec2f`, and deleting it was wrong
+
+This document said `Point` and `Size` were "the wrong currency", full stop. Half of that was right.
+I deleted `Size`, moved `sizeOnAxis` to `d.vec2f`, and a consumer test failed:
+
+```txt
+Error: Cannot convert value 'Infinity' to type f32 because of the Finite Math Assumption
+```
+
+Layout limits use `Infinity` for an unbounded maximum — the CSS `max-width: none` convention — and
+f32 cannot hold it. So the two types differ in the set of values they admit, which makes them
+different types rather than two spellings of one:
+
+```ts
+// src/axis.ts — CPU-only. f64, so an unbounded maximum is representable.
+export type Size = { width: number; height: number };
+
+// Pinned in axis.test.ts, so the deletion is not attempted again.
+expect(() => d.vec2f(Infinity, 100)).toThrow(/Finite Math Assumption/);
+expect(sizeOnAxis({ axis: "horizontal", main: Infinity, cross: 100 })).toEqual({
+  width: Infinity,
+  height: 100,
+});
+```
+
+**The rule this corrects: `d.vec2f` is the currency at the CPU/GPU boundary, not everywhere.** Code
+that never crosses that boundary may use f64 where it needs a value f32 forbids. `Point` was still
+a genuine duplicate — every one of its operations crosses — so its deletion stands.
+
+`fitScale` did convert, and lost its string `FitMode` doing so. WGSL cannot switch on a string, and
+the four modes were not four things: `contain` and `cover` are the CSS `object-fit` names and became
+two functions, while the single-axis modes were one division at the call site and earned no function
+of their own.
+
+Status: runtime-proven on the CPU path, and break-proofed.
+
+## A `tgpu.fn` cannot serve an f64 consumer
+
+Source: `typegpu@0.12.3`, `core/function/tgpuFn.js`, the CPU call path.
+
+```js
+const castAndCopiedArgs = args.map((arg, index) => schemaCallWrapper(shell.argTypes[index], arg));
+const result = implementation(...castAndCopiedArgs);
+// Casting the result to the appropriate schema
+return schemaCallWrapper(shell.returnType, result);
+```
+
+`data/schemaCallWrapper.js` calls the schema constructor. `data/struct.js` maps every field through
+it. `data/numeric.js:158` is the terminus:
+
+```js
+return Math.fround(v);
+```
+
+Status: observed. **Both the arguments and the return value round to f32 on every CPU call.** So
+`Rect({ x, y, width, height })` rounds all four fields, and `resizeRect` ending in `return Rect({…})`
+returned f32 despite living on the CPU-only entry. The package had no f64 path at all.
+
+The consequence for the canvas is the one `camera.test.ts` already measured: hit-testing at zoom 8 on
+a rect far from the origin needs a tenth of a pixel that f32 storage cannot hold.
+
+### Two execution contracts, one rule, one fixture set
+
+```ts
+// ./cpu — f64, plain objects, what the DOM path imports
+export const containsPoint = (rect: Rect, point: Point): boolean =>
+  point.x >= rect.x &&
+  point.x <= rect.x + rect.width &&
+  point.y >= rect.y &&
+  point.y <= rect.y + rect.height;
+
+// ./gpu — f32, resolves to WGSL, what a shader or a pre-upload path imports
+export const containsPointKernel = tgpu.fn(
+  [Rect, d.vec2f],
+  d.bool,
+)((rect, point) => {
+  "use gpu";
+  return containsValue(rect.x, rect.width, point.x) && containsValue(rect.y, rect.height, point.y);
+});
+```
+
+Same name from either entry; precision chosen by the import line. There is no root entry — the old
+one silently handed f32 to anyone importing the obvious path.
+
+What is shared is not a manifest object. It is `parity.test.ts`: one fixture set and one declared
+tolerance, run through both adapters. A `defineKernel({ inputs: "mat4x4f", precision: "f32" })` would
+restate the signature as strings nothing checks, and its `precision` and `aliasSafe` fields are claims
+rather than constraints. Only fixtures and tolerance can be executed.
+
+Precedent, both read rather than recalled:
+
+| Source                              | What it does                                                                                                          | Status   |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------- |
+| `typegpu/core/function/dualImpl.js` | One symbol, declared `signature`, `normalImpl` + `codegenImpl`, explicit `MissingCpuImplError` for GPU-only ops       | observed |
+| `tfjs-core/src/test_util.ts`        | `testEpsilon()` returns `TEST_EPSILON_FLOAT32` 1e-3 or `TEST_EPSILON_FLOAT16` 1e-1 from the backend's float precision | observed |
+
+Tolerance belongs to the execution contract, not to a global constant. Neither precedent carries an
+f64 half — tfjs tensors are f32 on the CPU backend too — so the structure is borrowed and the
+precision axis is this package's own.
+
+### The gate has four clauses, and the fixtures failed the first break
+
+```txt
+every ./gpu export resolves to WGSL
+no ./cpu function resolves to WGSL
+a name in both entries is a schema, or parity.test.ts names it
+a shared name is two different function objects, not one re-export
+```
+
+The fourth clause is the one that stops the split being collapsed back; without it the other three
+still pass.
+
+Status: runtime-proven, break-proofed three ways.
+
+- Flipping `>=` to `>` on the near edge of f64 `containsPoint` — **not caught**. Every fixture placed
+  the point on a rect's _far_ corner, so the near-edge rule was never exercised while the test was
+  named "including the inclusive edge". Near-edge fixtures added; the break then failed exactly that
+  test and no other.
+- Skewing f64 `screenToWorld` by one term — fails 4 tests.
+- Re-exporting the kernel as `containsPoint` from `./cpu` — fails 3.
+
+307 tests, 25 files, 0 source typecheck errors.
+
+### The GPU half now runs a batch, and the first run hid a portability defect
+
+`batch.inspect.ts` puts a `d.arrayOf(Rect, 8)` storage buffer through a real compute dispatch and
+compares every element against the f64 adapter.
+
+```ts
+const pipeline = root.createGuardedComputePipeline((index: number) => {
+  "use gpu";
+  const rect = rects.$[index]!;
+  const given = query.$;
+  hits.$[index] = d.u32(containsPointKernel(rect, given.pointer) ? 1 : 0);
+  bounds.$[index] = Rect(unionRectKernel(rect, given.window));
+});
+pipeline.dispatchThreads(COUNT);
+```
+
+```txt
+read back from 8 threads: hits=1 overlaps=6
+agree 48 checks across a d.arrayOf(Rect, 8) dispatch
+```
+
+Status: runtime-proven on SwiftShader. Math owns the witness and still owns **no** dispatch API — the
+runtime owns bind groups and encoders, and a batch surface here would be a second owner of dispatch.
+
+The first run passed while emitting two warnings:
+
+```txt
+⚠️ [uniform-schema-misaligned] Schema 'Query' ... property 'window' does not meet required
+   alignment (offset is 8, required alignment is 16). This is not portable ... will break on some
+   devices.
+```
+
+`Rect` and `Camera` are `vec2f`-aligned at 8; a uniform struct member needs 16. The fix is
+`d.align(16, Rect)`, after which the warning count is zero and the same 48 checks agree. **A green
+run on a software adapter hid a real portability defect** — any consumer putting `Rect` in a uniform
+needs the same align.
+
+Two independent detectors, both break-proofed:
+
+- Removing `dispatchThreads` leaves every buffer zero. A predicate that is uniformly false would
+  agree with that, so the witness requires _mixed_ answers: it throws `containsPoint returned 0 of 8`.
+- Flipping `min` to `max` in f64 `unionRect` names 16 element-level disagreements **while the count
+  guards still pass**, so neither mechanism can carry a false pass alone.
+
+## Unresolved
+
+- **`typegpu` as `dependencies` or `peerDependencies`.** Settled: `devDependencies` plus
+  `peerDependencies`, matching `@typegpu/sdf`, so a consumer holds one copy of the runtime. It is a
+  **required** peer, not optional: `rect.ts` and `camera.ts` import `typegpu` at module top and
+  `./cpu` re-exports from both, so a consumer without it fails at import even calling only
+  `resizeRect`.
+- **`viewportRect`, `cameraShowing`, `panCamera` and `zoomCameraAbout` have no f64 form.** Not a
+  defect yet: nothing on the DOM path calls them. They follow the same treatment the day one does.
+- **Only a software adapter has run this.** `agreement.inspect.ts` closes the execution gap, but on
+  SwiftShader. Hardware drivers differ in precision and in how they treat undefined behaviour, so a
+  run on a real GPU is still worth having. The harness is ready for one; only the adapter changes.
+- **Nine functions are under the agreement harness**, in 26 checks: `clamp`, `containScale`, `cross`,
+  `transformPoint`, `invertTransform`, `gapBetweenIntervals`, `overlapsInterval`, `subtractRect` and
+  the `Transform` constructor. The camera spaces, the occupancy grid and the Hilbert index are not.
+- Equal-gap snapping (three rectangles with equal spacing) has no source yet. Bier and Stone 1986
+  is still unread.
+- Occupancy grid row growth: bitset rows in one `Uint32Array` versus an array of rows. No source
+  read; CSS Grid 2 § 8.5 states the algorithm, not the storage.
+- Scan-line helpers (interval events, nearest neighbours — Dwyer § 3) are named in the brief and not
+  built.
+
+## Resumption point
+
+Two entries exist, seven operations have both adapters, the gate that holds them together is
+break-proofed, and the GPU half has now run a batch. The next increments, in order of value:
+
+1. Convert `order.ts` only when something needs a GPU-side Hilbert sort. It is fixed-shape and could
+   be a kernel, but nothing calls it from a shader, and a GPU form with no caller is the speculative
+   machinery this package refuses elsewhere.
+
+Two earlier items are retired rather than done. "Extend `agreement.inspect.ts` to the camera spaces"
+was already satisfied — `worldToScreen` and `screenToWorld` are in its table. "…and the occupancy
+grid" contradicts this document's own correction that `occupancy.ts` is CPU by nature: it holds a
+`Uint32Array`, which is not a `d.*` schema and cannot be a kernel parameter.
+
+`sources/` holds every artifact already used; add to it before each new module rather than reading
+into context and discarding.
+
+## Sources captured
+
+| File                             | Repo                   | Branch   | Commit                                     | Captured   |
+| -------------------------------- | ---------------------- | -------- | ------------------------------------------ | ---------- |
+| `sources/re-resizable.index.tsx` | `bokuweb/re-resizable` | `master` | `dcadcbed0470ef9f75a22f660285d91f414958a3` | 2026-09-18 |

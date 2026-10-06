@@ -1,0 +1,5 @@
+{
+  "extends": "../tsconfig.json",
+  "include": ["infinite-canvas/src", "infinite-canvas/legacy", "math/src"],
+  "exclude": ["../node_modules"]
+}

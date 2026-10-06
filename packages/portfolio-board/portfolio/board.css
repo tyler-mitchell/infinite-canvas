@@ -1,0 +1,68 @@
+.flow-study {
+  background: #3e2d51;
+}
+
+.avatar-depth {
+  background:
+    radial-gradient(
+      ellipse at 90% 85%,
+      color-mix(in oklab, var(--pk-accent) 14%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(ellipse at 10% 10%, rgb(255 93 133 / 10%), transparent 65%),
+    linear-gradient(145deg, #1b2024, #090e11);
+}
+
+.avatar-iridescent {
+  background: #fff;
+  box-shadow: none;
+}
+
+.avatar-depth [data-slot="avatar-background"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  backdrop-filter: blur(0.5px);
+  background: radial-gradient(ellipse closest-side, transparent 60%, rgb(0 0 0 / 25%) 100%);
+  mask-image: radial-gradient(ellipse closest-side, transparent 75%, #000 100%);
+}
+
+.avatar-iridescent::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: conic-gradient(
+    from 145deg,
+    #64dcb6,
+    #eab2d6 18%,
+    #e9e5c1 28%,
+    #47756c 42%,
+    #88dccb 55%,
+    #a5bce4 72%,
+    #eac6dd 82%,
+    #64dcb6
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+[data-slot="canvas-window"][data-container] {
+  border-radius: var(--pk-radius-card, 12px);
+}
+
+[data-slot="canvas-window"][data-container][data-highlighted] {
+  outline: calc(1px * var(--canvas-screen-scale, 1)) solid var(--pk-line);
+}
+
+[data-slot="canvas-window"][data-container][data-selected] {
+  outline: calc(1px * var(--canvas-screen-scale, 1)) solid var(--pk-accent);
+}
+
+[data-slot="canvas-viewport"][data-mode="read"] [data-slot="canvas-drag-handle"] {
+  cursor: default;
+}

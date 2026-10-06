@@ -1,477 +1,572 @@
-# API Friction Backlog
+# API friction backlog
 
-> Source: the 2026-06-10 showcase-rebuild exercise — four showcases written
-> from scratch against the public API specifically to surface defects and
-> ergonomic gaps. Items marked **fixed** landed during the exercise; the rest
-> are tracked improvements, roughly ordered by how soon they'll bite.
-> Several items dissolve naturally inside the headless extraction; they're
-> marked accordingly.
+> Source: The 2026-06-10 showcase rebuild created four showcases from the
+> public API. The work found defects and API friction.
+
+Items marked **fixed** changed during the exercise. The remaining items are in
+approximate priority order. Some items became unnecessary during the headless
+extraction, and their status says so.
 
 ## Fixed during the exercise
 
-- **Scene-layer boot paint race** — demand-frameloop content never painted on
-  cold load because the WebGPU renderer initializes asynchronously and the
-  boot invalidation schedule was wall-clock only. Fixed: schedule re-arms when
-  the renderer instance lands.
-- **Missing barrel exports** — consumer overlays need the pure projection/rect
-  helpers (`worldRectToScreenRect`, `worldPointToScreenPoint`,
-  `rectsIntersect`, …); the reference deep-imported the geometry module. Now
+- **Scene-layer boot paint race.** Demand-frameloop content did not paint after
+  a cold load.
+  The WebGPU renderer starts asynchronously, but the first invalidation used
+  only a wall-clock schedule. The schedule starts again when the renderer
+  instance becomes available.
+
+- **Missing barrel exports.** Consumer overlays require
+  `worldRectToScreenRect`, `worldPointToScreenPoint`, `rectsIntersect`, and
+  related geometry helpers.
+  The reference used a deep import from the geometry module. These helpers are
   public.
-- **No canonical drop placement** — every consumer hand-rolled divergent
-  preview/commit placement, producing cursor-defying "smart" placement.
-  `getInfiniteCanvasDropPlacement()` now provides pointer-anchored,
-  snap-integrated placement shared by preview and commit.
-- **`capturePointer` threw on inactive/synthetic pointers**, killing the
-  handler before interaction state started. Now best-effort.
-- **Non-portable dts emit** in input-policy cursor getters. Annotated.
+
+- **Canonical drop placement.** Consumers had separate preview and commit
+  placement logic. This logic produced different "smart" placement results.
+  `getInfiniteCanvasDropPlacement()` supplies pointer-anchored placement
+  with snapping for both paths.
+
+- **Pointer capture.** `capturePointer` threw for inactive or synthetic
+  pointers. The handler stopped before the interaction started.
+  Pointer capture is a best-effort operation.
+
+- **Portable declaration output.** The input-policy cursor getters have
+  explicit annotations.
 
 ## Fixed during the headless extraction (2026-06-10)
 
-- **Frame-slot styling conflicts** — dissolved: framework components emit no
-  visual classes; consumer `className`/`style` always wins (verified live —
-  the custom-frames showcase's previously-losing overrides now apply).
-- **HUD opt-out** — `hud?: boolean | { statusCard?, minimizedDock?,
-pointerModeControls?, cameraControls?, zoomControls? }` landed with the HUD
-  extraction.
-- **Drop-drag listener gap** — listeners are now mount-scoped with ref
-  guards; `startDrag` writes the interaction ref synchronously, so same-frame
-  pointer events are heard. Verified: a full down/move/up sequence in one
-  synchronous block commits a drop.
-- **Move/resize/pan/marquee listener gap (2026-07-08)** — the same defect, left
-  behind when the drop path was fixed. The window/canvas interaction listeners
-  were `useEffect`-gated on `state.interaction`, so they attached only after
-  React committed the pointerdown; a pointermove arriving in the same frame was
-  dropped and the window never moved. Invisible to humans (one frame), fatal to
-  every synthetic driver — `down -> move -> up` in one synchronous block is
-  exactly how automation and browser-mode tests drive this canvas, and it
-  silently did nothing. Now mount-scoped, reading `store.state$.peek()` at event
-  time: `commitInfiniteCanvasState` batches synchronously, so that read is never
-  a frame stale. Costs one `peek()` per idle pointermove, which is the trade the
-  drop path already accepted.
-- **Agent handle promoted** — `createInfiniteCanvasHandle(store)` is an
-  experimental export (commands facade + JSON-safe snapshot + contextual
-  command descriptors), unit-tested as the programmatic consumer contract.
-- **`getInfiniteCanvasWindowData(window, guard)`** helper exported (full
-  generic threading through registry/render contexts remains open, below).
-- **`hitRadius` documented** on the edge-target type — as world units at the time; changed to screen pixels on 2026-08-12, see the entry below.
+- **Frame-slot style conflicts.** This item dissolved during the extraction.
+  Framework components emit no visual classes.
+  Consumer `className` and `style` values control the output. A live
+  verification in the custom-frames showcase shows these overrides.
 
-## Open — high priority
+- **HUD opt-out.** The HUD extraction added
+  `hud?: boolean | { statusCard?, minimizedDock?,
+pointerModeControls?, cameraControls?, zoomControls? }`.
 
-- ✅ **Zooming mid-drag slid the window out from under the cursor (fixed 2026-07-08).** Every
-  drag captured `zoom` at `startMove` and each step computed `screenDelta / interaction.zoom`.
-  The wheel handler is not gated on an active interaction, so once the zoom changed the whole
-  accumulated screen delta was converted at a stale scale.
+- **Drop-drag listener gap.** The listeners remain mounted and use ref guards.
+  `startDrag` writes the interaction ref synchronously.
+  A synchronous pointer down, move, and up sequence commits a drop.
 
-  Grab a window at zoom 1, drag 100px right (world +100), zoom to 2, drag 100px more.
-  `screenDelta` is 200; divided by the captured zoom 1 that is world +200, where the true
-  displacement is 100 + 50 = **150**. The error was unbounded in the drag's remaining length,
-  and it applied to `move`, `resize`, `groupMove`, `groupResize`, and `groupGutter` alike.
+- **Move, resize, pan, and marquee listener gap (2026-07-08).** The drop fix
+  did not cover the window and canvas interactions.
+  Their listeners used `useEffect` with `state.interaction`. React attached them
+  after the pointer-down commit.
+  A pointer move in the same frame disappeared, and the window did not move.
 
-  `getInteractionWorldDelta` projects both ends — origin pointer under the origin camera,
-  current pointer under the current camera — instead of dividing by one cached scalar. It is a
-  strict generalization: `screenPointToWorldPoint` is `center + (p - viewport/2) / zoom`, so for
-  an unchanged camera the difference is exactly `(p - origin) / zoom`, the expression it
-  replaces, to the bit. `zoom` is gone from the five interaction types in favour of
-  `originCamera`, which `pan` always carried.
+  The one-frame delay was not visible to a person.
+  Automation and browser tests use `down -> move -> up` in one synchronous
+  block, so this delay stopped those inputs.
+  The listeners remain mounted and read `store.state$.peek()` during each
+  event. Legend State's `assign` batches synchronously, so the read has the
+  current state.
+  The cost is one `peek()` for each idle pointer move. The drop path already
+  has this cost.
 
-  **This entry originally said the fix should wait for FAIL-001 as a regression test.** It
-  landed without one, because the reduction above makes the static-camera case provably
-  unchanged and tests were out of scope that session. FAIL-001 has been asserted since C2 —
-  this paragraph's "the scenario remains unasserted" went stale then and was corrected
-  2026-08-12. The fix is still unobserved in a browser.
+- **Programmatic handle.** `createInfiniteCanvasHandle(store)` is an
+  experimental export.
+  It contains the command facade, a JSON-safe snapshot, and contextual command
+  descriptors. Unit tests cover this programmatic consumer contract.
 
-- ✅ **Pan had the sibling of that bug, and the sentence above missed it (fixed 2026-07-09).**
-  "`pan` always carried `originCamera`" was true of pan's _delta_ — pan projects its center from
-  the origin camera and never divided by a stale scalar, so it never slid a window. But the pan
-  step wrote `camera: { ...interaction.originCamera, center }`, which spread the pan-start
-  **zoom** into every frame's output. A wheel-zoom fired mid-pan — same ungated wheel handler —
-  was overwritten on the very next pointermove, snapping the zoom back and discarding it.
+- **Window data guard.** The package exports
+  `getInfiniteCanvasWindowData(window, guard)`.
+  Generic threading through registry and render contexts remains open in the
+  next section.
 
-  The step now anchors the world point grabbed at pan-start and re-projects it through the
-  current zoom: `worldAtOrigin - (point - viewport/2) / camera.zoom`. Same strict-generalization
-  argument as FAIL-001 — with the zoom unchanged the `viewport/2` terms cancel and it reduces to
-  `originCamera.center - screenDelta / originCamera.zoom`, the old expression to the bit, so pan
-  without a concurrent zoom is bit-identical. It differs only in the concurrent-pan-zoom case,
-  which was the bug. Reachable through a held pan drag plus `Ctrl`/`Cmd`+wheel or a trackpad
-  pinch; narrow, but real, and found by reading `stepCanvasInteraction` end to end. Unobserved
-  in a browser, like its sibling.
+- **Edge-target radius documentation.** The edge-target type documents
+  `hitRadius`.
+  On 2026-06-10, the text specified world units. The API changed to screen
+  pixels on 2026-08-12.
 
-  **Asserted 2026-08-12**, a month after its sibling was, and only because this document was
-  read end to end rather than searched. Three tests: the zoom survives the next pan step —
-  the bug verbatim, which came back `1` under the old form; the world point grabbed at
-  pan-start is still under the cursor after a mid-pan zoom, which is panning's actual
-  invariant and which a step that kept the new zoom but re-projected against the old one
-  would fail; and a pan with no zoom change still moves the camera exactly
-  `screenDelta / zoom`, which is the strict-generalization claim made above. Still
-  unobserved in a browser.
+## Open: high priority
 
-- ~~**Interactive performance fails NFR-1 in practice.**~~ **Stale — corrected 2026-07-08.**
-  This entry said `/stress` degrades "at even ~20 live windows during pan/zoom/move". It did,
-  until `962e42c` restored body-content memoization on the afternoon of 2026-06-10: pan at 20
-  windows went 15.6 fps → 96.9 fps, drag 4.4 fps → 58.3 fps. NFR-1's stated bar is ten
-  windows, so it passes.
+- ✅ **Zoom during a drag.** Status: fixed on 2026-07-08. C2 added coverage.
+  The fix has no browser observation.
+  Each drag stored `zoom` at `startMove`. Each step calculated
+  `screenDelta / interaction.zoom`.
 
-  What remains true, restated without the false headline: **P2's target is 100 windows at
-  60 fps**, and 80 windows currently pan at 21.3 fps. The dominant remaining cost is
-  frame-chrome reconciliation, which P2 tranche 1 attacked and **nobody has measured**. The
-  candidates listed here are still the candidates — but the profile now says drag cost was
-  bodies, confirmed, and snap-candidate rebuilds are explicitly _not_ the bottleneck at this
-  N. Profile before prescribing, and read
-  [performance-profile.md](performance-profile.md) first: it is measured, and this entry was
-  not. Tracked as risk R15; html-in-canvas texture-mode remains the leading candidate
-  ([html-in-canvas.md](html-in-canvas.md)).
+  The wheel handler permits a zoom during an interaction. Thus, a zoom converted
+  the complete accumulated screen delta with the old scale.
+  Start at zoom 1 and drag 100px right. The world displacement is 100.
+  Change to zoom 2 and drag another 100px. The accumulated `screenDelta` is 200.
 
-- ✅ **`window.data` generic threading (2026-07-08).**
-  `defineInfiniteCanvasWindowRegistry<Kind, DataByKind>` types each kind's payload
-  while the registry literal is written, then erases it. `renderBody({ window })`
-  hands back `window.data` typed by kind, and `getInfiniteCanvasWindowData` is no
-  longer needed for data the consumer put there themselves.
+  Division by the original zoom gives 200 world units. The correct displacement
+  is 100 plus 50, which is **150**.
+  The remaining drag length did not limit the error. The defect affected `move`,
+  `resize`, `groupMove`, `groupResize`, and `groupGutter`.
+  `getInteractionWorldDelta` projects the origin pointer with the origin camera.
 
-  Erased on purpose, twice over. `renderBody` _takes_ a context, so
-  `InfiniteCanvasWindowDefinition<K, Data>` is contravariant in `Data`: a per-kind
-  registry is not assignable to the erased one, and threading `DataByKind` onward
-  would force `InfiniteCanvasDesktop`, the viewport, the window layer, the frame,
-  and every slot to carry a type parameter. And it would buy nothing — `window.data`
-  really is `unknown` at runtime. It round-trips through `JSON.parse` on hydration,
-  and a tampered `localStorage` entry can put anything there.
+  It projects the current pointer with the current camera.
+  `screenPointToWorldPoint` uses `center + (p - viewport/2) / zoom`.
+  With an unchanged camera, the difference is `(p - origin) / zoom`. Thus, the
+  former static-camera behavior stays bit-identical.
+  The five interaction types no longer store `zoom`. They store `originCamera`,
+  which `pan` already stored.
 
-  **So the guarantee stops where the framework's knowledge stops.** For persisted
-  canvases, validate on read: `getInfiniteCanvasWindowData(window, guard)` exists for
-  exactly that, and a `renderBody` that trusts `window.data` out of `localStorage` is
-  trusting a string the user can edit. Making the type imply otherwise would have
-  been the more comfortable lie.
+  The first fix had no FAIL-001 regression test because tests were outside that
+  work session. C2 added the assertion.
+  The sentence "the scenario remains unasserted" became stale and changed on
+  2026-08-12.
+
+- ✅ **Zoom during a pan.** Status: fixed on 2026-07-09 and covered on
+  2026-08-12. The fix has no browser observation.
+  "`pan` always carried `originCamera`" was true only for the pan delta. Pan
+  projected its center from the origin camera and did not move a window.
+
+  The pan step still wrote `camera: { ...interaction.originCamera, center }`.
+  This value included the zoom from the start of the pan.
+  A wheel zoom during the pan disappeared after the next pointer move. The same
+  wheel handler permits that concurrent input.
+  The step anchors the world point from the start of the pan. It projects
+  that point with the current zoom.
+
+  The expression is `worldAtOrigin - (point - viewport/2) / camera.zoom`.
+  With an unchanged zoom, the `viewport/2` terms cancel. The expression reduces to
+  `originCamera.center - screenDelta / originCamera.zoom`.
+  Thus, pan behavior without a concurrent zoom stays bit-identical.
+  The defect is reachable with a held pan and `Ctrl` or `Cmd` plus a wheel
+  event. It is also reachable with a trackpad pinch.
+
+  A full review of `stepCanvasInteraction` found the defect.
+  Three tests cover the correction. The new zoom survives the next pan step.
+  The former result was `1`.
+
+  The original world point stays under the cursor after the zoom. A pan without
+  a zoom change moves the camera by `screenDelta / zoom`.
+
+  The second assertion finds a step that keeps the new zoom but projects with
+  the old zoom.
+
+- **Interactive performance.** Status: corrected on 2026-07-08. The former
+  NFR-1 failure claim is stale.
+
+  The former entry said `/stress` degrades "at even ~20 live windows during
+  pan/zoom/move".
+  Commit `962e42c` restored body-content memoization on 2026-06-10.
+  At 20 windows, pan performance changed from 15.6 fps to 96.9 fps. Drag
+  performance changed from 4.4 fps to 58.3 fps.
+
+  NFR-1 requires ten windows, so the current result meets that requirement.
+  P2 targets 100 windows at 60 fps. At 80 windows, pan performance is 21.3 fps.
+  The measured drag cost came from body content. Snap-candidate rebuilds were
+  not the bottleneck at this window count.
+
+  Frame-chrome reconciliation is the main remaining cost. P2 tranche 1 changed
+  this area, but no measurement covers that change.
+  New performance changes require the measurements in
+  [performance-profile.md](performance-profile.md). Risk R15 tracks the work.
+  Texture mode from [html-in-canvas.md](html-in-canvas.md) remains the leading
+  candidate.
+
+- ✅ **`window.data` generic threading.** Status: fixed on 2026-07-08.
+  `defineInfiniteCanvasWindowRegistry<Kind, DataByKind>` types the payload for
+  each kind while the consumer writes the registry. It then erases the type.
+  `renderBody({ window })` returns `window.data` with the type for that kind.
+
+  Consumer-owned data no longer requires `getInfiniteCanvasWindowData`.
+  The framework erases the type for two reasons.
+  First, `renderBody` takes a context. Thus,
+  `InfiniteCanvasWindowDefinition<K, Data>` is contravariant in `Data`.
+  A registry for one kind cannot assign to the erased registry.
+
+  Second, further threading of `DataByKind` adds a type parameter to
+  `InfiniteCanvasDesktop`, the viewport, the window layer, the frame, and each
+  slot.
+  At runtime, `window.data` is `unknown`. Hydration reads it through `JSON.parse`,
+  and a user can edit the `localStorage` value.
+  Persisted data requires validation with
+  `getInfiniteCanvasWindowData(window, guard)`.
+  A `renderBody` implementation that trusts `window.data` from `localStorage`
+  trusts user-editable text. The public type must not make a stronger claim.
 
 ## Fixed 2026-07-08
 
-- **Popovers inside window bodies land in the wrong place.** A frame is
-  `transform: scale(zoom)`, which makes it the containing block for
-  `position: fixed`, so every floating-UI library resolves against the frame and
-  gets scaled by the zoom. Fixed with framework-owned portal roots
-  (`src/portal.tsx`, `<InfiniteCanvasPortal>`): a desktop root at viewport level,
-  and an opt-in window-local root tracking the window's screen rect. `/portals`
-  demonstrates both.
+- **Popover position.** A frame uses `transform: scale(zoom)`. This transform
+  makes the frame the containing block for `position: fixed` descendants.
+  Thus, floating UI uses the frame coordinate space and receives the frame
+  scale.
+  `src/portal.tsx` provides `<InfiniteCanvasPortal>`. The desktop root is at
+  viewport level.
+
+  The optional window root follows the screen rectangle of its window.
+  `/portals` demonstrates both roots.
 
 ## Fixed 2026-07-08 (continued)
 
-- **Typed-payload contexts don't downcast.** `InfiniteCanvasOverlayRenderContext<K, Payload>`
-  was invariant in `Payload` because `startDrag` takes one — an intersection with a
-  contravariant member is assignable in neither direction — so every generic consumer
-  utility had to thread both type parameters. Split into
-  `InfiniteCanvasOverlayReadContext<K, Payload>` (covariant: `Payload` appears only in
-  output positions) intersected with the `startDrag` function. A utility that only
-  reads takes the read context and stops caring.
-- **`getInfiniteCanvasScopedStorageKey` widened to `string | undefined`** even when a
-  `storageKey` was supplied, because both inputs are optional — so callers wrote
-  `?? storageKey` to take it back. Now overloaded: give it a key and you get a key.
-  `/persistence` drops its workaround.
+- **Typed payload contexts.** `InfiniteCanvasOverlayRenderContext<K, Payload>`
+  was invariant in `Payload` because `startDrag` accepts one.
+  The intersection contained a contravariant member, so assignment failed in
+  both directions. Each generic consumer utility carried both type parameters.
+  The API separates `InfiniteCanvasOverlayReadContext<K, Payload>`. This
+  context is covariant because `Payload` occurs only in output positions.
 
-- **Handle change-subscription.** `createInfiniteCanvasHandle` now exposes
-  `subscribe(selector, listener)`, returning a disposer. Selector-based rather than
-  a bare `onChange`: a bare one fires on every camera tick and the caller ends up
-  diffing anyway. Because the reducers return the _identical_ array when they change
-  nothing, `subscribe((state) => state.windows, …)` fires exactly when the windows
-  change and never during a pan. The listener runs on a microtask, outside Legend's
-  tracking context — called inline, anything it read would be recorded as a
-  dependency of its own observer and could re-trigger it. Spatial queries remain
-  open: they live in the render layer.
+  The render context intersects it with the `startDrag` function. A read-only
+  utility accepts only the read context.
+
+- **Scoped storage key.** `getInfiniteCanvasScopedStorageKey` formerly returned
+  `string | undefined` after a caller supplied `storageKey`.
+  Both inputs are optional, so callers added `?? storageKey`.
+  An overload returns a key for a supplied key. `/persistence` removed its
+  workaround.
+
+- **Handle change subscription.** `createInfiniteCanvasHandle` provides
+  `subscribe(selector, listener)`. The call returns a disposer.
+  A bare `onChange` action starts on each camera tick. The caller then
+  compares the state.
+
+  Reducers return the same array when no window changes. Thus,
+  `subscribe((state) => state.windows, …)` reports only window changes.
+  It does not report pan updates.
+  The listener uses a microtask outside the Legend tracking context. An inline
+  listener can add its reads to the dependency set of its observer.
+
+  Those new dependencies can start the listener again.
+  Spatial queries remain open and belong to the render layer.
 
 ## Fixed 2026-07-08 (nudge detached a grouped window)
 
-- **`window.nudge` wrote a group member's `rect` directly.** A member's rect is the projection
-  of its group's tree, and only `interaction.step` is wrapped in
-  `syncInfiniteCanvasGroupWindowRects` — `command.execute` is not. So arrowing a selected pane
-  slid it out of its shell and left it there until some unrelated mutation re-solved the tree
-  and snapped it back without explanation.
+- **Grouped-window nudge.** `window.nudge` wrote the `rect` of a group member.
+  The group tree projects each member rectangle. Only `interaction.step` uses
+  `syncInfiniteCanvasGroupWindowRects`.
+  `command.execute` does not use that synchronization. Thus, an arrow action
+  moved a selected pane out of its shell.
 
-  Nudging a member now translates the **shell**, as dragging that member's header does
-  (DOCK-003), and each group moves once however many of its members are selected.
+  A later unrelated group change solved the tree again and moved the pane back.
+  A nudge translates the shell, as the DOCK-003 header drag does. Each group
+  moves once when the selection contains several members.
+  `close`, `maximize`, and `minimize` call
+  `detachInfiniteCanvasWindowFromGroups` before they change a rectangle.
+  `nudge` formerly did neither permitted action. A command that writes
+  `window.rect` must detach the member or change the shell.
 
-  **The rule was already there and one command broke it.** `close`, `maximize`, and `minimize`
-  all call `detachInfiniteCanvasWindowFromGroups` before touching a rect. `nudge` neither
-  detached nor deferred to the shell. Any future command that writes `window.rect` must do one
-  or the other, and the invariant is worth stating that plainly: **nothing outside the group
-  layer may write a member's rect.**
+  Only the group layer can write a member rectangle.
 
 ## Fixed 2026-07-08 (window portals painted behind their window)
 
-- **`scope="window"` never worked, and the showcase built to prove it worked showed the bug.**
-  Reported by the owner from a screenshot of `/portals`: only the deliberately-wrong in-body
-  popover was visible; the portalled one was nowhere.
+- **Window portal stack order.** The owner reported that `scope="window"` did
+  not work.
+  A screenshot of `/portals` showed only the intentionally incorrect in-body
+  popover. The portalled popover was not visible.
+  The portal root came before the `<article>` and had no `z-index`. The frame
+  uses `getWindowStackValue(window, stackBands)`.
 
-  The window portal root rendered _before_ the `<article>` and carried no `z-index`, while the
-  frame carries `getWindowStackValue(window, stackBands)`. Both are positioned elements, so paint
-  order is decided by `z-index` first and document order second — and the frame won on both
-  counts. The portalled content mounted, laid out at the right screen rect, and painted entirely
-  underneath the opaque window body.
+  Both elements have position. Their paint order uses `z-index` first and
+  document order second.
+  The frame won both comparisons. The portal content mounted at the correct
+  screen rectangle but painted under the opaque body.
+  The portal root follows the frame and uses the frame stack value. With an
+  equal `z-index`, its later document position puts it above its own window.
 
-  Fixed by rendering the root after the frame with the frame's own stack value. Equal `z-index`,
-  later in document order, so it paints above its own window — and still below any window stacked
-  higher, because a popover belongs to a window rather than to the world.
-
-  **This is the failure mode `/portals` exists to catch, and it caught nothing**, because nobody
-  looked at the route after building it. The commit that shipped portals says the framework
-  "renders nothing until its root exists rather than falling back into the transformed subtree,
-  because a popover that quietly appears in the wrong place is a bug the consumer will chase into
-  their own code." It then quietly put the popover in the wrong place.
+  A window with a larger stack value still paints above the popover. The popover
+  belongs to its window, not to the world.
+  Nobody examined the route after the team built it, so `/portals` did not expose the
+  fault during the first change.
+  The portal commit says that it "renders nothing until its root exists rather than falling back into the transformed subtree,
+  because a popover that quietly appears in the wrong place is a bug the consumer will chase into their own code."
+  The first implementation still painted the popover in the wrong place.
 
 ## Fixed 2026-07-08 (grouped-window handles)
 
-- **The gutter seam dragged only when zoomed in, and the outer edges did nothing.** Two
-  symptoms, one cause. `interaction.startResize` refuses a grouped window (a pane is resized
-  by its seam), but the frame kept drawing its resize handles. Those handles straddle the
-  frame edge — `RESIZE_HANDLE_OVERHANG = calc(extent / -2)` — and the window plane draws
-  above the group layer, so two adjacent panes blanketed the gutter between them with
-  controls that were guaranteed to do nothing, and swallowed its `pointerdown`.
+- **Grouped-window resize handles.** The gutter worked only at high zoom, and
+  the outer group edges did not resize.
+  `interaction.startResize` refuses a grouped window because its seam changes
+  the pane size. The frame still drew resize handles for each pane.
+  These handles cross the frame edge through
+  `RESIZE_HANDLE_OVERHANG = calc(extent / -2)`.
 
-  The intermittency was **zoom**, not focus: handle extent is constant in screen pixels
-  (`chrome.resizeHandleSize / scale`), while gutter width is fixed in world units. Zoomed in,
-  the seam is wide in screen pixels and its centre stays exposed; zoom out and the two
-  handles close over it. Same click, different zoom, different outcome.
+  The window plane is above the group layer. Handles from two adjacent panes
+  covered the gutter and consumed its `pointerdown`.
+  The handle extent stays constant in screen pixels through
+  `chrome.resizeHandleSize / scale`. The gutter width stays constant in world
+  units.
+  At high zoom, the screen gutter remains exposed. At low zoom, the two handle
+  areas cover it.
 
-  A grouped window now draws no resize handles at all. The window layer passes `isGrouped`
-  from the group projection's `windowRects` keys, which is precisely the placed-by-a-tree set.
+  A grouped window no longer draws resize handles. The window layer derives
+  `isGrouped` from the `windowRects` keys in the group projection.
+  These keys identify the windows that a tree places.
+  A group shell has edge handles. This status was stale until 2026-08-12.
 
-  ✅ **A group shell has edge handles (built since; this entry was stale until 2026-08-12).**
-  The sketch below is what shipped, near enough verbatim: a `groupResize` interaction beside
-  `groupMove` and `groupGutter`, stepping `group.rect` and letting the solver re-project members
-  for free.
+  A `groupResize` interaction exists beside `groupMove` and `groupGutter`. It
+  changes `group.rect`, and the solver projects each member rectangle again.
+  `getInfiniteCanvasGroupMinimumSize` follows each solver branch.
+  A split sums child sizes along its axis and adds one gutter between adjacent
+  children.
+  Tabs add a strip above the tallest child. An accordion adds `n` headers and
+  uses the widest child across all members.
 
-  The open question it named — the shell's minimum size — was answered by
-  `getInfiniteCanvasGroupMinimumSize`, which recurses the tree and mirrors the solver branch for
-  branch: a split sums along its axis with a gutter between each adjacent pair, tabs stack a
-  strip above the tallest child, and an accordion takes `n` headers plus the _widest_ child
-  rather than the active one. It is deliberately **not** built from members' `minSize`: a
-  member's rect is the tree's projection, so a floating-window property has no authority inside
-  it, and honouring it would let one stubborn pane veto a resize of a group it merely belongs to.
-
-  Recorded because the staleness is the lesson: this entry described a missing capability for
-  long enough that a later reader — me — went looking for the work before checking whether it
-  existed. A backlog that is not retired as it is worked becomes a source of phantom tasks.
+  The minimum does not use member `minSize`. The group tree owns member
+  geometry, so a floating-window property cannot control the group minimum.
 
 ## Fixed 2026-07-08 (dock intent)
 
-- **`Alt`+drag never docked, because three handlers stepped one pointermove.** Reported
-  against `/groups`. The window header dispatched `interaction.step` with
-  `dockIntent: event.altKey`; the canvas root — an **ancestor of every window frame**, so
-  a header drag bubbles into it — dispatched the same step with no `dockIntent` at all,
-  and `action.dockIntent === true` resolved it to `false`, nulling the `dockPreview` the
-  header had just resolved; the mount-scoped `window` listener then dispatched a third
-  time, with the modifier. Dock intent was decided by handler ordering for a single
-  physical event, and `dockPreview` flapped null↔set within one frame — which the dock
-  overlay reads.
+- **Dock-intent dispatch.** `Alt`+drag did not dock because three handlers
+  processed one pointer move. The report came from `/groups`.
+  The window header dispatched `interaction.step` with
+  `dockIntent: event.altKey`.
+  The canvas root is an ancestor of each frame. The event reached the root,
+  which dispatched the same step without `dockIntent`.
 
-  The root's `onPointerMove` was vestigial: the "Move/resize/pan/marquee listener gap"
-  fix above made the mount-scoped `window` listener the source of truth for every
-  captured pointer, and did not remove the React handler it replaced. Removed. Pan and
-  marquee both `capturePointer` on the root, so their moves still retarget there and
-  bubble to `window`.
+  `action.dockIntent === true` then returned `false` and cleared the
+  `dockPreview` from the header.
+  The mounted `window` listener dispatched a third step with the modifier.
+  Thus, handler order controlled dock intent. `dockPreview` changed from a
+  value to null and back within one frame.
+  The dock overlay reads that value.
 
-  **The lesson is structural, not local:** an interaction step carrying a modifier must be
-  dispatched from exactly one place. Two dispatchers with different knowledge of the same
-  event is a race, and the one that knows less wins whenever it runs last.
+  The root `onPointerMove` became obsolete after the "Move/resize/pan/marquee
+  listener gap" fix.
+  The mounted `window` listener already owned captured pointer movement. The
+  first correction removed the React handler.
+  Pan and marquee call `capturePointer` on the root. Their events still get to
+  the root and then the `window` listener.
 
-  **And the fix drawn from it did not take (2026-08-12).** Removing the root's handler left
-  _four_ others dispatching `interaction.step` — the window header, the window resize handle,
-  the group resize handle, and the group gutter — so every pointermove during a drag still
-  dispatched twice, on the hottest path in the application, and three of the four omitted
-  `dockIntent`. The comment written at the time, claiming the mount-scoped listener was "the
-  single source for interaction steps", was false the day it was written and stayed false for
-  a month. All four are removed, and `single-dispatcher.test.ts` enforces the rule by reading
-  the source: no module but `infinite-canvas.tsx` may call `stepInteraction`. Recording a
-  structural lesson in prose is not the same as installing it; this entry is the evidence.
+  One owner must dispatch an interaction step that contains a modifier. Two
+  dispatchers can have different facts about the same event.
+  The last dispatcher then controls the result.
+  The first correction remained incomplete until 2026-08-12. Four local
+  handlers still dispatched `interaction.step`.
 
-  Still worth deciding: `resolveInfiniteCanvasDockPreview` hit-tests the **pointer**
-  against the target's rect, not the dragged window's rect against it. Docs say "drag a
-  floating window _over another_", which reads as rect overlap. Cursor semantics match
-  VS Code and Dockview and are probably right, but the wording oversells it.
+  They were the window header, window resize handle, group resize handle, and
+  group gutter.
+  Each pointer move during a drag still caused two dispatches. Three local
+  handlers omitted `dockIntent`.
+  The comment called the mounted listener "the single source for interaction
+  steps", but four source calls contradicted it.
+  The correction removed all four calls.
 
-- ✅ **The package leaked a `@types/node` requirement onto its consumers, and the playground
-  build had been broken by it (fixed 2026-08-12).** `packages/infinite-canvas/tsconfig.json`
-  carries `"types": ["node"]` — correctly, for the tests that read this package's own source from
-  disk to enforce invariants a type cannot. But the package is **source-linked** into the
-  playground, so a consumer typechecks this source under _its_ tsconfig, and a single
-  `process.env.NODE_ENV` in `infinite-canvas.tsx` compiled green here while failing there with
-  `TS2591: Cannot find name 'process'`.
+  `single-dispatcher.test.ts` reads the source and permits
+  `stepInteraction` only in `infinite-canvas.tsx`.
+  One product question remains. `resolveInfiniteCanvasDockPreview` examines the
+  pointer inside the target rectangle.
+  It does not compare the dragged rectangle with the target rectangle. The
+  documentation says "drag a floating window _over another_", which can imply
+  rectangle overlap.
 
-  The package's own `vp check` could never have caught it: the leak is only visible from the
-  other side of the boundary. It was found by running the playground's build after touching a
-  showcase, and confirmed pre-existing by stashing the change and rebuilding.
+  The pointer rule matches VS Code and Dockview. The wording remains stronger
+  than the behavior.
 
-  Fixed at the point of use — `process` is now declared in module scope, which shadows the global
-  where one is typed and supplies the type where none is, while keeping the literal
-  `process.env.NODE_ENV` token every bundler replaces. `import.meta.env.DEV` was rejected: it
-  trades a node dependency for a Vite one, in a library that should require neither.
+- ✅ **Ambient Node type leak.** Status: fixed on 2026-08-12. The package had
+  leaked a `@types/node` requirement to consumers and broke the playground
+  build.
+  `packages/infinite-canvas/tsconfig.json` contains `"types": ["node"]`. Tests
+  require this entry because they read package source from disk.
 
-  Setting `"types": []` was tried and reverted — the tests genuinely need `node:fs`, `node:path`,
-  and `node:url`. The tsconfig now records what the entry is for and that shipped source must not
-  rely on it.
+  These tests enforce invariants that a type cannot express.
+  The playground source-links the package and typechecks it with the playground
+  tsconfig.
+  One `process.env.NODE_ENV` reference in `infinite-canvas.tsx` passed the package
+  build but caused `TS2591: Cannot find name 'process'` in the playground.
+  The package `vp check` cannot find this leak because the package has Node
+  types. The error appears on the consumer side.
 
-  **Still open: nothing enforces this.** The four surface gates guard exports, docs, the pure
-  core's import graph, and semver tiers; none asks whether shipped source references an ambient
-  global its consumers will not have. A fifth check — no node builtin import and no bare
-  `process` outside `*.test.*` — is the shape that would have caught this the day it landed, and
-  it is the same drift class every existing gate exists for.
+  The playground build found the error after a showcase change. A stash and
+  rebuild showed that the error existed before that change.
+  The module declares `process` locally. This declaration shadows a typed
+  global and supplies the type when the global type is absent.
+  It also keeps the literal `process.env.NODE_ENV` token that bundlers replace.
 
-## Open — medium
+  The team rejected `import.meta.env.DEV` because it adds a Vite requirement to
+  the library.
+  The team tried `"types": []` and restored the Node types. Tests import
+  `node:fs`, `node:path`, and `node:url`.
+  The tsconfig records the reason for the entry. It also states that shipped
+  source must not depend on it.
 
-- ✅ **The pure core's import boundary was unenforced (fixed 2026-07-08).** Legend State is
-  confined to `store`, `rasterization`, `visibility`, and `canvas-handle` — all at the React
-  or programmatic boundary — and appears nowhere in derivation. That held by construction and
-  by reading, and nothing stopped the next contributor from importing an observable into
-  `reducer.ts`. `README.md` and `CONTRIBUTING.md` both claimed a test enforced it. **No such
-  test existed**; only the _headless_ boundary was tested.
+  Enforcement remains open. The four surface gates cover exports, documents,
+  the pure-core import graph, and semver tiers.
+  No gate finds an ambient global in shipped source.
+  A fifth gate can forbid Node built-in imports and bare `process` references
+  outside `*.test.*` files.
 
-  `scripts/verify-pure-core.mjs` crawls the import graph from 29 pure-core roots — 33 modules
-  reached — and fails when any can reach `react`, `react-dom`, `@legendapp/state`, `three`,
-  `@react-three/fiber`, or `@zumer/snapdom`, reporting the full trail rather than just the
-  offending package. In CI before the build, and in `prepublishOnly`.
+## Open: medium priority
 
-  Two decisions worth keeping: **type-only imports are ignored**, because
-  `import { type InfiniteCanvasStore } from "./store"` erases before runtime and must not drag
-  `store.ts` into the core — a gate with false positives is a gate people learn to route
-  around; and it carries a **coverage floor**, because `optional-peers.test.ts` shipped in this
-  repo passing vacuously when its regex missed `export … from` and the crawl reached exactly
-  one module. Both cases negative-tested, along with a stale root entry.
+- ✅ **Pure-core import boundary.** Status: fixed on 2026-07-08.
+  Legend State belongs only in `store`, `rasterization`, `visibility`, and
+  `canvas-handle`.
+  These modules are at a React or programmatic boundary. Derivation modules do
+  not import Legend State.
 
-- ✅ **`docs/API.md` drifted silently, because nothing regenerated or checked it
-  (fixed 2026-07-08).** `SHIP_PLAN.md` described it as "generated from the barrel"; it is
-  hand-maintained. It was missing **43 public names** — undo/redo, layout recipes, and
-  portals had no section in it _at all_, though each is a headline feature in
-  `CHANGELOG.md`, and `README.md` points consumers there for "the full export surface".
+  The source structure had this property, but no gate prevented an observable
+  import in `reducer.ts`.
+  `README.md` and `CONTRIBUTING.md` both claimed that a test enforced it. Only
+  the headless boundary had a test.
+  `scripts/verify-pure-core.mjs` starts from 29 pure-core roots and reaches 33
+  modules.
+  It reports an error when a root reaches `react`, `react-dom`,
+  `@legendapp/state`, `three`, `@react-three/fiber`, or `@zumer/snapdom`.
 
-  Reconciling by hand fixed the symptom. `scripts/verify-api-doc.mjs` fixes the cause: it
-  extracts every name from `index.ts` / `scene.ts` and fails when one is absent from the
-  doc. Wired into CI before the build — it reads source, so it needs none — and into
-  `prepublishOnly`.
+  The error includes the complete import path to the forbidden package.
+  CI operates the script before the build. `prepublishOnly` also operates it.
+  The script ignores type-only imports.
+  `import { type InfiniteCanvasStore } from "./store"` disappears before runtime
+  and does not add `store.ts` to the core.
 
-  Both assertions were negative-tested. Removing a documented name fails. So does adding an
-  `export const` or an `export * from`, because the parser understands only re-export
-  blocks and **refuses to run rather than pass vacuously** when the barrel grows a form it
-  cannot see. That second guard is the one that matters: a drift gate blind to the export
-  you just added is worse than no gate, because it reports success.
+  The script also has a coverage floor. This prevents a parser error from
+  producing a successful one-module crawl.
+  `optional-peers.test.ts` had this exact defect. Its regular expression missed
+  `export … from`, and the crawl reached one module.
+  Negative tests cover both cases and a stale root entry.
 
-  It asserts presence, not quality — a name buried in the doc with no explanation still
-  passes — and it does not check the reverse direction, since the doc legitimately names
-  types and options that are not themselves exports.
+- ✅ **API document drift.** Status: fixed on 2026-07-08.
+  `SHIP_PLAN.md` called `docs/API.md` "generated from the barrel", but
+  maintainers update the document by hand.
+  It omitted 43 public names. Undo, redo, layout recipes, and portals had no
+  section.
 
-- ✅ **Slot layout rigidity — dissolved 2026-08-12, and not by the fix this entry expected.**
-  Centring a header title needed "absolute-position hacks around `Controls`" because the header
-  is a flex row with `justify-content: space-between`, so `Title` sat wherever `Controls` left
-  room and pulling it to the centre meant taking it out of flow.
+  `CHANGELOG.md` described each capability. `README.md` linked to the document
+  for "the full export surface".
+  A manual edit restored the names.
+  `scripts/verify-api-doc.mjs` extracts each name from `index.ts` and
+  `scene.ts`.
+  It reports an error when the document omits a public name.
 
-  This entry proposed "slot order/areas in the styled-distribution work" — a new mechanism. None
-  was needed. The headless slot work closed it as a side effect: a slot's `children` replace the
-  default arrangement, and a consumer `style` merges per-declaration over the framework's, so a
-  three-column grid with the title in the middle column centres it against the **header** rather
-  than against the space `Controls` happens to leave.
+  CI operates the script before the build. The script reads source and requires
+  no build output. `prepublishOnly` also operates it.
+  Negative tests remove a documented name and add `export const` or
+  `export * from`.
+  The parser accepts only supported re-export blocks. An unknown barrel form
+  causes an error, so the gate cannot pass with an incomplete parse.
 
-  Closed on evidence rather than by argument: `slot-render.test.tsx` builds exactly that header
-  through the public API and asserts no absolute positioning is involved, and that the header's
-  `data-infinite-canvas-control` drag surface survives the relayout — a centring trick that cost
-  you window dragging would not be a fix.
+  The gate proves name presence. It does not prove explanation quality.
+  The gate does not enforce the reverse direction because the document also
+  names options and related types.
 
-  Worth recording as a pattern: a general capability retired a specific complaint, and building
-  the proposed mechanism would have added a second way to do what one already did.
+- ✅ **Slot layout rigidity.** Status: dissolved on 2026-08-12 through the
+  existing headless slot contract.
+  Centering a title formerly required "absolute-position hacks around
+  `Controls`".
+  The header is a flex row with `justify-content: space-between`. Thus, `Title`
+  used the space that `Controls` left.
 
-## Open — small / documentation
+  Moving the title to the center required removal from the normal flow.
+  The backlog proposed "slot order/areas in the styled-distribution work" as a
+  new mechanism.
+  The headless slot work already supplied the required control. Slot `children`
+  replace the default arrangement.
+  Consumer `style` declarations override matching framework declarations.
 
-- ✅ **`Mod+0` reset the browser's zoom as well as the canvas's (fixed 2026-07-08).** Reset zoom
-  is now **`Shift+0`**.
+  A three-column grid can put the title in the middle column. This layout
+  centers the title against the complete header. The space `Controls` leaves
+  does not affect it.
+  `slot-render.test.tsx` creates this header through the public API. The test shows
+  that the layout uses no absolute positioning.
+  The test also preserves `data-infinite-canvas-control` as the drag surface.
 
-  This entry said the collision was "unverified, and worth ten seconds in a browser". It did not
-  need a browser and it did not need ten seconds: the rule was already written down two entries
-  below the offending descriptor, in this repository, by the person who shipped the offence.
-  Browsers reserve `Mod` with `0`, `+`, and `-` above the page — the keydown is delivered,
-  `preventDefault()` returns without error, and the zoom resets anyway — exactly as
-  `Mod+Alt+Arrow` switches tabs and `Mod+Alt+C` opens DevTools. Waiting for an observation to
-  confirm a rule you have already stated is not caution.
+  No second slot-layout mechanism is necessary.
 
-  `Shift+0` joins the view family it belongs to (`Shift+1` fits all, `Shift+2` fits the
-  selection) and is unclaimed. That it survives keyboard layout was settled by **reading
-  `@tanstack/hotkeys`' matcher** rather than assuming: a single-character hotkey is compared to
-  `event.key` first, and when `Shift+0` yields `)` on a US layout it falls through to
-  `event.code === "Digit0"`. `Shift+1` and `Shift+2` have always taken that same path, so the
-  new chord is exactly as sound as the two beside it.
+## Open: small items and documentation
 
-  What remains a browser task, and remains undone: auditing the _rest_ of
-  `DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS` against real browsers. `Escape`, `Mod+A`,
-  `Mod+Z`, `Mod+Shift+Z`, `Mod+Y`, `Shift+<digit>`, the arrow families, and `Mod+Shift+Enter`
-  are all believed page-cancellable, but "believed" is the operative word. **`Mod+Y` is the one
-  to check first**: it is the Windows redo convention, which is why it is bound here, and at
-  least one desktop browser binds `Ctrl+Y` to a chrome-level action. Which one, and whether that
-  binding is cancellable, is precisely the thing not to assert from memory.
+- ✅ **Reset-zoom shortcut.** Status: fixed on 2026-07-08. `Mod+0` also reset
+  browser zoom, so the canvas binding is `Shift+0`.
+  The former entry called the collision "unverified, and worth ten seconds in a
+  browser". The repository already recorded the browser rule.
 
-- ✅ **`hitRadius` is screen pixels (decided and changed 2026-08-12).** This entry asked whether
-  screen-pixel semantics "would serve consumers better". They do, and the case is stronger than
-  a preference: `hitRadius` was the framework's **only** threshold measured in world units.
-  Snap's `threshold` and `releaseThreshold`, the detail-level band, the offscreen inset and
-  margin, the 6px tab-drag threshold, and the keyboard nudge step are all screen pixels mapped
-  through the camera.
+  Browsers reserve `Mod` with `0`, `+`, and `-` above the page.
+  The browser receives the keydown. `preventDefault()` returns without an error,
+  but the browser zoom still resets.
+  Similarly, `Mod+Alt+Arrow` switches tabs, and `Mod+Alt+C` opens DevTools.
+  `Shift+0` joins the existing view bindings. `Shift+1` fits all content, and
+  `Shift+2` fits the selection.
 
-  World units make an edge's hit area shrink as you zoom out — at 25% zoom the default 10-unit
-  radius is 2.5 screen pixels, so edges become unclickable exactly when you have zoomed out to
-  see the whole graph and most want to click one, and balloon to a sloppy 40px at 400%. That is
-  risk **R2** ("thresholds vary with zoom"), which the register records as _mitigated_ for
-  snapping and which was live here, and it is the same defect as the low-zoom chrome stroke that
-  rendered at a tenth of a pixel.
+  The `@tanstack/hotkeys` matcher first compares a one-character hotkey with
+  `event.key`.
+  On a US layout, `Shift+0` produces `)`. The matcher then compares
+  `event.code === "Digit0"`.
+  `Shift+1` and `Shift+2` already use this path.
+  A browser audit of `DEFAULT_INFINITE_CANVAS_COMMAND_DESCRIPTORS` remains open.
 
-  The default stays 10, so behaviour at zoom 1 is unchanged and only the zoom curve differs —
-  which is why every pre-existing test kept passing and why the new ones assert at 0.25 and 4,
-  where the two conventions actually disagree.
+  The candidate chords are `Escape`, `Mod+A`, `Mod+Z`, `Mod+Shift+Z`, `Mod+Y`,
+  `Shift+<digit>`, the arrow families, and `Mod+Shift+Enter`.
+  These bindings are "believed" to be cancelable at the page level.
+  The first audit target is `Mod+Y`. It is the Windows redo convention, and at least one
+  desktop browser uses `Ctrl+Y` for a browser action.
+  The browser and the cancelable state of that binding remain unknown.
 
-- ✅ **Snap guides for drops are consumer-rendered (fixed 2026-07-08).** The snap
-  overlay drew `state.snapPreview` only, so every consumer redrew the drop's guides
-  themselves, slightly differently, against the same `data-slot` contract the
-  framework was already styling. The guides were being computed inside
-  `getInfiniteCanvasDropPlacement` and thrown away.
+- ✅ **`hitRadius` units.** Status: changed to screen pixels on 2026-08-12.
+  The former entry asked whether screen-pixel semantics "would serve consumers better".
+  `hitRadius` was the only framework threshold in world units.
+  The snap `threshold`, `releaseThreshold`, and detail-level band already use
+  screen pixels through the camera.
 
-  `dropPolicy.placement` now tells the framework how big the payload will be; the
-  viewport snaps the drop against the same candidates a window move snaps against
-  and exposes the result as `drag.placement`. `InfiniteCanvasDropSnapOverlay` draws
-  it with the same layer the move overlay uses. Omit `placement` and drops behave
-  exactly as before.
+  The offscreen inset, margin, 6px tab-drag threshold, and keyboard nudge step
+  also use screen pixels.
+  At 25% zoom, the former default radius of 10 world units became 2.5 screen
+  pixels. At 400% zoom, it became 40px.
+  This behavior was risk **R2**, "thresholds vary with zoom". The risk register
+  marked the snapping case as mitigated.
 
-  `onDrop` now receives **that same placement object**, rather than the consumer
-  calling `getInfiniteCanvasDropPlacement` a second time to find out where the ghost
-  was. Two calls can disagree, and when they do the card lands somewhere other than
-  where the preview promised. `/drop-tray` lost eighteen lines of guide meshes and a
-  duplicate placement call.
+  The same type of defect made the low-zoom chrome stroke one tenth of a pixel.
+  The default remains 10. Thus, behavior at zoom 1 is unchanged.
+  Existing tests did not find the change because they used zoom 1. New tests
+  use 0.25 and 4, where the two unit models differ.
 
-- **Stress-scale raster defaults** — `maxPendingCaptures` defaults to `Infinity`, and so
-  does `viewportMarginPx`; at 160 windows the capture queue churns for a long time.
-  Revisit defaults with the perf deep-dive. Deliberately not changed alongside the
-  liveness fix below: picking a bound without profiling would be a guess wearing a
-  measurement's clothes. Rasterization is `enabled: false` by default, so these bind
-  only on consumers who opted in.
+- ✅ **Drop snap guides.** Status: fixed on 2026-07-08.
+  The overlay formerly drew only `state.snapPreview`. Each consumer then drew
+  drop guides from the same `data-slot` contract.
+  Their output differed. `getInfiniteCanvasDropPlacement` already calculated
+  the guides and then discarded them.
+
+  `dropPolicy.placement` describes the payload size.
+  The viewport snaps the drop against the window-move candidates and exposes the
+  result as `drag.placement`.
+  `InfiniteCanvasDropSnapOverlay` draws the result with the move-overlay layer.
+  When a consumer omits `placement`, drop behavior remains unchanged.
+  `onDrop` receives the same placement object as the preview.
+
+  A second call to `getInfiniteCanvasDropPlacement` can return a different
+  position. The card can then land away from its preview.
+  The `/drop-tray` route removed 18 lines of guide meshes and one duplicate
+  placement call.
+
+- **Stress-scale raster defaults.** Status: open.
+  `maxPendingCaptures` defaults to `Infinity`. `viewportMarginPx` has the same
+  default.
+  At 160 windows, the capture queue stays active for a long period.
+
+  The performance investigation must measure a useful bound before these
+  defaults change.
+  Rasterization uses `enabled: false` by default. These values affect only
+  consumers that enable it.
 
 ## Fixed 2026-07-08 (raster queue)
 
-- **`maxPendingCaptures` was a knob that broke the thing it bounded.** Setting it to any
-  finite value made every window it refused go permanently un-rasterized. `queueCapture`
-  returned `void` and simply dropped the request when the queue was full, while the body
-  had _already_ written `lastRequestedSignatureRef.current = signature` before the call —
-  and `shouldQueueCapture` tests `lastRequestedSignatureRef.current !== signature`. So the
-  body recorded a request it never made, went quiet, and nothing ever asked again. The one
-  configuration where the bound mattered — stress scale — is the one where it silently
-  produced blank windows.
+- **Finite capture queue.** A finite `maxPendingCaptures` value formerly left
+  each refused window without a raster.
+  `queueCapture` returned `void` and discarded a request when the queue was full.
+  The body had already written
+  `lastRequestedSignatureRef.current = signature`.
+  `shouldQueueCapture` requires
+  `lastRequestedSignatureRef.current !== signature`. Thus, no later call retried
+  the discarded request.
 
-  `queueCapture` now returns `boolean`, and the body records the signature only when the
-  queue accepted. Refusal (`false`) is distinguished from _already satisfied_ (`true`, when
-  an equivalent snapshot is queued/capturing/ready): conflating them the other way turns the
-  skip path into a re-arm loop.
+  Thus, the stress configuration produced blank windows.
+  `queueCapture` returns `boolean`. The body records the signature only after
+  the queue accepts the request.
+  A `false` result means refusal. A `true` result means acceptance or an
+  equivalent satisfied request.
 
-  Liveness needs a wake-up too, and the effect's deps do not move on their own — a refused
-  body keeps `wantsCapture === true` across the refusal. `useInfiniteCanvasRasterCaptureCapacity`
-  selects the full ↔ not-full crossing as a boolean, so a drain re-arms the waiting bodies.
-  It subscribes **only while a body is waiting**: the selector returns before touching
-  `state$`, Legend records no dependency, and a completed capture does not wake the other
-  159 windows. At the default `Infinity` the value is a constant `true` and the whole
-  mechanism costs nothing.
+  The satisfied states are queued, capturing, or ready. This distinction
+  prevents the skip path from starting a retry loop.
+  A refused body keeps `wantsCapture === true`, so its effect dependencies do
+  not change after refusal.
+  `useInfiniteCanvasRasterCaptureCapacity` observes the transition between a
+  full queue and a queue with capacity.
+  That transition starts the waiting bodies again.
+
+  The hook subscribes only while a body waits. Otherwise, the selector returns
+  before it reads `state$`, so Legend records no dependency.
+  A completed capture does not start the other 159 windows. At the default
+  `Infinity`, the hook returns a constant `true` and adds no work.
 
 ## Corrected observations (no action)
 
 - ~~"Mount the overlay surface eagerly when sceneLayers declare overlay
-  placement"~~ — already the behavior: surfaces mount from **declared layer
-  placement**, not drag activity (verified: two canvases at idle on
-  /drop-tray). The perceived first-drag preview lag was screenshot timing —
-  DOM commits paint before the next invalidated R3F frame. Nothing to change.
+  placement"~~ already describes current behavior.
+  Surfaces mount from declared layer placement. Drag activity does not control
+  the mount.
+  A live verification observed two idle canvases on /drop-tray.
+  The perceived delay on the first drag came from screenshot timing. The DOM
+  commit painted before the next invalidated R3F frame.
+
+  This observation requires no code change.

@@ -6,35 +6,37 @@ packages:
 catalogMode: prefer
 
 catalog:
-  "@types/node": ^24
-  typescript: ^5
-  # Pinned exactly: these were `@latest`, so every `install` silently upgraded
-  # the whole toolchain. A 0.1.24 -> 0.2.2 drift broke `vp test`'s vitest bin
-  # resolution mid-session. Reproducible builds require exact pins here; bump
-  # deliberately, with the full `ready` gate.
-  vite: npm:@voidzero-dev/vite-plus-core@0.1.24
-  vitest: npm:@voidzero-dev/vite-plus-test@0.1.24
-  vite-plus: 0.1.24
-  react: ^19.2.7
-  react-dom: ^19.2.7
-  "@types/react": ^19.2.17
-  "@types/react-dom": ^19.2.3
+  "@types/node": ^24.13.3
+  typescript: ^5.9.3
+  # Keep these packages aligned. Version 0.1.24 served Start routes as 404.
+  vite: npm:@voidzero-dev/vite-plus-core@0.2.9
+  vitest: 4.1.10
+  vite-plus: 0.2.9
+  react: ^19.3.0
+  react-dom: ^19.3.0
+  "@types/react": ^19.3.0
+  "@types/react-dom": ^19.3.0
   "@vitejs/plugin-react": ^6.0.2
-  # Framework stack — pinned to versions proven together in kek-monorepo.
-  "@legendapp/state": 3.0.0-beta.47
+  "@legendapp/state": 3.0.0-beta.48
   "@react-three/fiber": 10.0.0-canary.dbbe704
   "@react-three/drei": 10.7.7
   motion: ^12.40.0
+  use-resize-observer: ^10.0.0
   three: 0.181.2
   "@types/three": 0.184.1
   "@tanstack/hotkeys": ^0.7.1
-  arktype: ^2.2.0
+  "@tanstack/react-hotkeys": 0.9.1
+  "@tanstack/pacer": 0.22.0
+  "@tanstack/react-start": ^1.168.56
+  arktype: ^2.2.3
   "@zumer/snapdom": ^2.9.0
   lucide-react: ^0.577.0
-  # Playground / UI kit stack.
-  "@base-ui/react": ^1.4.0
-  "@tanstack/react-router": ^1.167.0
+  "@base-ui/react": ^1.5.0
+  cmdk: ^1.1.1
+  "@tanstack/react-router": 1.170.38
   "@tanstack/router-plugin": ^1.167.32
+  "@tanstack/router-cli": ^1.167.33
+  surrealdb: 2.0.8
   tailwindcss: ^4.2.2
   "@tailwindcss/vite": ^4.2.2
   tw-animate-css: ^1.4.0
@@ -46,8 +48,159 @@ catalog:
   publint: ^0.3.23
   "@arethetypeswrong/core": ^0.18.5
   execa: ^10.0.1
+  # citty must stay in this catalog because tools/surreal-inspect uses `catalog:`.
+  citty: ^0.1.6
   "@varlock/bumpy": 1.18.1
+  "@fontsource-variable/geist-mono": ^5.3.0
+  "@tiptap/react": ^3.30.3
+  "@tiptap/starter-kit": ^3.30.3
+  "@tiptap/pm": ^3.30.3
+  lexical: ^0.49.0
+  "@lexical/react": ^0.49.0
+  "@lexical/rich-text": ^0.49.0
+  "@lexical/list": ^0.49.0
+  "@lexical/link": ^0.49.0
+  "@lexical/markdown": ^0.49.0
+  "@lexical/utils": ^0.49.0
+  "@lexical/selection": ^0.49.0
+  "@lexical/code": ^0.49.0
+  "@lexical/code-shiki": ^0.49.0
+  # This package uses the editor's Markdown serializer without a DOM.
+  "@lexical/headless": ^0.49.0
+  # TypeGPU shaders require this build plugin.
+  typegpu: ^0.12.3
+  "@typegpu/react": ^0.12.0
+  "@typegpu/noise": ^0.12.0
+  "@typegpu/color": ^0.12.0
+  "@typegpu/sdf": ^0.12.0
+  "unplugin-typegpu": ^0.12.0
+  "@webgpu/types": ^0.1.66
+  liquid-gooey: ^0.1.0
+  "@chenglou/pretext": ^0.0.8
+  d3-shape: ^3.2.0
+  "@types/d3-shape": ^3.2.0
+  "@tanstack/react-query": ^5.102.8
+  simple-icons: ^16.30.0
+  "@lobehub/icons-static-svg": ^1.95.1
+  use-webmcp-tool: ^0.3.0
+  "@base-ui/utils": 0.2.9
+  p-queue: ^9.3.3
+  "@vitest/browser-playwright": 4.1.10
+  "@vitest/coverage-v8": 4.1.10
+  "@ark/attest": ^0.56.3
+  surqlize: 0.1.0
+  p-timeout: ^7.0.2
+  webmcp-types: ^0.1.7
+  "@ark/util": ^0.56.2
+  "@remoteoss/json-schema-form": 1.2.7
+  "@thi.ng/math": ^5.15.17
+  "@thi.ng/vectors": ^8.7.0
+  "@thi.ng/api": ^8.12.28
+  "@thi.ng/arrays": ^2.14.26
+  "@thi.ng/checks": ^3.11.1
+  "@thi.ng/compare": ^2.5.16
+  "@thi.ng/equiv": ^2.1.117
+  "@thi.ng/matrices": ^3.0.54
+  "@thi.ng/intervals": ^4.2.142
+  "@thi.ng/distance": ^3.0.51
+  "@thi.ng/morton": ^3.1.151
+  "@thi.ng/heaps": ^2.1.137
+  "@thi.ng/geom": ^8.3.38
+  "@thi.ng/geom-isec": ^4.0.95
+  "@thi.ng/geom-closest-point": ^2.1.223
+  "@thi.ng/geom-poly-utils": ^3.1.32
+  "@thi.ng/geom-accel": ^4.2.1
+  "@thi.ng/geom-clip-line": ^2.3.185
+  "@thi.ng/geom-clip-poly": ^2.1.227
+  "@thi.ng/geom-hull": ^2.1.223
+  "@thi.ng/geom-resample": ^3.0.95
+  "@thi.ng/geom-splines": ^2.3.95
+  "@thi.ng/geom-subdiv-curve": ^3.0.106
+  "@thi.ng/geom-arc": ^2.1.228
+  "@thi.ng/geom-tessellate": ^3.0.106
+  "@thi.ng/geom-sdf": ^1.1.5
+  "@thi.ng/layout": ^4.1.21
+  "@thi.ng/grid-iterators": ^4.0.172
+  "@thi.ng/timestep": ^1.0.71
+  "@thi.ng/ramp": ^3.3.95
+  "@thi.ng/bitfield": ^2.4.44
+  "@thi.ng/idgen": ^2.2.102
+  "@thi.ng/bidir-index": ^1.5.15
+  "@thi.ng/cache": ^2.3.84
+  "@thi.ng/random": ^4.1.54
+  "@thi.ng/k-means": ^2.0.49
+  "@thi.ng/adjacency": ^3.0.92
+  "@thi.ng/disjoint-set": ^1.1.54
+  "@thi.ng/rasterize": ^1.0.200
+  "@thi.ng/distance-transform": ^1.0.47
+  "@thi.ng/poisson": ^3.2.99
+  "@thi.ng/lowdisc": ^1.0.48
+  "@thi.ng/complex": ^1.0.71
+  "@thi.ng/dual-algebra": ^1.0.48
+  "@thi.ng/tensors": ^0.12.0
+  "@thi.ng/quad-edge": ^3.1.126
+  "@thi.ng/geom-voronoi": ^2.3.170
+  "@thi.ng/geom-isoline": ^2.1.233
+  "@thi.ng/sparse": ^1.1.50
+  "@thi.ng/vector-pools": ^3.2.108
+  "@thi.ng/buffers": ^1.0.47
+  "@thi.ng/soa": ^1.0.81
+  "@thi.ng/defmulti": ^3.0.105
+  "@thi.ng/memoize": ^4.0.52
+  "@thi.ng/transducers": ^9.7.0
+  "@thi.ng/sorted-map": ^1.2.47
+  "@thi.ng/associative": ^7.1.47
+  "@thi.ng/dcons": ^3.2.203
+  "@thi.ng/binary": ^3.6.17
+  "@thi.ng/dlogic": ^2.1.129
+  "@thi.ng/metrics": ^0.2.38
+  "@thi.ng/units": ^1.5.0
+  "@thi.ng/malloc": ^6.1.151
+  "@thi.ng/ecs": ^0.7.219
+  "@thi.ng/sparse-set": ^1.2.47
+  "@thi.ng/trie": ^2.1.6
+  "@thi.ng/diff": ^5.1.129
+  "@thi.ng/color": ^5.8.33
+  "@thi.ng/strings": ^3.12.10
+  "@thi.ng/paths": ^5.2.48
+  "@thi.ng/oquery": ^2.3.70
+  "@thi.ng/bench": ^3.7.1
+  "@thi.ng/fuzzy": ^2.1.144
+  "@thi.ng/geom-fuzz": ^3.0.118
+  "@thi.ng/geom-mesh": ^0.1.1
+  "@thi.ng/geom-io-obj": ^1.0.4
+  "@thi.ng/porter-duff": ^2.1.140
+  "@thi.ng/rle-pack": ^3.2.15
+  "@thi.ng/range-coder": ^2.1.133
+  change-case: ^5.4.4
+  better-auth: ^1.7.5
+  "@better-auth/drizzle-adapter": ^1.7.5
+  drizzle-orm: ^0.45.3
+  hono: ^4.13.8
+  "@cloudflare/vite-plugin": ^1.56.0
+  "@cloudflare/workers-types": ^5.20260921.1
+  wrangler: ^4.135.0
+  drizzle-kit: ^0.31.11
+  "@better-auth/cli": ^1.4.21
+  auth: ^1.7.5
+  cmd-mesh: ^0.5.0
+  cn: ^0.3.2
+  sonner: ^2.0.8
+  next-themes: ^0.4.6
+  react-day-picker: ^10.0.1
+  date-fns: ^4.4.0
+  "@better-auth-ui/core": ^1.7.26
+  "@better-auth-ui/react": ^1.7.26
+  class-variance-authority: ^0.7.1
+  "@tanstack/react-form": ^1.33.5
+  "@fontsource-variable/schibsted-grotesk": ^5.3.0
+  "@fontsource/dm-mono": ^5.3.0
+  d3-interpolate: ^3.0.1
+  "@types/d3-interpolate": ^3.0.4
+  react-doctor: 0.9.14
+  colorjs.io: ^0.7.1
 overrides:
+  "@effect/platform-node@4.0.0-rc.112>@effect/platform-node-shared": 4.0.0-rc.112
   vite: "catalog:"
   vitest: "catalog:"
 peerDependencyRules:
@@ -57,3 +210,27 @@ peerDependencyRules:
   allowedVersions:
     vite: "*"
     vitest: "*"
+minimumReleaseAgeExclude:
+  - "@tanstack/react-router@1.170.32"
+  - "@tanstack/react-start-client@1.168.30"
+  - "@tanstack/react-start-rsc@0.1.48"
+  - "@tanstack/react-start-server@1.167.37"
+  - "@tanstack/react-start@1.168.49"
+  - "@tanstack/router-cli@1.167.33"
+  - "@tanstack/router-core@1.171.27"
+  - "@tanstack/router-generator@1.167.33"
+  - "@tanstack/router-plugin@1.168.35"
+  - "@tanstack/start-client-core@1.170.27"
+  - "@tanstack/start-plugin-core@1.171.39"
+  - "@tanstack/start-server-core@1.169.31"
+  - "@tanstack/start-storage-context@1.167.29"
+allowBuilds:
+  "@prisma/client": false
+  better-sqlite3: false
+  esbuild: false
+  msgpackr-extract: false
+  workerd: true
+patchedDependencies:
+  "@legendapp/state@3.0.0-beta.48": patches/@legendapp__state@3.0.0-beta.48.patch
+  surqlize@0.1.0: patches/surqlize@0.1.0.patch
+  use-webmcp-tool@0.3.0: patches/use-webmcp-tool@0.3.0.patch

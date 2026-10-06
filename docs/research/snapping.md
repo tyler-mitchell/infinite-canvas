@@ -1,100 +1,105 @@
-# Snapping: Hardening and Extensions
+# Snapping rules and extensions
 
-> Provenance: adapted 2026-06-10 from the kek-monorepo windowing corpus
-> (`04_snapping_and_guides.md`, verified 2026-04-23). The framework's snap
-> subsystem (`snap-candidates.ts` / `snap-resolver.ts`) already implements the
-> core of this design; this doc keeps the spec for what's missing —
-> **hysteresis is flagged as a `risk` in FEATURE_TRACKER and its spec lives
-> here.** Behavioral references: tldraw's snapping taxonomy, interact.js
-> `snapEdges`/`snapSize`, Moveable's guidelines.
+> Provenance: This document adapts `04_snapping_and_guides.md` from the kek-monorepo windowing corpus.
+> The adaptation occurred on 2026-06-10. A review examined the source on 2026-04-23.
+> `snap-candidates.ts` and `snap-resolver.ts` implement the core design.
+> FEATURE_TRACKER recorded hysteresis as a `risk`. It is done as of 2026-07-08.
 
-## Design principle
+Behavior references: tldraw, interact.js `snapEdges` and `snapSize`, and Moveable.
 
-Snapping must feel predictable, screen-space stable, and locally relevant:
+## Design rules
 
-1. thresholds specified in **screen pixels**, mapped through the camera
-2. only nearby visible geometry becomes snapping input
-3. docking previews are a different interaction class than alignment guides
+1. Express snap thresholds in screen pixels, then map them through the camera.
+2. Use only nearby, visible geometry as snap input.
+3. Keep docking previews separate from alignment guides.
 
 ## Snap types
 
-| Type                                                             | Status                                             |
-| ---------------------------------------------------------------- | -------------------------------------------------- |
-| Bounds (left/center/right, top/middle/bottom)                    | implemented                                        |
-| Gap / equal-spacing                                              | implemented                                        |
-| Resize-edge (snap the manipulated edge only)                     | implemented                                        |
-| Viewport / safe-area (opt-in via `snapPolicy`)                   | implemented                                        |
-| Docking-region (drop-region previews: side splits, center merge) | open — needs groups                                |
-| Grid / user guides                                               | open, optional; must never dominate semantic types |
-| Command/recipe placement through the same resolver               | open                                               |
+| Type                                              | Status                                                  |
+| ------------------------------------------------- | ------------------------------------------------------- |
+| Bounds: left, center, right, top, middle, bottom  | Implemented                                             |
+| Gap and equal spacing                             | Implemented                                             |
+| Resize edge: only the changed edge                | Implemented                                             |
+| Viewport and safe area through `snapPolicy`       | Implemented and optional                                |
+| Docking region: side splits and center merge      | Open, requires groups                                   |
+| Grid and user guides                              | Open and optional. Semantic types must retain priority. |
+| Command and recipe placement through the resolver | Open                                                    |
 
-## Hysteresis — done (2026-07-08)
+## Hysteresis (done 2026-07-08)
 
-Without it, a guide engages and releases at the same pointer distance: nudge one
-pixel across the threshold and the window jumps to the guide, jump back and it
-un-snaps, and it does that every frame the pointer sits on the boundary. The
-window shivers, the guide strobes, and the user cannot tell what they did.
+One threshold causes a guide to engage and release at the same pointer distance.
+Movement across this boundary can snap and release the window again and again.
+The guide can also change state each frame while the pointer remains near the boundary.
+Thus, a one-pixel movement can move the window onto the guide and then release it.
 
-- ✅ separate acquire/release thresholds. `policy.threshold` (and
-  `policy.gapThreshold`) to catch; `policy.releaseThreshold` to let go. Both
-  screen-space, so the feel is invariant across zoom, like every other threshold.
-  Defaults: acquire 10 px, release 18 px.
-- ✅ `Math.max(acquire, release)` guards the invariant. A `releaseThreshold` below
-  `threshold` would invert the hysteresis — snapping more eager to let go than to
-  catch — which is worse than none.
-- **Deviation from this spec, deliberately.** The spec called for per-axis state in
-  the interaction snapshot. State is per _guide_ instead, and it needs no new
-  field: `state.snapPreview` already records the guides holding the window, and a
-  guide's id is its candidate's id. So the resolver asks "was this candidate
-  engaged last frame?" directly. That is strictly finer than per-axis — two guides
-  on the same axis release independently — and it costs nothing to remember.
-- ✅ Applies to resize as well as move. Nothing about dragging a corner makes the
-  flicker at the threshold more tolerable.
+`policy.threshold` and `policy.gapThreshold` acquire a guide.
+`policy.releaseThreshold` releases it.
+All thresholds use screen pixels, so zoom does not change their screen distance.
+The default acquisition threshold is 10 px. The default release threshold is 18 px.
 
-`releaseThreshold` had been declared on `InfiniteCanvasSnapPolicy` and set in the
-defaults since the policy existed, and read by nothing. The knob promised
-hysteresis and delivered none.
+`Math.max(acquire, release)` enforces the threshold order.
+A `releaseThreshold` less than `threshold` inverts the hysteresis behavior.
 
-## Docking-intent detection — open (with groups)
+The specification proposed state per axis.
+The implementation stores state per guide.
+It uses the existing `state.snapPreview` field and the candidate ID.
+The resolver asks "was this candidate engaged last frame?" for each guide.
+Thus, two guides on one axis can release independently.
+This implementation does not require a new state field.
 
-Never trigger docking purely from edge proximity. Combine: overlap with the
-target shell, pointer dwell/stable hover, which part of the target is being
-approached, source kind (tab drag vs window drag vs group drag), and modifier
-keys. When docking intent becomes dominant: suppress ordinary line guides,
-show region overlays, preview the post-drop layout.
+Move and resize operations both use hysteresis.
+`releaseThreshold` existed in `InfiniteCanvasSnapPolicy` and in defaults before this change, but no code read it.
 
-Reference screen-space constants: alignment 8 px, gap 10 px, docking
-activation inset 24 px from target edges, tab-merge = center strip, reorder
-deadzone 4 px, hysteresis release 14 px.
+## Docking intent (open, requires groups)
 
-## Candidate generation at scale — open
+Do not trigger docking from edge distance alone.
+Use shell overlap, stable pointer dwell, the approached target region, the source type, and modifier keys.
+Source types include tab drag, window drag, and group drag.
+If docking becomes the active intent, hide alignment guides.
+Then show region overlays and preview the layout after the drop.
 
-Today candidates are extracted from all windows each interaction; fine at
-current scale. When layouts grow:
+Reference screen values:
 
-- dynamic spatial index for nearby windows/groups (**RBush**; Flatbush for
-  read-mostly snapshots; d3-quadtree optional for corner/center points)
-- on drag start: capture source rect, query an expanded neighborhood, freeze
-  the candidate snapshot for the drag, refresh only when leaving the
-  neighborhood
+- Alignment threshold: 8 px
+- Gap threshold: 10 px
+- Docking activation inset: 24 px from target edges
+- Tab merge: Center strip
+- Reorder dead zone: 4 px
+- Hysteresis release: 14 px.
 
-The existing scoring model (priority buckets, then smallest screen distance,
-X/Y resolved independently) matches the corpus recommendation; the priority
-order extends when groups land: explicit docking regions → active contextual
-group → nearby geometry → gaps → grid/user guides.
+## Candidate generation at scale (open)
 
-## Organization commands — open
+The current implementation gets candidates from all windows for each interaction.
+This method is sufficient at the current scale.
 
-Not every organization action should be solved by more aggressive snapping.
-Keep explicit commands (same command layer as keyboard/contextual commands):
-align left/right/top/bottom, align centers, distribute horizontally/
-vertically, pack selection, stack selection, convert selection to tabs/
-accordion, wrap selection in a group shell. FEATURE_TRACKER already
-anticipates align/distribute on selection bounds.
+For larger layouts, use a dynamic spatial index for nearby windows and groups.
+RBush fits dynamic data. Flatbush fits read-mostly snapshots.
+d3-quadtree is optional for corner and center points.
 
-## Resize rules (implemented; keep invariant)
+At the start of a drag, capture the source rectangle.
+Query an expanded area and freeze those candidates for the drag.
+After the pointer leaves that area, refresh the candidates.
 
-- resize modifies one or two edges; opposing edges stay anchored
-- snapping applies to manipulated edges only
-- min/max clamps before commit
-- future: group children resize by updating split weights, never DOM widths
+The current score uses priority groups and then the smallest screen distance.
+It resolves the X and Y axes independently.
+Groups add this priority order: docking regions, contextual groups, nearby geometry, gaps, and grid or user guides.
+
+## Organization commands (open)
+
+Organization actions belong in the command layer.
+Snap behavior remains unchanged.
+Alignment covers left, right, top, bottom, and both centers.
+Distribution covers horizontal and vertical placement.
+
+Other commands pack or stack the selection.
+They can also convert the selection to tabs or accordion layout, or create a group shell.
+FEATURE_TRACKER already includes alignment and distribution on selection bounds.
+
+## Resize rules (implemented)
+
+- A resize operation changes one or two edges.
+  The opposite edges remain anchored.
+- Snapping applies only to changed edges.
+- Min-max limits apply before commit.
+- Future group resize operations update split weights.
+  They leave DOM widths unchanged.

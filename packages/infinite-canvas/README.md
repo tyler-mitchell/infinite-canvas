@@ -1,43 +1,89 @@
 # @hyphened/infinite-canvas
 
-An infinite-canvas window manager for React: a pure reducer core, real DOM window bodies, and a programmable WebGPU spatial surface.
+An infinite canvas with document state, layouts, commands, and React views.
 
 ## Install
+
+```bash
+npm install @hyphened/infinite-canvas
+```
+
+Install `react` and `react-dom` when using `@hyphened/infinite-canvas/react`.
+The package installs `typegpu` for shared geometry definitions.
+
+## Quick start
+
+```tsx
+import { createCanvasState } from "@hyphened/infinite-canvas";
+import { CanvasViewport } from "@hyphened/infinite-canvas/react";
+import "@hyphened/infinite-canvas/theme.css";
+
+const canvas = createCanvasState({
+  windowDefinitions: { note: {} },
+  viewport: { width: 800, height: 600 },
+});
+canvas.actions.openWindow.run({
+  id: "note-1",
+  kind: "note",
+  title: "First note",
+  rect: { x: 0, y: 0, width: 320, height: 220 },
+});
+
+export function App() {
+  return (
+    <CanvasViewport
+      canvas={canvas}
+      renderWindow={(window) => <div>{window.title.get()}</div>}
+      style={{ height: "100vh" }}
+    />
+  );
+}
+```
+
+See [API.md](../../docs/API.md) for configuration and exported types.
+
+## Legacy API
+
+The previous canvas implementation remains available under `/legacy`.
+
+### Install
+
+The legacy React entry needs React peers:
 
 ```bash
 npm install @hyphened/infinite-canvas react react-dom
 ```
 
-The package ships no renderer of its own. It declares four peers, two of which are optional:
+The `/legacy` entry excludes the GPU stack. The optional compositor entry is
+`@hyphened/infinite-canvas/legacy/scene`.
 
-| Peer                 | Range                         | Required?                                  |
-| -------------------- | ----------------------------- | ------------------------------------------ |
-| `react`              | `^19.0.0`                     | yes                                        |
-| `react-dom`          | `^19.0.0`                     | yes                                        |
-| `three`              | `>=0.181.0`                   | only for `@hyphened/infinite-canvas/scene` |
-| `@react-three/fiber` | `>=10.0.0-canary.dbbe704 <11` | only for `@hyphened/infinite-canvas/scene` |
+Every GPU package is an optional peer rather than a dependency, so a project that only uses the DOM plane installs none of them. `verify-consumer-install.ts` packs the tarball into a clean project and fails if any of them appears.
 
-Windows, panning, zooming, selection, snapping, drag & drop, and persistence need no 3D engine. `three` and `@react-three/fiber` are reachable only from the `@hyphened/infinite-canvas/scene` entry — the main entry never imports them, statically or dynamically — so if you do not render scene layers you can leave both uninstalled and they never enter your bundle. A `<InfiniteCanvasDesktop>` with no scene layers is **~40 KB gzipped**.
-
-To render scene layers, install the 3D peers and pass the surface in:
+If you use the compositor, install all four:
 
 ```bash
-npm install three @react-three/fiber
+npm install typegpu @typegpu/react @typegpu/sdf @typegpu/noise
 ```
+
+`typegpu` compiles `"use gpu"` functions with a build plugin, so add it to your bundler as well:
+
+```ts
+import typegpu from "unplugin-typegpu/vite";
+
+export default defineConfig({ plugins: [typegpu()] });
+```
+
+Then pass the surface to `<InfiniteCanvasDesktop>`:
 
 ```tsx
-import { InfiniteCanvasWebGpuSurface } from "@hyphened/infinite-canvas/scene";
+import { InfiniteCanvasCompositorSurface } from "@hyphened/infinite-canvas/legacy/scene";
 
-<InfiniteCanvasDesktop
-  sceneLayers={sceneLayers}
-  sceneSurface={InfiniteCanvasWebGpuSurface}
-  {...rest}
-/>;
+<InfiniteCanvasDesktop sceneSurface={InfiniteCanvasCompositorSurface} {...rest} />;
 ```
 
-`@react-three/fiber` must be a v10 release — the current `9.x` line does not satisfy the range. Install the matching canary explicitly if your package manager resolves `latest`.
+Without WebGPU the surface mounts nothing and the DOM window plane stands on its own.
 
-## Quick start
+### Quick start
 
 ```tsx
 "use client";
@@ -47,7 +93,7 @@ import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 
 type WindowKind = "note";
 
@@ -84,11 +130,31 @@ export function Workspace() {
 }
 ```
 
-Every `window.kind` must have a matching entry in `windowDefinitions`, and each registry key must equal its definition's `kind` — both are checked at mount and throw otherwise. Empty documents (`windows: []`) are valid.
+Each `window.kind` must have an entry in `windowDefinitions`. Each registry key must equal the definition `kind`. The component examines both conditions during mount. It throws if either condition fails. An empty `windows: []` document is valid.
 
-### Typing `window.data`
+Use the same flat action payload for framework commands and targeted mutations:
 
-Pass a second type argument to type each kind's payload:
+```tsx
+import { useInfiniteCanvasDispatch } from "@hyphened/infinite-canvas/legacy";
+
+type WindowKind = "note";
+
+function CanvasControls() {
+  const dispatch = useInfiniteCanvasDispatch<WindowKind>();
+
+  return (
+    <>
+      <button onClick={() => dispatch({ type: "window.focus", windowId: "note-1" })}>Focus</button>
+      <button onClick={() => dispatch({ type: "history.undo" })}>Undo</button>
+      <button onClick={() => dispatch({ type: "view.fitAll" })}>Fit all</button>
+    </>
+  );
+}
+```
+
+### Type `window.data`
+
+Use a second type argument for the payload of each kind:
 
 ```ts
 type Kind = "chart" | "note";
@@ -100,80 +166,90 @@ const windowDefinitions = defineInfiniteCanvasWindowRegistry<Kind, DataByKind>({
 });
 ```
 
-The types apply while you write the registry and are then erased — `window.data` really is `unknown` at runtime, because it round-trips through `JSON.parse` on hydration. **If you persist the canvas, validate on read** with `getInfiniteCanvasWindowData(window, guard)`. A `renderBody` that trusts `window.data` out of `localStorage` is trusting a string the user can edit.
+The type checker applies these payload types to the registry. TypeScript erases them at runtime. Hydration reads `window.data` through `JSON.parse`, so the value is `unknown`. If you persist the canvas, validate each payload with `getInfiniteCanvasWindowData(window, guard)`. Treat `renderBody` `window.data` from `localStorage` as untrusted input.
 
-## Sizing: the one rule
+### Set the parent size
 
-`InfiniteCanvasDesktop` fills its parent (`width: 100%; height: 100%`). **The parent must have a bounded height.** Give it an explicit height, or make it a flex child with `minHeight: 0` — and keep `minHeight: 0` on every flex ancestor, or the canvas grows past the visible workspace and the HUD, window DOM, and WebGPU layers scroll out of view.
+`InfiniteCanvasDesktop` fills its parent with `width: 100%; height: 100%`. The parent must have a bounded height. Give the parent an explicit height, or make it a flex child with `minHeight: 0`. Each flex ancestor must also have `minHeight: 0`.
 
-## Styling is optional
+Without these limits, the canvas can grow past the workspace and move its HUD, DOM, and WebGPU layers out of view.
 
-The package is headless. Components emit structure, geometry, and a `data-slot="…"` attribute vocabulary; they carry no visual identity of their own. The canvas is fully functional unstyled — mount it without importing anything and you get a working, colourless canvas, because the framework emits `--icx-*` custom properties only for the theme keys you actually pass.
+### Add styles
 
-`src/headless-boundary.test.ts` enforces the two ways that guarantee has been broken in practice: no framework source imports an icon library, and none emits a literal `className="…"`. It does not — and this is deliberate, not an oversight — forbid inline `style` colour, because the two **debug overlays** (`InfiniteCanvasRasterHud`, `InfiniteCanvasVisibilityHud`) are styled inline on purpose. They render only when you opt into `rasterization` or `diagnostics.frustum`, they are not part of the public export surface, and a debug panel that inherits your theme is a debug panel you cannot read.
+The package is headless. Its components emit structure, geometry, and `data-slot="…"` attributes. They add `--icx-*` properties only for supplied theme values. The canvas works without a stylesheet and has no default visual design.
 
-To get the default look, import the theme once:
+`src/headless-boundary.test.ts` rejects icon imports and literal `className="…"` values. It does not reject inline `style` values.
+The debug overlays use inline styles. `InfiniteCanvasRasterHud` and `InfiniteCanvasVisibilityHud` require `rasterization` or `diagnostics.frustum`. The package does not export them.
+
+Import the default theme once:
 
 ```ts
-import "@hyphened/infinite-canvas/theme.css";
+import "@hyphened/infinite-canvas/legacy/theme.css";
 ```
 
-It is a single `@layer infinite-canvas` cascade layer targeting the `data-slot` contract, so unlayered consumer styles always win. Strokes drawn inside a window read `--icx-chrome-stroke`, which the framework widens as you zoom out so a 1px border never renders sub-pixel. You can skip it entirely and write your own CSS against the same selectors, or pass the `theme` prop to override the bridged `--icx-*` custom properties.
+The stylesheet uses one `@layer infinite-canvas` cascade layer and targets the public `data-slot` contract. As zoom decreases, the canvas increases `--icx-chrome-stroke` so a one-pixel border remains visible. You can omit the theme and write CSS for the same slots. The `theme` prop overrides bridged `--icx-*` properties.
 
-## What you get
+If your application uses cascade layers, declare their order before the imports:
 
-- **Window lifecycle** — open, close, focus, minimize, maximize, restore, and pin, through one typed command facade.
-- **Selection and marquee** — replace / add / toggle / clear, select-all-visible, group move, plus typed non-window selection targets for consumer-owned scene objects and edges.
-- **Snapping with guides** — edge, center, and equal-gap guides while moving and resizing, with screen-pixel-stable thresholds and hysteresis (a caught guide holds until you pull `releaseThreshold` away, so nothing flickers on the boundary). Viewport snapping is opt-in through `snapPolicy`.
-- **Keyboard commands** — `Escape`, `Mod+A`, `Shift+1` (fit all), `Shift+2` (fit selection), arrow-key nudge, `Alt+Arrow` (focus the neighbouring window — group members first, and a floating window over a group searches that group first too), `Shift+0` (reset zoom), `Alt+Shift+Arrow` (resize the active window), `Mod+Shift+Arrow` (place it in a half of the visible canvas), `Mod+Shift+Enter` (fill it); replaceable through `hotkeyBindings`. The vocabulary reads: bare arrow moves a little, `Shift` moves a lot, `Alt` moves focus, `Alt+Shift` changes the shape, `Mod+Shift` tiles, and `Shift+<digit>` frames the view. Centring and the quarter-tiles are commands with no default chord, because the canvas `preventDefault()`s every chord it owns and the obvious candidates are browser devtools shortcuts. Reset zoom is `Shift+0` rather than the conventional `Mod+0` for the same reason: the browser's zoom accelerators are not page-cancellable, so `Mod+0` would have reset the page zoom too. A chord the canvas owns is swallowed even when its command is unavailable, so a focus move at the edge of your windows can never fall through to the browser's Back. A group's tab strip is a single tab stop with `Arrow`/`Home`/`End` moving between tabs and `Enter`/`Space` activating, rather than one tab stop per tab.
-- **Camera navigation** — frame a window, the selection, all visible windows, a world point, or an arbitrary rect, with `center`, `centerAtZoom`, or `fit` behavior.
-- **World overview** — `getInfiniteCanvasMinimapLayout` projects windows, groups, and the camera's visible rect into a box of your choosing, and `getInfiniteCanvasMinimapWorldPoint` inverts it for click-to-navigate. Pure geometry; you draw the pixels. The camera's rect is unioned into the bounds, so panning into empty space shrinks the map rather than losing your position marker off the edge of it.
-- **Offscreen indicators** — `getInfiniteCanvasOffscreenIndicators` returns everything you have panned away from, nearest first, each with the point on the viewport edge to draw at, the angle to rotate an arrow by, and the rect to navigate to. The minimap answers "where am I"; this answers "where did my window go" without asking you to look at anything. A group is one indicator, not one per pane. Pure geometry; you draw the chevron.
-- **Persistence** — versioned JSON layouts through `storageKey`, scoped by `documentKey`, structurally validated on hydration and normalized against your registry so stale window kinds are dropped before render.
-- **Typed drag & drop** — an opaque payload generic threaded through `dropPolicy.canDrop` / `onDrop`, overlay and scene-layer contexts, and valid / invalid / outside drop status. Add `dropPolicy.placement` and the drop snaps like a window move, with the framework drawing the guides; `onDrop` receives the exact placement the preview showed.
-- **R3F scene layers** — `sceneLayers` render read-only React Three Fiber content above or below the DOM window plane, in camera-owned `space: "world"` or DOM-aligned `space: "screen"`, backed by projected window proxies.
-- **Window groups** — windows compose into a group shell that owns a local layout and moves as one world object: `split` panes with weights, `tabs`, or an `accordion`. The group's tree owns member placement, and each member's `rect` is re-derived from it, so nothing else in the framework has to know what a group is. **Alt+drag** a floating window over another to dock them into a group; a region overlay shows where it lands, and alignment guides step aside while you aim. Drag a member's header to move the shell, its outer edge to resize the whole group, a seam to reweight panes, a tab along its strip to reorder it, or a tab out of its strip to tear the window free. A grouped window has no resize handles of its own: a pane is resized by its seam, the shell by its edge. The shell stops at a structural minimum — gutters, tab strips, accordion headers, and a floor per pane — rather than at any member's `minSize`, which the group solver has never consulted.
-- **Undo / redo** — `Mod+Z`, `Mod+Shift+Z`. History is over the document (windows and groups); panning and selecting are not edits. A drag is one entry, checkpointed when it begins. Bounded at 100 entries, session-scoped, never serialized.
-- **Layout recipes** — capture a named arrangement and put it back anywhere. Recipes name windows by id, translate rather than scale (so nothing is squeezed below its `minSize`), and are plain serializable values you own. Applying one is a single undo entry.
-- **Portal roots** — window bodies live inside a `transform`, which breaks `position: fixed` for every floating-UI library. `<InfiniteCanvasPortal scope="window">` mounts content outside the transform, tracking the window at natural size; `scope="desktop"` escapes the window entirely. Opt in per window kind with `portalRoot: true`.
-- **Custom frames** — `renderFrame` composes framework-owned slots (`Surface`, `Header`, `Title`, `Controls`, `Body`, `ActiveCorners`) so you can replace chrome without reimplementing drag, resize, focus, or body projection.
+```css
+@layer infinite-canvas, components, utilities;
+```
 
-`renderFrame` and `renderBody` are both memoized on the window's identity and are not re-invoked when the camera moves — window content must not reconcile on every pan frame. Their `context.state` is live at call time. If your frame or body needs to re-render when canvas state changes, subscribe with `useInfiniteCanvasSelector` inside your own component, so invalidation stays scoped to what you actually read.
+This declaration keeps `infinite-canvas` before `utilities`. Unlayered styles override every layer. If the application imports `@import "tailwindcss"`, keep slot overrides in `components`.
 
-## Status
+### Features
 
-**0.1.0 — pre-1.0. The API may change between minor versions.**
+- **Window lifecycle.** The typed dispatch API opens, closes, focuses, minimizes, maximizes, restores, and pins windows.
+- **Selection.** The canvas supports replace, add, toggle, clear, marquee, group movement, and typed consumer targets.
+- **Snapping.** Move and resize operations use edge, center, and equal-gap guides. Thresholds remain stable in screen pixels. `snapPolicy` controls hysteresis and viewport snapping.
+- **Camera navigation.** Actions use `center`, `centerAtZoom`, or `fit` behavior for a window, selection, point, or rectangle.
+- **World overview.** `getInfiniteCanvasMinimapLayout` projects windows, groups, and the camera rectangle. The camera remains inside the bounds. `getInfiniteCanvasMinimapWorldPoint` converts map points to world points.
+- **Offscreen indicators.** `getInfiniteCanvasOffscreenIndicators` returns targets from nearest to farthest. Each group produces one indicator with an angle, edge point, and navigation rectangle.
+- **Persistence.** `storageKey` and `documentKey` select versioned JSON layouts. Hydration validates the layout and removes unknown window kinds.
+- **Drag and drop.** `dropPolicy.canDrop` checks a typed payload. `dropPolicy.placement` gives the preview and `onDrop` the same snapped placement. The framework draws the guides.
+- **Compositor passes.** `sceneLayers` add TypeGPU render or compute passes above or below the DOM window plane. Each pass builds its pipelines once and reads the shared camera and window instances, in `space: "world"` or `space: "screen"`.
+- **Semantic detail.** A window kind with `renderSummary` shows its summary below 180 screen pixels. Full content returns above 240 pixels. Hysteresis separates the thresholds.
+- **Window groups.** A group shell uses `split`, `tabs`, or `accordion`. `Alt+drag` docks a floating window. Headers move shells, outer edges resize shells, and gutters reweight panes. The tree derives each member `rect` without using `minSize`.
+- **Layout recipes.** Recipes translate named serializable arrangements. They do not scale windows below `minSize`. Each recipe application creates one undo entry.
+- **History.** `Mod+Z` and `Mod+Shift+Z` change document history. Camera and selection changes do not enter history. History stores 100 session entries and is not serialized.
+- **Portal roots.** A window `transform` changes `position: fixed`. The `portalRoot: true` option enables a window portal. `scope="window"` tracks the window at natural size. `scope="desktop"` escapes it.
+- **Custom frames.** `renderFrame` supplies `Surface`, `Header`, `Title`, `Controls`, `Body`, and `ActiveCorners`.
 
-The public surface is **312 stable names and 42 experimental ones**, classified per module in
-[`scripts/api-stability.json`](https://github.com/tyler-mitchell/infinite-canvas/blob/main/packages/infinite-canvas/scripts/api-stability.json)
-and enforced in CI. A stable export's breaking change is called out in the changelog; an
-experimental one may move or vanish in any release, and each says why it is experimental — it
-is unobserved, off by default, or reachable only through the R3F canary. The experimental set is
-the rasterization lane, the frustum-visibility store and its diagnostics policy,
-`createInfiniteCanvasHandle`, the minimap and offscreen-indicator geometry, and the whole
-`/scene` entry. (An export that is merely _unconsumed_ is not classified experimental — it is
-removed; the pre-proxy `scene-model` and `window-scene-shell` surfaces went that way.)
+The default keyboard map contains these main commands:
 
-What exists is what is documented above. Notably **not** implemented yet:
+| Chord             | Command                             | Chord             | Command                              |
+| ----------------- | ----------------------------------- | ----------------- | ------------------------------------ |
+| `Escape`          | Cancel the operation                | `Mod+A`           | Select non-minimized desktop windows |
+| `Shift+1`         | Frame non-minimized desktop windows | `Shift+2`         | Frame the selection                  |
+| `Shift+0`         | Reset zoom                          | Arrow keys        | Nudge the selection                  |
+| `Alt+Arrow`       | Move focus                          | `Alt+Shift+Arrow` | Resize the active window             |
+| `Mod+Shift+Arrow` | Place in half                       | `Mod+Shift+Enter` | Fill the canvas                      |
 
-- focus trapping, and a documented path to accessible controls inside window bodies.
-  Group-local focus and group tab-strip keyboard navigation both landed; what remains
-  is deciding how DOM focus enters and leaves a window's own content.
-- focus trapping inside a window body (see above). Since 2026-07-09 a window frame carries a real
-  DOM `id` (`useId()`-namespaced, unique across two canvases) and a group `role="tab"` points its
-  `aria-controls` at the panel it reveals — browser-verified — so that specific gap is closed; what
-  remains is how DOM focus enters and leaves the body.
+Use `hotkeyBindings` to replace these bindings. The canvas applies `preventDefault()` to each owned chord, even for an unavailable command. `Shift` increases movement, `Alt` moves focus, `Alt+Shift` resizes, and `Mod+Shift` places a window. `Shift+<digit>` frames the view.
 
-Rasterization / level-of-detail is partial: the policy, scheduler, and snapshot capture exist behind the `rasterization` prop and are off by default.
+`Shift+0` resets zoom. The browser owns `Mod+0`, so the map omits `Mod+0`. A group tab strip uses one tab stop. `Arrow`, `Home`, and `End` move focus. `Enter` and `Space` activate a tab.
 
-There is no hosted documentation site. The full export surface is catalogued in [`docs/API.md`](https://github.com/tyler-mitchell/infinite-canvas/blob/main/docs/API.md).
+`renderFrame` and `renderBody` use window identity as their memoization key. Camera movement does not invoke them. `context.state` is current at invocation time. Use `useInfiniteCanvasSelector` in a child component for state updates.
 
-## Requirements
+### Status
 
-- **React 19.** The library is client-only; the built entry points are marked `"use client"`.
-- **A WebGPU-capable browser**, but only if you use `@hyphened/infinite-canvas/scene` — that surface renders through `@react-three/fiber/webgpu`. Development is Chrome-first.
-- ESM only. There is no CommonJS build.
+Version 0.2.0 is pre-1.0 and can change between minor versions.
+The [stability manifest](https://github.com/tyler-mitchell/infinite-canvas/blob/main/packages/infinite-canvas/scripts/api-stability.json) is `scripts/api-stability.json`. CI enforces its classes. A stable breaking change appears in the changelog. An experimental export can change or disappear in a release.
 
-## License
+The experimental API covers rasterization, frustum visibility, native drops, and the `/scene` entry. The removed `scene-model` and `window-scene-shell` modules are not experimental.
+
+`Tab` from the desktop enters the active window body. `Tab` then cycles inside that body, and `Escape` returns focus to the command surface. The window frame gets a unique DOM `id` from `useId()`. A group `role="tab"` points `aria-controls` to its visible panel.
+
+Rasterization is partial. The `rasterization` prop is off by default. It controls the policy, scheduler, and snapshot capture.
+
+The project has no hosted documentation site. [`docs/API.md`](https://github.com/tyler-mitchell/infinite-canvas/blob/main/docs/API.md) lists the full public API.
+
+### Requirements
+
+- **React 19.** The library is client-only. Each built entry has `"use client"`.
+- **A WebGPU browser for the compositor.** `@hyphened/infinite-canvas/legacy/scene` uses TypeGPU. Development targets Chrome first.
+- **ESM.** The package has no CommonJS build.
+
+### License
 
 MIT © Tyler Davis Mitchell

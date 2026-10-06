@@ -12,10 +12,12 @@
     "@base-ui/react": "catalog:",
     "@fontsource-variable/geist": "catalog:",
     "@hyphened/infinite-canvas": "workspace:*",
-    "@react-three/drei": "catalog:",
-    "@react-three/fiber": "catalog:",
+    "@legendapp/state": "catalog:",
     "@tanstack/hotkeys": "catalog:",
+    "@tanstack/react-hotkeys": "catalog:",
     "@tanstack/react-router": "catalog:",
+    "@typegpu/react": "catalog:",
+    "arktype": "catalog:",
     "lucide-react": "catalog:",
     "motion": "catalog:",
     "react": "catalog:",
@@ -23,8 +25,8 @@
     "shadcn": "catalog:",
     "tailwind-variants": "catalog:",
     "tailwindcss": "catalog:",
-    "three": "catalog:",
     "tw-animate-css": "catalog:",
+    "typegpu": "catalog:",
     "ui": "workspace:*"
   },
   "devDependencies": {
@@ -32,9 +34,10 @@
     "@tanstack/router-plugin": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "@types/three": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "@webgpu/types": "catalog:",
     "typescript": "~6.0.2",
+    "unplugin-typegpu": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   }

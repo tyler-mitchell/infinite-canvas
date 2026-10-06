@@ -1,38 +1,4 @@
-/**
- * Docs gate: assert `docs/API.md` still describes the public surface.
- *
- * `README.md` points consumers at `docs/API.md` for "the full export surface", and
- * `SHIP_PLAN.md` once described that file as "generated from the barrel". It is neither
- * generated nor self-checking, and on 2026-07-08 it had silently drifted by 43 names:
- * undo/redo, layout recipes, and portals had no section in it *at all*, though each is a
- * headline feature in `CHANGELOG.md`. Nothing caught it, because nothing was looking.
- *
- * This looks. Every name the barrels export must own an **entry**: it appears in the
- * leading backticked name-list of a bullet or heading, before that entry's prose. Both
- * house styles satisfy that — a name on its own bullet, and the grouped
- * `` - `A`, `B` — shared description `` form used for families.
- *
- * Requiring an entry rather than a mere mention is the 2026-08-12 tightening. The check
- * was "the name appears somewhere in the document", which a name satisfies by being
- * quoted inside a *different* export's description — so an entry that was deleted, or
- * absorbed into its neighbour during an edit, kept passing. All 365 exports already
- * satisfied the stricter rule when it was introduced, so it costs nothing today and
- * catches that drift tomorrow.
- *
- * What it still does not check, stated plainly because a gate that overclaims is worse
- * than no gate: that an entry's prose is *correct*, or even that the prose sitting under
- * a name is about that name. On 2026-08-12 an edit spliced one entry's description into
- * its neighbour's, leaving the first bare — every name still had an entry, and this gate
- * passed. Nor does it check the reverse direction; the doc names types and options that
- * are not themselves exports.
- *
- * Reads source rather than `dist/`, so it runs without a build and can gate `vp check`.
- * Both barrels are exclusively re-export blocks (`export { … } from`, `export type { … }
- * from`) with no `export *` and no direct declarations, which is what makes this parse
- * sound. It fails loudly if that ever stops being true.
- *
- * Run: node ./scripts/verify-api-doc.mjs
- */
+/** Fails when a barrel export has no API entry. */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,18 +9,16 @@ const apiDocPath = join(repoRoot, "docs", "API.md");
 
 const BARRELS = [
   { entry: ".", path: join(packageRoot, "src", "index.ts") },
-  { entry: "./scene", path: join(packageRoot, "src", "scene.ts") },
+  { entry: "./react", path: join(packageRoot, "src", "react", "index.ts") },
+  { entry: "./legacy", path: join(packageRoot, "legacy", "index.ts") },
+  { entry: "./legacy/core", path: join(packageRoot, "legacy", "core.ts") },
+  { entry: "./legacy/scene", path: join(packageRoot, "legacy", "scene.ts") },
 ];
 
 const stripComments = (source) =>
   source.replaceAll(/\/\*[\s\S]*?\*\//g, "").replaceAll(/\/\/.*/g, "");
 
-/**
- * Exported names, split into values and types.
- *
- * `export type { A }` marks the whole block; `export { type A, b }` marks one specifier.
- * A renamed specifier (`x as y`) publishes `y`.
- */
+/** Returns exported value and type names from re-export blocks. */
 const getBarrelExports = (source) => {
   const values = new Set();
   const types = new Set();
@@ -77,12 +41,7 @@ const getBarrelExports = (source) => {
   return { types, values };
 };
 
-/**
- * The backticked names an entry declares itself to be about: the run at its start, before
- * any prose. `` `A`, `B` — … `` declares both; a name quoted later in the prose declares
- * nothing. A renamed re-export documents itself as `` `Source as Published` ``, so both
- * sides of an `as` count.
- */
+/** Returns names at the start of a bullet or heading. */
 const getEntryNames = (text) => {
   const names = [];
   let rest = text.trim();
@@ -118,19 +77,27 @@ const documented = new Set(
 
 let totalValues = 0;
 let totalTypes = 0;
+/** Every name either barrel exports, for the reverse check below. */
+const exported = new Set();
 
 for (const { entry, path } of BARRELS) {
   const source = readFileSync(path, "utf8");
 
-  // The parse above only understands re-export blocks. A direct `export const`/`export
-  // function`, or an `export * from`, would be silently invisible to it — the gate would
-  // pass while documenting nothing. Refuse to run rather than lie.
+  // Reject export forms that this parser cannot read.
   const stripped = stripComments(source);
   for (const line of stripped.split("\n")) {
     const isBlockExport = /^export\s+(type\s+)?\{/.test(line.trim());
     const isExport = /^export\b/.test(line.trim());
+    const star = /^export\s+\*\s+from\s+"\.\/([^"]+)"/.exec(line.trim());
+    const isBarrelStar =
+      star !== null &&
+      BARRELS.some(
+        (barrel) =>
+          barrel.entry === `./${star[1]}` ||
+          (entry === "./legacy" && barrel.entry === `./legacy/${star[1]}`),
+      );
 
-    if (isExport && !isBlockExport) {
+    if (isExport && !isBlockExport && !isBarrelStar) {
       failures.push(
         `${entry}: "${line.trim()}" is not a re-export block — this gate cannot see it. ` +
           "Teach verify-api-doc.mjs the new form, or the surface it adds goes undocumented.",
@@ -143,6 +110,8 @@ for (const { entry, path } of BARRELS) {
   totalTypes += types.size;
 
   for (const name of [...values, ...types].sort((left, right) => left.localeCompare(right))) {
+    exported.add(name);
+
     if (!documented.has(name)) {
       failures.push(
         `${entry}: \`${name}\` is exported but owns no entry in docs/API.md — it must lead ` +
@@ -151,6 +120,38 @@ for (const { entry, path } of BARRELS) {
       );
     }
   }
+}
+
+/**
+ * The reverse direction. Without it an entry naming a deleted export reads as
+ * live API and this gate stays green: `DEFAULT_RADIANCE_OPTIONS` outlived the
+ * radiance pass that way until 2026-09-08.
+ *
+ */
+for (const name of [...documented].sort((left, right) => left.localeCompare(right))) {
+  if (!exported.has(name)) {
+    failures.push(
+      `docs/API.md leads an entry with \`${name}\`, which neither barrel exports — ` +
+        "a reference naming a symbol that is gone tells a consumer to import nothing. " +
+        "Remove the entry, or export the symbol.",
+    );
+  }
+}
+
+// Compare the API headline count with barrel exports.
+const headline = /^The public surface of `[^`]+`: (\d+) values and (\d+) types\b/m.exec(apiDoc);
+
+if (headline === null) {
+  failures.push(
+    "docs/API.md no longer opens with its headline count — this gate reads " +
+      '"The public surface of `pkg`: N values and M types" from the first paragraph. ' +
+      "Restore the sentence or teach the gate the new wording; do not drop the count.",
+  );
+} else if (Number(headline[1]) !== totalValues || Number(headline[2]) !== totalTypes) {
+  failures.push(
+    `docs/API.md opens with ${headline[1]} values and ${headline[2]} types; the barrels ` +
+      `export ${totalValues} and ${totalTypes}. Update the first sentence.`,
+  );
 }
 
 if (failures.length > 0) {

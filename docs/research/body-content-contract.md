@@ -1,89 +1,100 @@
-# Window Body Content Contract (and Low-Zoom Representation)
+# Window body content contract and low-zoom representation
 
-> Provenance: distilled 2026-06-10 from kek-monorepo's
-> `window-content-strategy.md` and `window-scaling-plan.md` (2026-04-23,
-> updated 2026-05-05). The rasterization lanes those docs proposed are now
-> owned by the in-tree `RASTERIZATION_PLAN.md` (authoritative for LOD/raster
-> work); what survives here is the **body content contract** — unbuilt, and
-> load-bearing for FR-8 (input unification) and FR-9 (accessibility) — plus
-> the low-zoom chrome findings.
+> Provenance: This document distills `window-content-strategy.md` and
+> `window-scaling-plan.md` from kek-monorepo. The distillation occurred on 2026-06-10.
+> The source date is 2026-04-23, with an update on 2026-05-05.
 
-## Browser constraints this all rests on
+The in-tree rasterization plan owns the proposed levels and all LOD or raster
+work.
 
-- `transform` changes coordinate space without relayout, and a transformed
-  wrapper becomes its own **stacking context and containing block** —
-  `position: fixed` descendants stop behaving viewport-fixed
-- CSS `zoom` rescales layout (unlike `transform`) but changes coordinate
-  behavior and is not a snapshot mechanism
-- deeply zoomed-out live DOM is unusable regardless of technique — text and
-  hit targets collapse; mode transitions are an architectural requirement,
-  not an enhancement
+This document keeps the unbuilt body contract and low-zoom findings for FR-8
+input unification and FR-9 accessibility.
 
-## The contract to define (open)
+## Browser constraints
+
+- `transform` changes coordinates without a relayout. A transformed wrapper
+  creates a stacking context and a containing block.
+- `position: fixed` descendants of a transformed wrapper do not stay fixed to
+  the viewport.
+- CSS `zoom` rescales layout, unlike `transform`. It also changes coordinate
+  behavior and does not make snapshots.
+- At low zoom, each technique makes live DOM text and hit targets too small.
+  The architecture requires mode transitions.
+
+## Open contract
 
 ### Body root
 
-- every window body mounts into a framework-owned body root
-- the body root is clipped to the body rect
-- the body root is the scroll container unless the window kind explicitly
-  overrides (today: `overflowY` and `wheelBehavior: "native-scroll"` exist;
-  the root/clipping rule is implicit and should become documented contract)
+- Each window body mounts in a body root that the framework owns.
+- The body root clips its content to the body rectangle.
+- The body root is the scroll container unless the window kind overrides this
+  behavior.
+- `overflowY` and `wheelBehavior: "native-scroll"` provide current overrides.
+  The root and clipping rules remain implicit.
 
 ### Portal roots
 
-- a **window-local portal root** for menus, tooltips, popovers that should
-  track the window
-- a **desktop-level portal root** for overlays that must escape window bounds
-- ✅ **both shipped 2026-07-08** and this bullet said "neither exists today" for
-  a month afterwards. `portal.tsx` provides exactly the two roots described
-  above: a desktop-level one on the viewport, and a window-local one tracking
-  the window's _screen_ rect. `<InfiniteCanvasPortal scope="window" | "desktop">`
-  mounts into them, opt-in per kind via `portalRoot: true` — a root for every
-  window would cost a style write per window per camera tick, which is what the
-  frame's memoization exists to avoid. `/portals` demonstrates both.
+- A window-local portal root holds menus, tooltips, and popovers that track a
+  window.
+- A desktop-level portal root holds overlays that extend past window bounds.
+- Both roots shipped on 2026-07-08 in `portal.tsx`. The former entry said
+  "neither exists today" for one month after that date.
+- The desktop root is on the viewport. The window root tracks the screen
+  rectangle of its window.
+- `<InfiniteCanvasPortal scope="window" | "desktop">` mounts content in them.
+- A window kind enables its local root with `portalRoot: true`.
+- A root for each window requires one style write for each window after
+  each camera change. Frame memoization prevents this work.
+- `/portals` demonstrates them.
 
 ### Positioning semantics
 
-- app content must not assume viewport-global `position: fixed` inside the
-  transformed window subtree
-- the framework documents which portal root to use for viewport-like overlays
+- App content cannot use viewport-global `position: fixed` behavior inside the
+  transformed window subtree.
+- The framework documents the portal root for viewport overlays.
 
 ### Input ownership
 
-- desktop pan/zoom owns empty space and desktop-level gestures
-- body content owns app-local pointer and scroll behavior
-- modifier-based desktop zoom from body content stays a policy decision (see
-  [../zoom-policy.md](../zoom-policy.md))
+- Desktop pan and zoom own empty space and desktop gestures.
+- Body content owns local pointer and scroll behavior.
+- Modifier-based desktop zoom from body content remains a policy decision. See
+  [../zoom-policy.md](../zoom-policy.md).
 
 ### Focus and accessibility
 
-- body content keeps normal DOM accessibility behavior
-- desktop focus management must not break IME, text selection, or keyboard
-  navigation inside bodies (the shortcut guard covers part of this; focus
-  restoration rules are unwritten)
+- Body content keeps standard DOM accessibility behavior.
+- Desktop focus management must preserve IME, text selection, and keyboard
+  navigation inside bodies.
+- The shortcut guard covers part of this requirement. Focus restoration rules
+  remain unwritten.
 
-## DOM structure rule (implemented — keep invariant)
+## DOM structure rule
 
-Outer/inner shell split: an outer shell that is screen-positioned and owns
-`z-index` + `transform`; an inner shell with intrinsic frame size owning
-chrome and body layout. This is how the window layer is built; it's the reason
-stacking and local geometry stay sane. Don't regress it during the headless
-extraction.
+Status: implemented. Keep this invariant during the headless extraction.
 
-## Low-zoom chrome findings (partially addressed)
+The outer shell uses screen position and owns `z-index` and `transform`. The
+inner shell uses intrinsic frame size and owns chrome and body layout.
 
-- thin frame strokes alias away at low scale (fractional-pixel strokes
-  disappear) — the framework's zoom-aware chrome metrics
-  (minimum-world-length clamping) address the hit-area half; a deliberate
-  **minimum screen-space stroke policy or simplified low-zoom chrome style**
-  is still open and belongs to the theme/headless track
-- resize handles must never scale with content; they need screen-space
-  sizing or inverse scaling with a minimum hit area (implemented via chrome
-  metrics; preserve under any restyle)
+This split keeps stack order separate from local geometry.
 
-## Mode model (owned by RASTERIZATION_PLAN; restated for orientation)
+## Low-zoom chrome findings
 
-**Live** (near working scale, full interactivity) → **Scaled** (same DOM,
-transform-scaled, still legible) → **Preview/semantic** (too small for live
-interaction; summary/icon/snapshot representation). Readability at far zoom is
-solved by semantic substitution, not by scaling fidelity.
+- Fractional-pixel frame strokes can disappear at low scale.
+- The zoom-aware chrome metrics clamp the minimum world length for hit areas.
+- A minimum screen-space stroke policy or a simpler low-zoom chrome style
+  remains open in the theme and headless track.
+- Resize handles must keep a constant screen size or use inverse scaling with
+  a minimum hit area.
+- Chrome metrics implement this rule. A restyle must preserve it.
+
+## Mode model
+
+`RASTERIZATION_PLAN.md` owns this model.
+
+- **Live:** The window is near its working scale and has full interaction.
+- **Scaled:** The window uses the same DOM with a transform and remains
+  legible.
+- **Preview/semantic:** The window is too small for live interaction. It uses
+  a summary, icon, or snapshot.
+
+Semantic substitution keeps far-zoom content readable.

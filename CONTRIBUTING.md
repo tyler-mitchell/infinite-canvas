@@ -1,30 +1,33 @@
-# Contributing to infinite-canvas
+# Contributing to Infinite Canvas
 
-Thanks for taking an interest. This is a pre-1.0, hobby-scale project — issues, reproductions, and
-focused pull requests are all welcome, and so is asking whether an idea is in scope before you build
-it.
+This pre-1.0 project accepts issues, reproductions, focused pull requests, and questions about scope.
 
 Repository: <https://github.com/tyler-mitchell/infinite-canvas>
 
----
-
 ## Prerequisites
 
-- **Node.js `>=22.12.0`** (enforced by the root `engines` field).
-- **pnpm 11.5.2** — pinned in the root `packageManager` field. The easiest way to get the right
-  version is Corepack:
+Install Node.js `>=22.12.0`.
 
-  ```bash
-  corepack enable
-  corepack prepare pnpm@11.5.2 --activate
-  ```
+The root `engines` field enforces this version.
 
-- **The `vp` CLI** (Vite+). You do not need to install it globally: `vite-plus` is a workspace
-  devDependency, so after `pnpm install` the binary exists at `node_modules/.bin/vp` and every
-  command below works via `pnpm exec vp …`. If you already have `vp` on your `PATH`, you can drop
-  the `pnpm exec` prefix.
+Enter these commands to install pnpm 11.5.2:
 
-## Getting set up
+```bash
+corepack enable
+corepack prepare pnpm@11.5.2 --activate
+```
+
+The root `packageManager` field pins this pnpm version.
+
+The workspace supplies `vp` through the `vite-plus` development dependency.
+
+After `pnpm install`, enter Vite+ commands through `pnpm exec vp …`.
+
+The binary is at `node_modules/.bin/vp` after installation.
+
+If `vp` is on `PATH`, omit the `pnpm exec` prefix.
+
+## Install the workspace
 
 ```bash
 git clone https://github.com/tyler-mitchell/infinite-canvas.git
@@ -32,15 +35,15 @@ cd infinite-canvas
 pnpm install
 ```
 
-The workspace has three members:
+The library development path uses these workspace members:
 
-| Path                       | Package                     | What it is                                           |
-| -------------------------- | --------------------------- | ---------------------------------------------------- |
-| `packages/infinite-canvas` | `@hyphened/infinite-canvas` | The published library. This is the real thing.       |
-| `apps/playground`          | `playground` (private)      | Showcase app — the consumer surface for the library. |
-| `packages/ui`              | `ui` (private)              | Internal UI kit used **only** by the playground.     |
+| Path                       | Package                     | Purpose                              |
+| -------------------------- | --------------------------- | ------------------------------------ |
+| `packages/infinite-canvas` | `@hyphened/infinite-canvas` | Published library                    |
+| `apps/playground`          | `playground` (private)      | Showcase and integration application |
+| `packages/ui`              | `ui` (private)              | Shared React component package       |
 
-## The dev loop
+## Start the playground
 
 ```bash
 pnpm exec vp run playground#dev
@@ -48,59 +51,50 @@ pnpm exec vp run playground#dev
 pnpm dev
 ```
 
-That starts the playground on <http://localhost:5173>.
+The playground starts at <http://localhost:5173>.
 
-The important detail: **the framework is source-linked.** `packages/infinite-canvas` exports
-`./src/index.ts` directly during development (`publishConfig.exports` swaps in `./dist/index.mjs`
-only at publish time). So the playground imports framework source, and edits to
-`packages/infinite-canvas/src/**` hot-reload into the running app with **no build step and no watch
-task**. If you find yourself running a build to see a change, something is wrong.
+During development, `packages/infinite-canvas` exports `./src/index.ts` directly. For publication, `publishConfig.exports` replaces this path with `./dist/index.mjs`.
 
-The flip side: because the dev loop never touches `dist/`, packaging bugs are invisible to it. Those
-are caught separately — see [Packaging invariants](#packaging-invariants).
+The playground imports source and hot-reloads framework changes. A build or watch task is not necessary.
 
-## The gate before you push
+The development loop does not inspect `dist/`. The packaging gate finds errors in published artifacts.
 
-Run these two, in this order:
+See [Packaging invariants](#packaging-invariants).
+
+## Validate changes
+
+Enter these commands in order:
 
 ```bash
 pnpm exec vp check        # lint + format + typecheck, whole workspace
 pnpm exec vp run -r test  # every package's test suite
 ```
 
-Or run everything, including the builds:
+Enter this command to include all builds:
 
 ```bash
 pnpm exec vp run infinite-canvas-monorepo#ready
 ```
 
-(`ready` is the root script: `vp check && vp run -r test && vp run -r build`.)
+The `ready` script invokes `vp check && vp run -r test && vp run -r build`.
 
-A pull request that has not had `vp check` run on it will almost always fail on formatting. Run it.
+The first validation command invokes `vp check`. The second invokes `vp run -r test`.
 
-### What the git hooks do, and what they cannot
+### Git hooks
 
-`pre-commit` runs `vp staged`: lint and format, over **the files you staged**. It is fast and it
-is structurally blind to the failure that matters most — a change to file A that breaks file B,
-where B was never staged. On 2026-07-08, making `isGrouped` a required prop on
-`InfiniteCanvasWindowFrame` broke two test files exactly that way, and nothing noticed across six
-clean commits, because neither test was ever part of one.
+The `pre-commit` hook invokes `vp staged` for staged files. It also invokes the API-doc, pure-core, and API-stability source gates. It cannot find type errors in dependent files that are not staged.
 
-`pre-push` therefore runs the whole-workspace static gates: `vp check` (about four seconds),
-plus the API-doc, pure-core, **and API-stability** assertions — read the hook rather than this
-sentence if they ever disagree, because this one omitted the third for as long as it existed. Tests and builds stay in CI, where a red run costs
-nobody's attention mid-flow and where a hook slow enough to be resented would just get disabled.
+For example, a staged `InfiniteCanvasWindowFrame` change can break an unstaged consumer of `isGrouped`.
 
-`VITE_GIT_HOOKS=0 git push` skips it. If you do that, CI is the only thing left between you and
-a broken `main`.
+The `pre-push` hook invokes `vp check` and the API-doc, pure-core, and API-stability gates. CI invokes tests and builds.
 
----
+If you enter `VITE_GIT_HOOKS=0 git push`, the push skips the local hook. CI then provides the other gates.
 
-## Adding a showcase
+## Add a showcase
 
-Showcases live in the playground and are discovered automatically. Add a route file under
-`apps/playground/src/routes/` that declares `staticData.showcase` on the route — the sidebar picks it
-up without any registration step:
+Showcases are route files in `apps/playground/src/routes/`.
+
+Add `staticData.showcase` to the route:
 
 ```tsx
 // apps/playground/src/routes/my-showcase.tsx
@@ -122,73 +116,72 @@ function MyShowcase() {
 }
 ```
 
-Keep showcases **deterministic**: fixed initial layouts, persistence off unless the demo is
-specifically about persistence. A showcase that renders differently on every reload is not a demo,
-it's a flake. `apps/playground/src/routes/welcome.tsx` is the smallest complete example.
+The sidebar discovers these routes without a separate registration step.
 
-Note that Tailwind, `lucide-react`, and the internal `ui` kit are all fair game **inside the
-playground**. They are not fair game inside the framework — which brings us to the part people get
-wrong.
+Use fixed initial layouts. If the showcase does not demonstrate persistence, disable persistence.
 
----
+The smallest full example is `apps/playground/src/routes/welcome.tsx`.
 
-## The two invariants contributors most often break
+The playground can use Tailwind, `lucide-react`, and the internal `ui` kit.
 
-Both are enforced now, so you will find out either way — but it is still worth knowing why.
+Do not import these dependencies into the framework.
 
-This paragraph used to say the second "is not enforced by anything — it holds because nobody
-has broken it". That stopped being true on 2026-07-08, when `verify-pure-core.mjs` landed; the
-section below was updated to describe the two things that guard it and this introduction was
-not, so the file contradicted itself sixty lines apart. Corrected 2026-08-12, alongside the
-identical defect in `README.md`, where the same claim had gone stale in the same direction.
+## Framework boundaries
 
-### 1. The framework package is headless
+### Keep the framework headless
 
-`packages/infinite-canvas/src/**` carries no visual identity of its own. Concretely, framework
-source must not:
+Framework source in `packages/infinite-canvas/src/**` has no built-in visual design.
 
-- import an icon library (`lucide-react` and friends), or
-- emit a literal `className="…"` string — which means **no Tailwind utility classes**, since that is
-  how they'd have to arrive.
+This restriction applies to all files in `packages/infinite-canvas/src/**`.
 
-Components forward the consumer's `className` / `style` props and tag every structural element with
-`data-slot="…"`. Appearance is the job of `packages/infinite-canvas/src/theme.css`, an **opt-in**
-stylesheet that targets that `data-slot` contract. The framework writes `--icx-*` custom properties
-only for the theme keys a consumer actually passes, so an unstyled canvas really is unstyled.
+Obey these restrictions:
 
-The two **debug overlays** — `raster-devtools.tsx` and `visibility-devtools.tsx` — are the standing
-exception, and they are styled with inline `style` objects rather than classes so the boundary test
-still passes over them. They render only behind the `rasterization` and `diagnostics.frustum` opt-ins
-and are not public exports. A debug panel that inherits your theme is a debug panel you cannot read.
-Nothing else in `src/**` may carry colour: `constants.ts` holds `DEFAULT_INFINITE_CANVAS_THEME`,
-whose only jobs are to fill gaps in a partial `theme` prop and to feed the WebGPU surface, which
-cannot read CSS variables.
+- Do not import `lucide-react` or another icon library
+- Do not emit a literal `className="…"` string
+- Do not add Tailwind utility classes.
 
-The slot vocabulary is the public styling contract and lives in
-`packages/infinite-canvas/src/data-attributes.ts` (`INFINITE_CANVAS_SLOTS`). If you render a new
-structural element, add its slot there and style it in `theme.css` — do not reach for a class name.
-Two things to know:
+Components forward the consumer `className` and `style` props. Each structural element has a `data-slot="…"` attribute.
 
-- `data-slot` is **presentational**. The separate `data-infinite-canvas-*` attributes are a
-  _behavioral_ contract and must not be used as styling hooks.
-- `theme.css` and the theme tokens are kept in sync by `src/theme-tokens.test.ts`, which also fails
-  if `theme.css` targets a `data-slot` that doesn't exist in the contract. A selector typo cannot
-  silently style nothing.
+Appearance belongs to `packages/infinite-canvas/src/theme.css`. The optional `theme.css` file targets the `data-slot` contract.
 
-Enforced by: `packages/infinite-canvas/src/headless-boundary.test.ts` (and
-`src/theme-tokens.test.ts`).
+Add new appearance rules to `theme.css`.
 
-Icons are injected, not imported: see `DEFAULT_INFINITE_CANVAS_ICONS` / `useInfiniteCanvasIcons` in
-`src/icons.tsx`. Window chrome is replaceable via `renderFrame`.
+Consumer style rules can override `theme.css`.
 
-### 2. The pure core stays pure
+The framework writes only the `--icx-*` custom properties that a consumer supplies.
 
-Geometry, the reducer, selection, and snapping are plain data in / plain data out. They must not
-reach for React, `three`, or `@legendapp/state`. That is what makes the state model testable,
-serializable, and drivable from outside a React tree — the same property the programmatic handle and
-the persistence layer depend on.
+The debug overlays `raster-devtools.tsx` and `visibility-devtools.tsx` are the only exceptions. They use inline `style` objects and are not public exports.
 
-The files under this rule:
+The `rasterization` and `diagnostics.frustum` properties control these overlays.
+
+Other source files must not include colors. `constants.ts` contains `DEFAULT_INFINITE_CANVAS_THEME` for partial `theme` values and the WebGPU surface.
+
+The WebGPU surface cannot read CSS variables.
+
+The `data-slot` contract is `INFINITE_CANVAS_SLOTS` in `packages/infinite-canvas/src/data-attributes.ts`.
+
+Add each new structural slot to this contract.
+
+Use `data-slot` for presentation. Use `data-infinite-canvas-*` attributes only for behavior.
+
+The `src/theme-tokens.test.ts` file keeps the theme tokens, CSS, and slot contract synchronized. It also rejects unknown slot selectors.
+
+These files enforce the headless boundary:
+
+- `packages/infinite-canvas/src/headless-boundary.test.ts`
+- `src/theme-tokens.test.ts`.
+
+The framework injects icons through `DEFAULT_INFINITE_CANVAS_ICONS` and `useInfiniteCanvasIcons` in `src/icons.tsx`. The `renderFrame` property replaces window chrome.
+
+### Keep the core pure
+
+Geometry, the reducer, selection, and snapping accept and return plain data. They must not import React, `three`, or `@legendapp/state`.
+
+This boundary keeps the state model testable and serializable. It also supports non-React programmatic access and persistence.
+
+An invalid dependency in `reducer.ts` fails the import gate.
+
+This rule applies to these files:
 
 ```
 src/geometry.ts       src/reducer.ts        src/commands.ts
@@ -197,115 +190,109 @@ src/snap.ts  src/snap-candidates.ts  src/snap-resolver.ts  src/snap-types.ts
 src/state.ts  src/factory.ts  src/registry.ts  src/validation.ts  src/types.ts
 ```
 
-If you need reactivity, do it in the store/component layer (`src/store.tsx`,
-`src/infinite-canvas.tsx`) and keep the transition itself a pure function of `(state, action)`.
+If code needs reactivity, add it to `src/store.tsx` or `src/infinite-canvas.tsx`. Keep each transition a pure function of `(state, action)`.
 
-Guarded by two things, which check different halves of the claim:
+Two gates enforce this contract:
 
-- `packages/infinite-canvas/src/framework-boundary.test.ts` drives the core end-to-end —
-  factories, registry normalization/recovery, window proxies, validation — through non-React
-  entry points, so the core has to keep _standing up_ without a renderer.
-- `packages/infinite-canvas/scripts/verify-pure-core.mjs` crawls the real import graph from every
-  pure-core root and fails if any of them can _reach_ `react`, `@legendapp/state`, `three`,
-  `@react-three/fiber`, or `@zumer/snapdom`. Type-only imports are ignored, because
-  `import type { … }` and `import { type X }` erase before runtime. Runs in CI and before publish:
+- `packages/infinite-canvas/src/framework-boundary.test.ts` exercises the core through non-React entry points.
+- `packages/infinite-canvas/scripts/verify-pure-core.mjs` examines import paths from each pure-core root.
 
-  ```bash
-  pnpm exec vp run @hyphened/infinite-canvas#verify:pure-core
-  ```
+The framework boundary test covers factories, registry normalization and recovery, window proxies, and validation.
 
-  Until 2026-07-08 this file and `README.md` both claimed a test enforced the import boundary.
-  **No such test existed** — the rule held by construction and by reading, and nothing stopped the
-  next contributor from importing an observable into `reducer.ts`. Now something does.
+The `verify-pure-core.mjs` gate rejects paths to `react`, `@legendapp/state`, `three`, `@react-three/fiber`, and `@zumer/snapdom`.
 
-### Adding a public export
+It ignores `import type { … }` and `import { type X }`.
 
-Anything you add to `src/index.ts` or `src/scene.ts` must also appear in
-[`docs/API.md`](docs/API.md), which the README calls "the full export surface".
-`packages/infinite-canvas/scripts/verify-api-doc.mjs` enforces it, in CI and before publish.
-It reads source rather than `dist/`, so you can run it without a build:
+CI and `prepublishOnly` invoke this gate.
+
+Enter this command to invoke the import gate:
+
+```bash
+pnpm exec vp run @hyphened/infinite-canvas#verify:pure-core
+```
+
+### Document public exports
+
+Add each new export from `src/index.ts` or `src/scene.ts` to [`docs/API.md`](docs/API.md).
+
+The `packages/infinite-canvas/scripts/verify-api-doc.mjs` gate reads source and does not require a build:
 
 ```bash
 pnpm exec vp run @hyphened/infinite-canvas#verify:api-doc
 ```
 
-It once drifted by 43 names — undo/redo, layout recipes, and portals had no section at all —
-which is why it is a gate rather than a convention. The parser understands only re-export
-blocks (`export { … } from`, `export type { … } from`). Add an `export const` or an
-`export * from` to a barrel and the gate **fails on purpose**: it would otherwise pass while
-blind to exactly the surface you just introduced. Teach it the new form, or keep the barrels
-as re-exports.
+CI and `prepublishOnly` invoke this gate.
 
-### Two invariants held by tests rather than scripts
+The parser accepts `export { … } from` and `export type { … } from` blocks. It rejects `export const` and `export * from` declarations.
 
-These are ordinary Vitest files, so `vp run -r test` finds them, but they guard structure
-rather than behaviour and are easy to mistake for redundant.
+If a new export form is necessary, add parser support. Otherwise, keep the barrel files as re-exports.
 
-- `src/command-coverage.test.ts` types a map of **every** action as
-  `Record<InfiniteCanvasAction["type"], …>`, so adding an action fails the typecheck until it
-  is classified: either it names a command that reaches it, or it declares which of four
-  reasons makes it deliberately chromeless. The command registry feeds hotkeys, the palette,
-  and contextual availability, and it had drifted to roughly half the reducer's vocabulary
-  before this existed — every window-lifecycle verb was reachable only as an `onClick`.
-- `src/single-dispatcher.test.ts` reads the source and fails if any module other than
-  `infinite-canvas.tsx` calls `stepInteraction`. Two dispatchers for one pointer event is a
-  race whose loser is whichever handler knows less about the modifiers; the friction backlog
-  recorded that lesson once and four dispatchers survived the fix it produced.
+### Keep structural tests
+
+The `src/command-coverage.test.ts` file maps every direct action type to a descriptor or chromeless reason.
+
+The command registry supplies hotkeys, the command palette, and contextual availability.
+
+A new action fails the type check until its classification exists.
+
+The `src/single-dispatcher.test.ts` file permits `stepInteraction` calls only in `infinite-canvas.tsx`. This rule prevents duplicate handling of one pointer event.
 
 ### Packaging invariants
 
-`packages/infinite-canvas/scripts/verify-artifact.mjs` runs against the **built** `dist/` and
-asserts what the source-linked dev loop can't see:
+The `packages/infinite-canvas/scripts/verify-artifact.mjs` file examines the built `dist/` directory. It enforces these package facts:
 
-- `"use client"` is the first statement of `dist/index.mjs` (RSC consumers break otherwise),
-- `@zumer/snapdom` stays a dynamic import and never gets hoisted into every consumer bundle,
-- nothing is imported that isn't a declared `dependency` or `peerDependency`,
-- every path in `publishConfig.exports` exists and the `.d.mts` emit actually resolves,
-- `LICENSE` and `README.md` sit in the **package** root, because npm packs them from beside
-  `package.json` and not from the repository root — `files` is `["dist"]`, so the tarball
-  carried no licence text at all until 2026-08-12 while its manifest declared MIT,
-- every name the package `README.md` imports in a code fence is still exported. That file is
-  what npm renders on the package page and it ships inside the tarball, so a rename would
-  leave the front page telling every new consumer to import something that no longer exists.
+- `"use client"` is the first statement in `dist/index.mjs`
+- `@zumer/snapdom` remains a dynamic import
+- Each imported package is a declared `dependency` or `peerDependency`
+- Each `publishConfig.exports` path exists
+- Each `.d.mts` output resolves
+- `LICENSE` and `README.md` are in the package root
+- Each package `README.md` import is still exported.
 
-Run it after a build:
+The package `README.md` sits beside `package.json`. The `files` field is `["dist"]`.
+
+npm includes the package-root `README.md` and `LICENSE` outside `dist/`.
+
+After a build, enter this command:
 
 ```bash
 pnpm exec vp run @hyphened/infinite-canvas#verify   # build, then verify dist/
 ```
 
-It also runs on `prepublishOnly`. If you add an import to the library, this is the script that will
-tell you it wasn't allowed.
-
----
+The `prepublishOnly` script also invokes this gate.
 
 ## Pull requests
 
-- **Branch from `main`.** Keep the PR focused; one behavioral change per PR reviews far better than
-  five.
-- **Commit style is loose.** Write an imperative subject line that says what changed and why it
-  matters (`Restore body-content memoization; 4-13x interactive speedup at stress scale` beats
-  `fix perf`). Conventional Commits are welcome but not required, and history is not linted.
-- **New behavior needs a test.** The library's tests live next to the code they cover
-  (`src/*.test.ts`). Bug fixes should come with the failing case.
-- **User-facing changes need a changelog entry.** Add a bullet under `## [Unreleased]` in
-  [`CHANGELOG.md`](./CHANGELOG.md), in the appropriate `Added` / `Changed` / `Fixed` / `Removed`
-  section. The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package
-  follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Internal refactors, test-only
-  changes, and playground tweaks don't need an entry. If it changes the public API, the rendered
-  DOM, the `data-slot` contract, or the serialized persistence shape, it does.
-- **Public API changes should be discussed first.** Open an issue. The package is `0.1.x` and things
-  can move, but they should move on purpose.
+- Create a branch from `main`
+- Keep each pull request to one behavioral change
+- Use a Conventional Commit subject
+- Add a test for new behavior
+- Add the prior error case for each bug fix.
 
-## Reporting bugs and requesting features
+Library tests are in `src/*.test.ts`.
 
-Use the issue forms at
-<https://github.com/tyler-mitchell/infinite-canvas/issues/new/choose>. For bugs, the single most
-useful thing you can include is a minimal reproduction — a showcase route is an excellent format for
-one.
+The legacy subject `Restore body-content memoization; 4-13x interactive speedup at stress scale` gives more detail than `fix perf`. New commits use Conventional Commits.
 
-**Security vulnerabilities do not go in public issues.** See [SECURITY.md](./SECURITY.md).
+For consumer-visible package changes, add one maintained bump file in `.bumpy`.
 
-## Code of Conduct
+Bumpy writes entries in `## [Unreleased]` in [`CHANGELOG.md`](./CHANGELOG.md). It assigns entries to `Added`, `Changed`, `Fixed`, or `Removed`.
 
-Participation is governed by the [Contributor Covenant](./CODE_OF_CONDUCT.md).
+The changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). The package follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+The package is `0.2.x`. Do not edit the generated changelog.
+
+Consumer-visible changes include public API, rendered DOM, `data-slot`, persistence, runtime dependencies, and package documentation.
+
+Before you implement a public API change, discuss it in an issue.
+
+## Report bugs and request features
+
+Use the issue forms at <https://github.com/tyler-mitchell/infinite-canvas/issues/new/choose>.
+
+For a bug, include a minimal reproduction. A showcase route is a suitable reproduction.
+
+Do not report security vulnerabilities in public issues. Read [SECURITY.md](./SECURITY.md).
+
+## Code of conduct
+
+The [Contributor Covenant](./CODE_OF_CONDUCT.md) governs participation.

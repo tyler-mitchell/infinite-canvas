@@ -1,0 +1,75 @@
+import { motion } from "motion/react";
+import { Button } from "ui";
+import { tv } from "ui/tv";
+
+const canvasState = tv({
+  slots: {
+    action: "mt-1",
+    detail:
+      "max-w-[46ch] text-center text-[12.5px] leading-[1.6] text-balance text-[var(--ink-faint)]",
+    mark: "grid size-9 place-items-center rounded-[10px] bg-[var(--accent)] font-mono text-[15px] font-semibold text-[var(--primary-foreground)] shadow-[var(--lift-2)]",
+    panel: "flex w-full max-w-[34rem] flex-col items-center gap-3.5 px-8",
+    root: "grid h-dvh place-items-center bg-[var(--ground)]",
+    sweep: "mt-1 h-px w-28 overflow-hidden rounded-full bg-[var(--border)]",
+    sweepFill: "h-full w-1/3 rounded-full bg-[var(--accent)]",
+    title: "text-[15px] font-medium tracking-[-0.012em] text-[var(--ink)]",
+  },
+  variants: {
+    tone: {
+      danger: { mark: "bg-[var(--danger)]" },
+      neutral: {},
+    },
+  },
+});
+
+function CanvasLoading() {
+  const styles = canvasState();
+
+  return (
+    <div className={styles.root()}>
+      <div className={styles.panel()}>
+        <motion.div
+          animate={{ opacity: [0.62, 1, 0.62], scale: [1, 1.04, 1] }}
+          className={styles.mark()}
+          transition={{ duration: 1.9, ease: "easeInOut", repeat: Number.POSITIVE_INFINITY }}
+        >
+          P
+        </motion.div>
+        <div className={styles.title()}>Opening your workspace</div>
+        <div className={styles.sweep()}>
+          <motion.div
+            animate={{ x: ["-100%", "300%"] }}
+            className={styles.sweepFill()}
+            transition={{ duration: 1.5, ease: "easeInOut", repeat: Number.POSITIVE_INFINITY }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CanvasFailure({
+  detail,
+  onRetry,
+  title,
+}: Readonly<{ detail: string; onRetry: () => void; title: string }>) {
+  const styles = canvasState({ tone: "danger" });
+
+  return (
+    <div className={styles.root()}>
+      <div className={styles.panel()}>
+        <div className={styles.mark()}>!</div>
+        <div className={styles.title()}>{title}</div>
+        <div className={styles.detail()}>{detail}</div>
+        {/* Retry is the only action, so it uses the primary style. */}
+        <div className={styles.action()}>
+          <Button onClick={onRetry} size="sm">
+            Try again
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export { CanvasFailure, CanvasLoading };

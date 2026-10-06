@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "stages": [
+    {
+      "name": "schema",
+      "files": ["schema/001_core.surql", "schema/002_views.surql"]
+    },
+    {
+      "name": "functions",
+      "files": [
+        "functions/001_canvas.surql",
+        "functions/002_content.surql",
+        "functions/003_canvases.surql",
+        "functions/004_projects.surql",
+        "functions/005_relations.surql",
+        "functions/006_views.surql"
+      ]
+    }
+  ],
+  "tests": ["tests/001_core.surql", "tests/002_views.surql"]
+}

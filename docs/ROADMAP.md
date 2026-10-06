@@ -1,656 +1,664 @@
-# Roadmap: Large Work Programs
+# Roadmap
 
-> Adopted 2026-06-10, after the headless extraction landed and the first
-> performance tranche shipped. Each entry is a deliberately LARGE program —
-> multi-session, with its own spec base, exit criteria, and dependencies —
-> so there is always predefined high-value work to pick from. Precedence
-> rules from [README.md](README.md) apply; specs referenced here win over
-> this summary.
+> Adopted on 2026-06-10 after the headless extraction and the first performance change.
+> Each entry is a large, multi-session program with specifications, exit conditions, and dependencies.
+> The precedence rules in [README.md](README.md) apply.
+> A linked specification controls when it differs from this summary.
 
-## Current execution slate (adopted 2026-08-12, rewritten after driving the product)
+## Execution slate from 2026-08-12
 
-> A **view over the programs below**, not a new program list. P1–P8 own the capability
-> definitions; this section says what gets worked next and in what order.
+This slate records the order selected on 2026-08-12. It does not replace programs P1 through P8. The prior
+slate contained work that took one or two hours for each item. The new slate came from direct product use.
 
-The previous slate was consumed in a few hours because every track on it was a one-to-two hour
-addition. This one is built from what **running the product** revealed rather than from what the
-documents claimed, and it is ordered so that production readiness is _closed_ rather than
-described.
+### Gate status at adoption
 
-### Where production actually stands — verified 2026-08-12, not read off a doc
+The documents recorded this state when the slate started:
 
-The sentinel and the ship plan both understate this, because they were written when tests and
-the browser were out of scope and were never revised when that changed.
+| Gate               | State                   | Remaining action                                                                                   |
+| ------------------ | ----------------------- | -------------------------------------------------------------------------------------------------- |
+| Publish to npm     | Ready                   | The owner can enter `pnpm publish`.                                                                |
+| Public repository  | Owner-gated             | The owner must approve one irreversible `git filter-repo` purge.                                   |
+| "production" claim | One agent item remained | `focus-trap.ts` and the 221-line body-content route existed. C2 covered 9 of 15 planned scenarios. |
 
-| Gate                    | State                | Reality                                                                                                             |
-| ----------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **Publishable to npm**  | ✅ ready             | `pnpm publish`. Owner action, external service.                                                                     |
-| **Public repository**   | ⛔ owner-gated       | One `git filter-repo` purge. Irreversible, no remote.                                                               |
-| **Honest "production"** | 🟡 **one item left** | Focus trapping **is built** (`focus-trap.ts`). The body-content showcase **is built** (221-line route). C2 is 9/15. |
+The P2 measurement required real hardware. A documented performance limit did not block version 0.2.0.
 
-So the only agent-executable production blocker left is **C2's remaining six scenarios**. P2's
-measurement needs real hardware and is not required for a 0.2.0 that documents its own limits.
-That is M1, and it is first for exactly that reason.
+### Semantic LOD defect
 
-### What driving the product actually taught
+Semantic LOD first shipped with 11 unit tests. The `/stress` route used windows that measured 300 by 210
+pixels. The `extent` calculation used the smaller axis. The old restore threshold was 240 pixels.
 
-Semantic LOD shipped with 11 green unit tests and was **broken in the most ordinary use there
-is**: `/stress` windows are 300×210, `extent` takes the smaller axis, and 210 sat under the old
-240px restore threshold. A window demoted on zoom-out and never came back at 100% zoom. Fixed in
-`aa5f085`.
+A window moved to a lower detail level after zoom out. It did not return to full detail at 100 percent zoom.
+Commit `aa5f085` corrected the threshold.
 
-The tests were not a safety net; they were the problem. They asked _"does the hysteresis band
-work"_ using numbers chosen to exercise the band, and never asked _"is a real window full detail
-at 100% zoom"_ — the question the product asks. **Every feature on this slate is therefore
-verified against real registries at real zoom levels before it is called done**, and M2 makes
-that structural rather than a habit.
+The tests asked "does the hysteresis band work" with synthetic values. They did not ask "is a real window full
+detail at 100% zoom". The slate thus requires product registries and real window sizes in feature evidence.
 
-### M1 — Close C2: the six missing scenarios. ✅ DONE (2026-08-12)
+### M1: close the missing C2 scenarios
 
-DOCK-003, SPLIT-001, ACC-001, FAIL-001, PERSIST-001, and the FOCUS family, on top of the nine that
-already asserted. **All seventeen scenario ids now pass** — 237 tests across 27 files.
+Status: done on 2026-08-12.
 
-**This was the last thing standing between the framework and an honest production claim**, which
-is why a test track led a slate the owner asked to be feature-heavy. With it closed, the only
-remaining production item is P2's measurement, which needs real hardware and is not required for a
-0.2.0 that documents its own limits.
+The added scenarios were DOCK-003, SPLIT-001, ACC-001, FAIL-001, PERSIST-001, and the FOCUS family. They
+joined the nine existing scenarios. All 17 scenario identifiers passed. The result contained 237 tests across
+27 files.
 
-Two things it cost that a test track is not supposed to cost, both worth keeping:
-`getNextRovingIndex` had to **move out of `group-layer.tsx`** into `window-focus.ts` before ACC-001
-could be asserted at all — pure keyboard geometry has no business in a render module, and being
-unreachable is why that scenario stayed unchecked. And FAIL-001's first draft asserted the doc's
-number against correct code, because the doc's arithmetic assumes a pointer-anchored zoom; the
-test now drives `camera.zoomAt` and additionally asserts the underlying invariant rather than the
-arithmetic.
+This work removed the last agent-controlled production item from the adoption table. The P2 measurement still
+required real hardware. That measurement did not block a documented 0.2.0 release.
 
-Exit: **met.**
+ACC-001 required moving `getNextRovingIndex` from `group-layer.tsx` to `window-focus.ts`. The function
+contains pure keyboard geometry. A render module was the wrong test boundary.
 
-### M2 — Product-shaped verification (~2.5h)
+The first FAIL-001 test used the number from the document. That number assumed pointer-anchored zoom through
+`camera.zoomAt`. The corrected test drives the real camera path. It also proves that the grabbed world point
+stays below the pointer.
 
-The systemic fix for the class of defect that shipped in semantic LOD. A suite that drives the
-**playground's own registries and window dimensions** through the framework and asserts the
-invariants a user would notice: every window kind is full detail at 100% zoom; every arrange verb
-is enabled exactly when its precondition holds; every default chord resolves to a command; no
-`--icx-*` token referenced by a component is undefined.
+Exit status: met.
 
-✅ **The stale-enablement bug is closed** (this paragraph claimed otherwise until 2026-08-12).
-`window.__canvas.contextualCommands()` used to return `context.contextualCommands` — the array
-the canvas memoized for _its_ render — while `state` returned `context.state`, and the two
-disagreed about the same moment: it reported `enabled: false` for all six align verbs while the
-palette listed them and executing one demonstrably moved a window. It now computes from the same
-state the handle reports, which makes the disagreement unrepresentable rather than unlikely. The
-incident is recorded in `dev-handle.ts` beside the fix.
+### M2: product-shaped evidence
 
-Exit: the suite fails when a threshold is set so a stock window is not full at zoom 1; the dev
-handle's enablement matches the palette's.
+Status: partial.
 
-### M3 — The theme system, completed (P3) (~3h)
+The planned suite uses playground registries and real window sizes. It covers these product facts:
 
-`theme.css` defines **65** `--icx-*` tokens and the public `theme` prop bridges **11**. There is
-**no** light-theme scaffold — zero `prefers-color-scheme` or `[data-theme]` rules. So 54 tokens
-are reachable only by overriding CSS, and the headless claim is thinner than the README implies.
+- Each stock window uses full detail at zoom 1.
+- Each arrange command is enabled only when its precondition holds.
+- Each default chord resolves to a command.
+- Each component token with the `--icx-*` prefix has a definition.
 
-Audit every visual surface for a missing token — snap guides, marquee, dock preview, gutters, tab
-strips, accordion headers, resize handles, minimap, offscreen indicators, HUD — widen the bridged
-set, then ship a second complete look. The light theme is not decoration; it is the **proof** the
-token set is complete, because every hardcoded color fights it.
+One stale command defect is closed. `window.__canvas.contextualCommands()` previously returned
+`context.contextualCommands`. That array used the `state` value from the canvas render. The same handle
+returned `context.state` through its state field.
 
-Exit: a playground switcher toggles two complete looks; no framework surface renders an unthemed
-color in either; the bridged count is the token count.
+The two reads described different moments. All six align commands reported `enabled: false`. The palette
+enabled the same commands, and command execution moved a window.
 
-### M4 — Window-layer culling that does not unmount (P2 tranche 2) (~2.5h)
+The handle calculates commands from the same state value that it returns. `dev-handle.ts` records the
+reason beside the change.
 
-The path to 100 windows at 60fps, and the one place the roadmap already spells out the trap:
-**culling must not unmount.** Dropping an offscreen window from `visibleWindows` tears down its
-subtree — DOM focus falls to `<body>` and silently kills every hotkey, portal roots detach, and
-body scroll position, video playback, and uncontrolled input state are destroyed on pan-away.
+Exit conditions:
 
-So: skip transform updates and mark offscreen frames `content-visibility: auto` while leaving them
-mounted. The predicate is `isWorldRectWithinViewport`, guarded by `isUsableViewport` first — a
-`0 × 0` viewport overlaps nothing and would blank the canvas on first frame.
+- The suite fails after a threshold makes a stock window leave full detail at zoom 1.
+- The developer handle and palette report the same command state.
 
-Exit: at 160 windows, per-frame work drops measurably; focus, portals, and body scroll all survive
-a pan-away and return.
+### M3: complete the theme system
 
-✅ **The culling landed 2026-08-12**, in `window-frame.tsx`, where the frame already holds the
-camera and viewport and already rewrites this style every camera tick — so it needed no new prop
-threading and no new subscription. A frame more than `CULL_MARGIN_PX` (480 screen pixels)
-outside the viewport renders `content-visibility: auto` with a `contain-intrinsic-size` matching
-its screen box. Exactly one exemption: the **active** window, where keyboard focus and every
-window-scoped command land. Selection is deliberately not exempt — a selection is unbounded, so
-exempting it would switch culling off entirely under `Mod+A`, which is the one scenario it exists
-for. Screen pixels rather than world units, like every other threshold here: a
-world-unit band would shrink as you zoom out, which is when the most windows sit near the edge.
+Status: open under P3.
 
-`culling.test.tsx` asserts the trap directly — an offscreen window is still in the document, body
-and all — and that a `0 × 0` viewport culls nothing. Its first draft **passed for the wrong
-reason**: it searched the whole frame subtree and matched the window _body's_ `content-visibility`,
-which comes from the rasterization policy and would have reported success no matter what the frame
-did. It now reads the `<article>`'s own style attribute, and was confirmed to fail against a
-mutant that never culls.
+`theme.css` defines 65 tokens with the `--icx-*` prefix. The public `theme` prop exposes 11 of those tokens.
+The remaining 54 tokens require direct CSS changes.
 
-✅ **The transform skip landed the same day**, which is the other half of the roadmap sentence
-above. `content-visibility` is the browser's half — it skips layout and paint. React was still
-re-rendering every culled frame and rebuilding its style object on every camera tick, and frame
-reconciliation is the dominant remaining cost at high window counts, so at 160 windows most of
-that work was being spent on windows nobody is looking at.
+There is no `prefers-color-scheme` rule. There is no `[data-theme]` rule. The framework has no complete
+light-theme example.
 
-The frame is now memoized on a comparator that bails out only when the frame is offscreen under
-**both** the previous and the next props and every non-projection prop is referentially equal. It
-is sound precisely because the subtree is not being painted: a stale transform on skipped content
-is unobservable, and the moment the camera brings the window back within the cull margin the
-comparator returns false and it re-renders with the current camera before it can be seen.
+The audit covers snap guides, marquee selection, dock previews, gutters, tab strips, and accordion headers. It
+also covers resize handles, the minimap, offscreen indicators, and HUD parts.
 
-The comparator walks the props rather than listing them. A hand-written list is how a memo
-comparator goes stale — a prop added later would be missing from it and silently stop
-propagating, which is a worse failure than a missed optimization, and this repository has already
-shipped one bug of exactly that shape in `cloneInfiniteCanvasState`.
+Exit conditions:
 
-**Unmeasured.** The exit asks for per-frame work to drop measurably at 160 windows, and no profile
-has been taken — that needs a browser. What is verified is the shape: culled windows stay mounted,
-the first frame is never blanked, and nothing regressed across 469 tests.
+- A playground control switches between two complete themes.
+- Every framework part receives a theme value in both themes.
+- The prop exposes the same token count that the stylesheet defines.
 
-### M5 — Workspaces (~3.5h)
+### M4: mounted window culling
 
-The largest genuinely new capability, and the one the domain survey supports: nested canvases and
-boards-in-boards are how every mature spatial tool answers sprawl. For a _window manager_ that
-reads as **virtual desktops** — named sets a window belongs to, with the camera and selection
-restored on switch.
+Status: implementation done on 2026-08-12. Performance evidence remains open under P2.
 
-Deliberately not "nested canvases": a canvas inside a canvas means a second camera and a second
-input plane, which is a different program. A workspace is one canvas and a membership filter.
+Culling must keep window subtrees mounted. Removing an offscreen window from `visibleWindows` removes its DOM
+subtree. Focus then moves to `<body>`. Portal roots detach.
 
-✅ **The model landed 2026-08-12** — state shape, four reducer actions, the persistence envelope
-at version 3, and the render filter. The exit is asserted: switching preserves each workspace's
-camera and selection, survives a reload, and is one undo entry.
+Body scroll position, video playback, and uncontrolled input state are lost.
 
-`activeWorkspaceId` and `workspaces` are part of the **undo document**, unlike the camera.
-Switching writes the outgoing workspace's camera and selection, and the exit asks for it to be
-undoable, so which desktop you are on is an edit while panning is not.
+The implementation skips transform updates for offscreen windows. It also adds `content-visibility: auto`. The
+predicate is `isWorldRectWithinViewport`. It first calls `isUsableViewport`.
 
-✅ **Commands landed the same day the model did** (2026-08-12), rather than waiting for someone
-to notice the model had no verb reaching it — the shape this repository has produced repeatedly,
-from `setInfiniteCanvasGroupAxis` being dead since the day it was written to every
-window-lifecycle verb living only as an `onClick`. `workspace.cycle` walks the ring and wraps,
-`workspace.showAll` leaves without closing, and `workspace.removeActiveWindow` takes the window
-you are looking at off this desktop while leaving it open.
+A `0 × 0` viewport must not hide the first frame.
 
-Cycling treats "all windows" as outside the ring: entering from the unfiltered view goes to the
-first or last set rather than making it a desktop you cycle back into, which would make the ring
-one longer than the number of workspaces and read as an off-by-one.
+`window-frame.tsx` owns this behavior. A frame outside `CULL_MARGIN_PX` gets `content-visibility: auto`. The
+margin is 480 screen pixels. `contain-intrinsic-size` matches the screen rectangle.
 
-✅ **Showcase landed** at `/workspaces`: two desktops with different work on them, one window on
-neither so "show all" is visibly distinct from either, and a switcher bar that is deliberately
-thin — every button but the desktop list drives a command the palette already carries. Palette
-integration needed no work at all: the playground's palette is built on
-`getInfiniteCanvasContextualCommands`, so the workspace commands appear in it by construction.
+The active window is exempt. Keyboard focus and window commands target that window. Selected windows are not
+exempt. A `Mod+A` selection is unbounded and must not disable culling.
 
-Creating and titling a set stays the consumer's — a palette entry cannot invent which set, so
-`workspace.create` and `workspace.close` remain `parameterized`, and the switcher's desktop list
-is the surface that supplies the argument.
+The margin uses screen pixels. A world-unit margin becomes smaller after zoom out. Zoom out is the condition
+that places more windows near the viewport edge.
 
-**Unverified:** the route typechecks and builds, and nobody has looked at it.
+`culling.test.tsx` proves that an offscreen window remains in the document. It also proves that a `0 × 0`
+viewport hides nothing. The first test incorrectly read the body style. The body already used
+`content-visibility` for raster policy.
 
-🐛 **And not looking at it hid a real one, found 2026-08-12 by reading rather than driving.**
-Opening a window while a desktop was active made it join _no_ desktop — and a workspace is a
-membership filter, so the window layer dropped it on the frame it was created and the user saw
-nothing happen at all. Every path into `workspaces` removed ids (`detach`, `reconcile`) or moved
-them deliberately; **nothing added one**, so a window created on a desktop could only be seen
-again by leaving that desktop for "show all".
+The corrected test reads the `<article>` style. A mutant with no
+culling makes the corrected test fail.
 
-`window.open` now joins the active workspace, which is the only defensible answer: a window
-belongs where it was made. `window.open` is the sole creation path — drop dispatches it and
-recipes only ever `map` over windows that already exist — so the one case covers all of them.
+The same change added the transform skip. React continued to render each culled frame after every camera
+change. That work rebuilt a style object for content that the browser did not paint.
 
-Worth naming as a pattern rather than a one-off: this is the same shape as the semantic-LOD
-defect at the top of this file. A feature shipped with passing tests and an exit criterion that
-read as met, and the first ordinary thing a user would do with it did not work. The tests asked
-whether switching preserves a camera; nobody asked what happens when you open a window.
+A memo comparator stops only when both frame states are offscreen. It also requires equal non-projection
+props. The previous transform can remain stale because the frame is not visible. The next visible state always
+renders with the current camera.
 
-### Deliberately deferred, with reasons
+The comparator examines all props instead of a manual list. A new prop thus participates without another
+comparator edit. A manual list previously caused a related defect in `cloneInfiniteCanvasState`.
 
-- **Columns mode** — breaks `group-tree`'s "only weight ratios matter" invariant (a column's
-  extent is absolute) and needs shell-local scrolling to be usable at all. R11 is right.
-- **P2 measurement** — harness works; the embedded preview throttles `rAF` under load, so the
-  number needs real hardware. Demonstrated, not assumed.
-- **Texture-mode capture** — needs Chrome 148+ with the OT flag.
-- **npm publish, git history purge** — owner actions.
+The 160-window performance exit remains unmeasured. The browser evidence covers mounted subtrees and the
+initial 0 × 0 frame. The browser uses `content-visibility` to skip layout and paint for hidden frames. The
+related suite had 469 tests when this status was recorded.
 
-## P1 — Grouping & Docking (the window-manager tranche)
+### M5: workspaces
 
-The single biggest capability leap and the framework's identity claim:
-windows compose into movable local layout regions.
+Status: model, commands, and showcase implemented on 2026-08-12. The showcase had no visual review at that
+time.
 
-- ✅ **Landed (2026-07-08): the canonical layer.** Group shells are first-class
-  world objects in `InfiniteCanvasState.groups`; `group-tree.ts` is the n-ary
-  container tree with weights and normalization; `group-layout.ts` solves it;
-  `group-state.ts` projects the solution onto member `window.rect`s so the rest
-  of the framework stays group-blind. Nine reducer actions and a command facade
-  (create, close, dock, undock, setRect, setLayoutMode, setActiveChild,
-  setChildWeights, reorderChild). Persisted at `version: 2`, with `version: 1`
-  migrating to `groups: []`. Rendered by `group-layer.tsx` (shell, gutters, tab
-  strips, accordion headers) beneath the window plane. `/groups` showcase.
-- ✅ **Landed: the pointer gestures.** Dragging a grouped window's header
-  moves its shell as one world object (DOCK-003). Dragging the seam between split
-  panes reweights the pair (SPLIT-001) — the step recomputes from the container as
-  it stood at drag start, so the seam stays under the cursor rather than drifting.
-  Dragging a tab out of its strip tears the window out and hands the same
-  pointer to a normal window move (DOCK-004); dragging it along the strip reorders
-  it (TAB-001). **Alt+dragging** a floating window
-  over another window, or over a group member, docks it (DOCK-001/002).
-- ✅ **Docking-intent mode**, which risk R3 asked for. Docking is never something
-  a drag falls into: without the modifier a window overlaps as it always did.
-  While intent is held, a dock region overlay shows exactly where the window will
-  land, and alignment guides are suppressed — a snap guide and a drop target are
-  contradictory affordances. The overlay renders the same value the reducer
-  applies on release, not a fresh hit-test, so what is promised is what happens.
-- ✅ **Landed (2026-07-08): the shell resizes by its outer edge.** A `groupResize`
-  interaction beside `groupMove`/`groupGutter` steps `group.rect`; the tree is untouched and
-  members re-project. Resizing a grouped window _directly_ stays refused — a pane is resized
-  by its seam, the shell by its edge — and the frame no longer draws handles it would refuse,
-  which is what had been burying the gutter between two panes and eating the seam drag at low
-  zoom.
+A workspace is a virtual desktop. It contains a named set of windows. It also stores camera state and
+selection for that set.
 
-  Two things the build corrected about its own plan. The shell's minimum is **structural**
-  (gutters, strips, headers, `MINIMUM_GROUP_PANE_EXTENT` per pane), _not_ a function of every
-  pane's `minSize`: the solver has never consulted `minSize`, because inside a tree a member
-  has no rect of its own. And the shell's handles sit **entirely outside** its rect rather than
-  straddling the edge — everything inside is member-window DOM drawn above the group layer, so
-  an inward half is unreachable by construction.
+The rejected label was "nested canvases". A nested canvas adds another camera and input plane. A workspace
+uses one canvas and a membership filter.
 
-- ✅ **Landed (2026-07-08): tab reorder by drag.** Where the pointer goes decides what the
-  drag is — inside the strip it reorders, leaving it tears out. Previously any 6px of travel
-  tore the tab out, which made `group.reorderChild` unreachable by pointer however carefully
-  you slid a tab sideways.
+The model added four reducer actions. Persistence moved to version 3. The window layer filters the render set.
 
-  **P1 is capability-complete.** Every gesture in the spec lands: dock, shell move, shell
-  resize, seam reweight, tab tear-out, tab reorder. What remains is verification — the DOCK,
-  SPLIT, TAB, and ACC scenarios are `built` and entirely unasserted, and no test in the suite
-  touches groups at all.
+Workspace switching keeps camera state and selection for each workspace. The state survives reload. One switch
+creates one undo entry.
 
-- Tabs + accordion modes (center-merge, reorder, mode conversion,
-  active-child semantics).
-- **Docking-intent snapping**: explicit intent mode with region overlays
-  that suppresses alignment guides (risk R3's mitigation), per
-  [research/snapping.md](research/snapping.md).
-- Reducer-level: new canonical mutations (create group, insert child,
-  reorder, change layout mode, tear out, remove empty group) — drag and
-  keyboard compile to the same language.
-- Spec base: [research/grouping-and-docking.md](research/grouping-and-docking.md),
-  [research/state-focus-and-recipes.md](research/state-focus-and-recipes.md);
-  acceptance: DOCK-001..005, SPLIT-001..003, TAB-001/002, ACC-001 in
-  [research/acceptance-scenarios.md](research/acceptance-scenarios.md).
-- Exit: a /groups showcase where floating windows dock into split shells,
-  merge into tabs, tear out, move as units; scenario tests green.
-  **Met, except the scenario tests.** Floating windows dock into split shells,
-  merge into tabs, tear out, and move as units — all by dragging.
-- Dependencies: none hard; benefits from P2's chrome memoization landing
-  first (group shells add chrome).
+`activeWorkspaceId` and `workspaces` belong to the undo document. Camera movement alone does not belong to
+that document. A switch stores the outgoing camera state and selection. Thus, workspace choice is an edit
+while ordinary pan is not.
 
-## P2 — Performance: 60fps at 100+ windows
+The command set includes `workspace.cycle`, `workspace.showAll`, and `workspace.removeActiveWindow`. The cycle
+command wraps at both ends. The show-all command removes the filter without closing windows. The remove
+command removes the active window from the current workspace without closing it.
 
-Started (body memoization landed; 20→97fps pan). Finish the cost model in
+The command layer was added with the model. This prevented another unreachable reducer API. Past examples
+included `setInfiniteCanvasGroupAxis` and lifecycle behavior that existed only through `onClick`.
+
+The "all windows" view is outside the workspace ring. A cycle from that view enters the first or last named
+workspace. It does not add an extra item to the ring.
+
+The `/workspaces` route shows two desktops. Each desktop has different work. One window belongs to neither
+desktop. That window makes "show all" distinct.
+
+The switcher uses existing commands. The playground palette uses `getInfiniteCanvasContextualCommands`.
+Workspace commands thus appear without separate palette wiring.
+
+Workspace creation and naming require consumer input. `workspace.create` and `workspace.close` remain
+`parameterized`. The switcher supplies the required identifiers.
+
+At this status point, the route typechecked and built. No one viewed the route.
+
+A later source review found an open-window defect. A new window did not join the active workspace. The
+membership filter removed that window in its first frame.
+
+Existing `workspaces` paths only removed identifiers through `detach` or `reconcile`. No path added a new
+identifier. The user saw the new window only after entering "show all".
+
+`window.open` adds a new window to the active workspace. It is the only window creation path. Drop behavior
+dispatches `window.open`. Recipes only `map` over existing windows.
+
+The correction thus covers all creation paths.
+
+### Deferred work
+
+- Columns mode remains deferred.
+  It breaks the "only weight ratios matter" invariant in `group-tree`. A column uses an absolute extent and requires local shell
+  scrolling. Risk R11 records this issue.
+- P2 measurement remains deferred to real hardware.
+  The benchmark works, but the embedded preview limits `rAF` under load.
+- Texture capture remains deferred.
+  It requires Chrome 148 or later with the Origin Trial flag.
+- npm publication and the history purge remain owner actions.
+
+## P1: grouping and docking
+
+Status: the core capability landed on 2026-07-08. The later M1 work completed the scenario evidence.
+
+Group shells are world objects in `InfiniteCanvasState.groups`. `group-tree.ts` stores the n-ary tree,
+weights, and normalization. `group-layout.ts` calculates layout. `group-state.ts` writes the calculated
+rectangles to each `window.rect`. Other framework modules can thus remain unaware of group structure.
+
+The reducer has nine group actions. The facade covers create, close, dock, undock, rectangle changes, layout
+mode, active child, weights, and reorder. Persistence first stored groups in `version: 2`. A `version: 1`
+document migrated to `groups: []`.
+
+`group-layer.tsx` renders shells, gutters, tab strips, and accordion headers. The `/groups` route demonstrates
+the model.
+
+Pointer behavior includes these paths:
+
+- A grouped header moves the complete shell under DOCK-003.
+- A split seam changes the related weights under SPLIT-001.
+- Each seam calculation starts from the container state at drag start.
+- A tab drag outside its strip removes the window under DOCK-004.
+- The same pointer continues as a normal window move.
+- A tab drag inside its strip reorders the tab under TAB-001.
+- Alt with a floating-window drag docks onto a window or group member under DOCK-001 and DOCK-002.
+
+Docking requires explicit intent. A normal drag keeps overlap behavior. The intent overlay shows the selected
+dock region. Alignment guides are hidden while the overlay is active.
+
+The overlay and reducer use the same calculated value.
+
+A shell resize uses the `groupResize` interaction. It changes `group.rect` beside `groupMove` and
+`groupGutter`. The group tree does not change. Member rectangles are calculated again.
+
+Direct resize remains unavailable for grouped windows. A pane uses its seam. A shell uses its outer edge. The
+frame hides handles that cannot work.
+
+The shell minimum is structural. It includes gutters, strips, headers, and `MINIMUM_GROUP_PANE_EXTENT` for
+each pane. It does not use each pane `minSize`. The solver never reads `minSize` because a tree member has no
+independent rectangle.
+
+Shell handles sit completely outside the shell rectangle. Member DOM covers the inside area above the group
+layer. An inside handle area cannot receive pointer input.
+
+Tab drag position selects the action. Movement within the strip reorders the tab. Movement outside the strip
+removes the tab. The prior six-pixel threshold made `group.reorderChild` unreachable through pointer input.
+
+At the initial P1 completion date, all gestures were present. The scenario states were `built` but had no
+assertions. M1 later added the DOCK, SPLIT, TAB, ACC, FAIL, FOCUS, and PERSIST assertions.
+
+The specification sources are:
+
+- [research/grouping-and-docking.md](research/grouping-and-docking.md)
+- [research/state-focus-and-recipes.md](research/state-focus-and-recipes.md)
+- [research/snapping.md](research/snapping.md)
+- [research/acceptance-scenarios.md](research/acceptance-scenarios.md).
+
+The planned acceptance identifiers were DOCK-001 through DOCK-005, SPLIT-001 through SPLIT-003, TAB-001,
+TAB-002, and ACC-001.
+
+Exit conditions:
+
+- Floating windows dock into split shells.
+- Windows merge into tabs.
+- Tabs can leave their group.
+- Shells move as units.
+- Scenario tests cover the behavior.
+
+All exit conditions are met. P1 had no hard dependency. Early planning noted that frame memoization
+reduced the extra shell cost.
+
+## P2: performance at 100 or more windows
+
+Status: partial.
+
+The P2 plan corrected its culling and raster scope on 2026-07-08.
+
+Body memoization changed 20-window pan from 15.6 fps to 96.9 fps. The cost model lives in
 [research/performance-profile.md](research/performance-profile.md).
 
-**`NFR-1` is not this program's bar, and passing it does not make P2 done.** NFR-1
-asks for ten windows without obvious degradation, and has cleared that with headroom
-since `962e42c` on 2026-06-10 — a fact four documents went on denying for a month
-until 2026-07-08. P2's bar is **100 windows at 60fps**, and 80 windows currently pan
-at 21.3 fps. Both statements are true at once; conflating them is how the project
-spent a month believing its performance requirement was failing.
+`NFR-1` requires ten windows without visible loss. Commit `962e42c` met that limit on 2026-06-10. P2 requires
+100 windows at 60 fps. An 80-window pan measured 21.3 fps. The two limits are separate.
 
-- ~~Tranche 1: memoize frame inner chrome~~ — **landed, unmeasured.** The
-  frame no longer takes `state`; chrome, body, and resize handles are
-  memoized on window identity, and handle geometry moved to a CSS custom
-  property so zoom stops rebuilding them. Numbers pending a real-hardware
-  run.
-- **Tranche 2: window-layer visibility culling.** _Corrected 2026-07-08 — the
-  earlier note here said "subsystem exists, layer ignores it". That was wrong,
-  and acting on it would have been a mistake._ The subsystem that exists
-  (`visibility.tsx`) is fed **only** by the R3F frustum probe, which ships behind
-  the optional `/scene` entry and runs only under `diagnostics.frustum`. Culling
-  on `useInfiniteCanvasWindowFramed` would therefore cull nothing for any consumer
-  without `three` installed (it returns its `true` fallback), and would re-couple
-  rendering to the optional 3D peer that the `/scene` seam exists to keep out. It
-  is a diagnostics store, not a culling source.
+### Tranche 1
 
-  The culling predicate is `isWorldRectWithinViewport(camera, viewport, rect,
-marginPx)` in `geometry.ts` — pure, synchronous, camera-derived, no peer. Note
-  its unmeasured-viewport trap: a `0 × 0` viewport overlaps nothing, so a culler
-  must check `isUsableViewport` first or paint an empty canvas on first frame.
+Frame-chrome memoization is implemented and unmeasured. The frame no longer receives `state`. Chrome, body
+content, and resize handles use window identity for memoization. A CSS variable carries handle geometry.
+Camera zoom no longer rebuilds that geometry.
 
-  **Culling must not unmount.** The window layer maps `visibleWindows` straight to
-  frames, so dropping an offscreen window from that array unmounts its subtree:
-  DOM focus on the active window falls to `<body>` and silently kills every hotkey
-  (the failure the Close/Minimize controls already work around), `portalRoot`
-  roots tear down, and body scroll position, video playback, and uncontrolled
-  input state are destroyed on pan-away and come back blank. Skipping the frame's
-  _transform update_ while offscreen is safe — a stale transform on something
-  nobody can see is unobservable, and it re-renders on re-entry. Unmounting is
-  not. Profile before prescribing which.
+### Tranche 2
 
-- **html-in-canvas tier**: texture-mode-during-camera-motion prototype
-  (capture → WebGPU quads during pan/zoom, live DOM on settle), then the
-  measured decision on the canvas-subtree body plane
-  ([research/html-in-canvas.md](research/html-in-canvas.md)). Needs Chrome
-  148+ with the OT flag — owner's browser or token.
-- Productize the measurement harness: scripted benchmark runs (the
-  synthetic wheel/drag drivers) with thresholds, runnable via vp, so perf
-  regressions fail loudly. This is the same work as SHIP_PLAN's C4, and it is
-  the prerequisite for every number below it. Nothing may quote a figure for
-  tranche 1 until it runs.
-- **Raster defaults tuning at scale.** _Rescoped 2026-07-08._ The knob was not
-  merely untuned, it was **broken**: `maxPendingCaptures` at any finite value
-  left every window the queue refused permanently un-rasterized, because the
-  body recorded a capture it had never made. Fixed — a refused request is no
-  longer recorded, and a waiting body re-arms when the queue drains. The
-  **defaults** are still unbounded (`maxPendingCaptures` and `viewportMarginPx`
-  both `Infinity`), deliberately: picking a bound without profiling would be a
-  guess wearing a measurement's clothes. Tune them with the harness above, not
-  before it.
-- Exit: 100 windows at 60fps pan/zoom/drag on real hardware; benchmark
-  suite guarding the numbers; texture-mode go/no-go decided with data.
-  **Tranche 1 is landed and unmeasured**, so P2 cannot be assessed at all until
-  the harness exists — that is the first thing to build, not the last.
+The early note said "subsystem exists, layer ignores it". The plan incorrectly treated `visibility.tsx` as a culling source. That module receives data only from
+the R3F frustum probe. The probe exists behind the optional `/scene` entry. It operates only under
+`diagnostics.frustum`.
 
-## P3 — Styled Distribution & the Design Language
+`useInfiniteCanvasWindowFramed` returns its `true` fallback without the probe. A consumer without `three`
+thus receives no culling data from this hook. Using it for window rendering also restores a dependency on
+the optional `/scene` package.
 
-The product's face; the owner's stated aesthetic ambition (dynamic-grid
-lineage, "build something better").
+The correct predicate is `isWorldRectWithinViewport(camera, viewport, rect,
+marginPx)` in `geometry.ts`.
+The current implementation uses that pure camera calculation.
+It calls `isUsableViewport` before culling.
+A `0 × 0` viewport must render all frames.
 
-- tailwind-variants component layer over the `data-slot` contract (the
-  Phase-3 vocabulary IS the slots map) — themes as real distributions, not
-  just token overrides.
-- Rebuild the dynamic-grid backdrop as a first-class framework scene-layer
-  module (40px lattice, pointer-local luminance, node influence fields —
-  mined from the motion study, improved); shader marquee sheen and the
-  premium interaction polish deferred from SELECTION_AND_KEYBOARD_PLAN.
-- Design-token system maturation (light theme as proof of token
-  completeness), theming documentation, at least two complete looks
-  (the current dark default + one deliberately different).
-- Exit: `@infinite-canvas`-scoped theme package(s) or subpaths a consumer
-  can swap wholesale; playground theme switcher demonstrating both.
-- Dependencies: none; pure addition over the headless contract.
+Culling cannot remove entries from `visibleWindows`. Removal unmounts the subtree. Focus moves to `<body>`. A
+`portalRoot` detaches. Scroll, media, and uncontrolled input state are lost.
 
-## P4 — Undo/Redo, Transactions & Layout Recipes (FR-10 completion)
+Skipping an offscreen transform is safe. The stale transform is not visible. The frame renders the current
+transform when it returns.
 
-Professional-tool table stakes; the command layer is transaction-ready.
+### HTML-in-Canvas tier
 
-- ✅ **Landed (2026-07-08): undo/redo over the document.** `history.ts` keeps a
-  past/future stack of `{ groups, windows }` — the undoable half of the canvas.
-  Panning is not an edit, and undo never scrolls the view out from under someone
-  who just wanted their window back. `Mod+Z` / `Mod+Shift+Z`, gated by
-  `canUndoInfiniteCanvas` / `canRedoInfiniteCanvas`, compiled from the same command
-  vocabulary as everything else — which is exactly why history had to live in
-  `InfiniteCanvasState` rather than beside it in the store.
-  **Transactions coalesce by construction:** `interaction.step` never records; the
-  checkpoint is taken when a mutating drag _begins_, so a hundred-frame drag is one
-  entry and a cancelled drag still has somewhere to return to. Size policy: 100
-  entries, oldest dropped. Hydrate and reset discard the stack. History is
-  session-scoped and never serialized — a layout is a document, not its edit log.
-- **Still open: putting history in the versioned envelope** — and it is a real
-  question, not an oversight. History is session-scoped and deliberately never
-  serialized, so "put it in the envelope" means deciding that a layout's edit log
-  is part of the document. The current answer is no.
-- ✅ **Landed (2026-07-08): layout recipes.** `recipes.ts` captures a named
-  arrangement — the selection, or a named set, or the whole canvas — stored with
-  its origin at `(0, 0)` and a `size`, so it drops into any region of an unbounded
-  world. Groups come along only when _every_ member does: half a group is not a
-  group, and its tree would name windows the recipe never took. Applying it
-  rearranges the windows that exist and skips the ones the canvas has lost;
-  `reconcileInfiniteCanvasGroups` runs on the way back in, so a recipe saved before
-  a window was closed never restores a shell laying out a ghost. Recipes are values
-  the consumer owns and persists; `parseInfiniteCanvasRecipe` treats one crossing
-  storage as untrusted input, like canvas state. Applying a recipe is one undo
-  entry, for free, because it is one document mutation.
-  **Recipes translate; they do not scale.** Fitting an arrangement into a smaller
-  region would shrink windows below their own `minSize` — a recipe that quietly
-  violates a constraint the rest of the framework enforces is worse than one that
-  does not fit. Placed into a `rect`, an arrangement is centred at natural size.
-- **Still open: per-window history** (last floating rect, last dock path), and
-  recipes/history in the versioned envelope.
-- Persistence v2: recipes + history in the versioned serialization;
-  PERSIST-001..003 scenarios as tests.
-- Exit: ctrl-Z/shift-ctrl-Z across all mutations; recipe save/apply in a
-  showcase; tear-out→move→re-dock→undo×3 is transactionally coherent.
-  **Met, except transactional coherence across a tear-out→move→re-dock chain,
-  which needs the scenario tests to demonstrate.** Undo/redo spans every window and
-  group mutation, each drag is one transaction, and recipe save/apply is in the
-  `/groups` showcase.
-- Dependencies: recipes want P1's group model; window-only undo/redo can
-  land first.
+The planned texture mode captures windows during camera motion. WebGPU quads replace live DOM during pan and
+zoom. Live DOM returns after motion stops.
 
-## P5 — Keyboard, Focus & Accessibility (FR-9 + FR-8 completion)
+See [research/html-in-canvas.md](research/html-in-canvas.md). This work requires Chrome 148 or later with the
+Origin Trial flag.
 
-- ✅ **Landed: directional window focus** (`Alt+Arrow`), group-local first with a
-  global geometric fallback, plus focus restoration on close/minimize. FOCUS-001
-  is done.
-- ✅ **Landed (2026-07-08): the contextual-parent rule** (FOCUS-002). A floating
-  window whose centre lies inside a group's rect takes that group as its
-  contextual parent, so it needs no keyboard model of its own. Smallest containing
-  group wins; ties break on id. This closes risk R9.
-- ✅ **Landed (2026-07-08): named placements** (FOCUS-003).
-  `Mod+Shift+Arrow` for halves, `Mod+Shift+Enter` to fill; quarters and centre are
-  commands without a default chord, because the canvas `preventDefault()`s every
-  chord it owns and the obvious candidates are browser devtools or tab-switching
-  keys. `window-placement.ts` is the one thing that knows what "left half" means.
-  **Placement deliberately does not snap** — a left half nudged to align with its
-  neighbour is not a left half.
-- ✅ **Landed (2026-07-08): roving tab stops** in group tab strips and accordions,
-  the accordion's arrows following `container.axis` (ACC-001).
-- ✅ **Landed (2026-07-08): resize by keyboard.** `Alt+Shift+Arrow` grows or shrinks the
-  active window's east and south edges, leaving its origin where it is. Ten screen pixels,
-  converted through the camera as a nudge is, so the step stays ten screen pixels at any
-  zoom. It reuses `resizeRectFromHandle` rather than redefining what a resize means, and
-  refuses a grouped window for the same reason `interaction.startResize` does. A grouped
-  window's nudge translates its shell, since a member has no rect of its own.
+### Benchmark gate
 
-  The chord vocabulary now reads: bare arrow moves a little, `Shift` moves a lot, `Alt`
-  moves _focus_, `Alt+Shift` changes the shape, `Mod+Shift` tiles.
+The benchmark uses synthetic wheel, drag, and pan input through Vite+. Performance regressions
+must fail the gate. This work also supplies C4 in the ship plan.
 
-- ✅ **Landed: focus trapping.** `focus-trap.ts` and both its wirings —
-  `trapInfiniteCanvasTabKey` on Tab in the frame, `focusInfiniteCanvasContent` on entry —
-  exist and are called. This section called it "still open" for a month after it shipped,
-  alongside the claim that `role="tab"` carries no `aria-controls` "because a window frame
-  has no DOM `id` to point at". Both are false: the tab sets `aria-controls` from
-  `getInfiniteCanvasWindowFrameElementId`, and the frame carries that id with a comment
-  saying it exists for exactly this. Corrected 2026-08-12.
-- ✅ **Landed (2026-08-12): a selection can be built without a pointer** (FOCUS-004).
-  `selection.extendDirection` is the keyboard's Ctrl+click, and it matters more than it
-  sounds: every arrange verb — six aligns, two distributes, swap — needs two or more
-  selected windows, and `window.focusDirection` calls `focusWindow`, which _replaces_ the
-  selection with the window it focuses. With only "clear" and "select all visible"
-  alongside it, the whole arrange family was listed in the palette and unusable in
-  practice. The target joins the selection _before_ it is focused, because
-  `focusWindowPreservingSelection` takes the active window from the selection's anchor.
-- ✅ **Landed (2026-08-12): the camera answers the keyboard.** `view.pan` and
-  `view.zoomBy`. It had three commands before — fit-all, fit-selection, reset-zoom — so a
-  keyboard user could jump the view but not move or scale it.
-- IME and text-selection hardening; screen-reader pass.
-- Exit: full keyboard-only session (open, focus, move, resize, arrange, close) is
-  practical; a11y audit checklist in the repo passes. **Every verb in that list is now
-  reachable**, by chord or palette, except `open` — consumer territory, since only the
-  consumer knows what kinds exist and what a new one contains.
+No tranche-1 number is valid until this benchmark finishes on real hardware.
 
-  ✅ **The checklist exists, as a guard rather than a document** (2026-08-12).
-  `accessibility-structure.test.tsx` renders a canvas with a real tab group — which
-  `accessibility.test.tsx` never built, so `aria-controls` was never emitted there — and
-  asserts the structural class the semantics tests do not reach: no ARIA id reference
-  dangles, no element takes a positive `tabindex`, every tab sits inside a tablist. A
-  checklist in prose would go stale the way this section did; a guard fails the build.
+### Raster defaults
 
-  **It found a real defect on its first run.** Only the active child of a tabs container
-  renders a frame, so every inactive tab named a panel that was not in the document. A
-  dangling `aria-controls` is worse than an absent one — assistive technology follows it,
-  finds nothing, and says nothing — so the reference is now emitted only where the panel
-  exists.
+A finite `maxPendingCaptures` previously left refused windows without a raster. The body recorded a capture
+that never occurred. The correction does not record a refused request. A waiting body tries again after the
+queue drains.
 
-  **What stands between here and the exit is chords.** And the families added on
-  2026-08-12 — arrange, dock, group shape, lifecycle, camera, extend-selection — all ship
-  with empty `hotkeys`, because the arrow space is fully taken and the conventional zoom
-  keys are the browser's own. Palette-reachable is reachable, but a keyboard-only session
-  that routes every verb through a dialog is not yet _practical_.
+The defaults remain unbounded. Both `maxPendingCaptures` and `viewportMarginPx` use `Infinity`. A measured
+profile must select finite defaults.
 
-- Dependencies: group-local focus needed P1, which has landed. Everything left is
-  window-level and independent.
+Exit conditions:
 
-## P6 — Body Content Platform (the app-inside-a-window contract)
+- Pan, zoom, and drag hold 60 fps with 100 windows on real hardware.
+- A benchmark guards the recorded values.
+- Measured evidence selects or rejects texture mode.
 
-Unblocks real applications living in window bodies — currently the
-sharpest near-term trap
-([research/body-content-contract.md](research/body-content-contract.md)).
+P2 remains open because these measurements do not exist.
 
-- ✅ **Landed (2026-07-08): portal roots.** `portal.tsx` gives two roots outside
-  every transform: a desktop-level one on the viewport, and a window-local one
-  positioned to a window's _screen_ rect and moved as the camera does.
-  `<InfiniteCanvasPortal scope="window">` mounts into it, so a popover anchored to a
-  button inside a body appears beside that button at natural size instead of being
-  scaled by zoom and positioned against the frame. The window root is **opt-in per
-  window kind** (`portalRoot: true`): mounting one for every window would cost a
-  style write per window per camera tick, which is exactly what the frame's
-  memoization exists to avoid. `/portals` shows the trap and the fix side by side.
-- ✅ **Landed (2026-07-08): input ownership.** Wheel `deltaMode` normalization
-  (line mode was calibrated at 16px, so a Firefox notch travelled half as far as a
-  Chrome one — now 40), modifier-zoom-over-bodies decided in favour of zoom, and
-  pinch documented as the Ctrl+wheel path it has always been. See
-  [zoom-policy.md](zoom-policy.md). Per-engine pinch verification in Safari
-  remains, and that is a browser task rather than a code one.
-- 🟡 **Partially landed (2026-08-12): proxy chrome at far zoom.** The line below closed the
-  stroke half and explicitly left this open — "a stroke that survives is not the same as chrome
-  that is legible". The frame now simplifies on the **same detail band the body uses**: at
-  `summary` it renders no resize handles at all. Those are a constant _screen_ size by design,
-  so on a window that is tens of screen pixels wide each handle is larger than the window it
-  surrounds — eight of them stop being controls and become a smear that swallows the pointer.
+## P3: styled distribution
 
-  Unlike the body's summary lane this is **not opt-in per kind**: a body is the consumer's
-  content and only they can say what its summary is, while the chrome is the framework's own,
-  and a window kind cannot meaningfully opt into having illegible buttons.
+Status: open.
 
-  The **group shell's** eight handles simplify on the same band, for the same reason — their
-  extent is `resizeHandleSize / scale`, so zoomed out each one is larger than the shell it
-  surrounds and together they close over the group and the gutters between its panes.
+The program adds a Tailwind Variants layer over the `data-slot` contract. The Phase 3 attribute list is the
+slots map. Themes become complete distributions instead of token-only changes.
 
-  Tab strips and accordion headers deliberately **stay at every zoom**. They are sized in world
-  units so they shrink with the group rather than swamping it, and they are focusable controls
-  carrying roving `tabIndex` and the only means of switching a tab or a fold — dropping them
-  would be an accessibility regression wearing a performance argument.
+The program also adds an original dynamic-grid scene layer under the goal "build something better". The target includes a 40-pixel lattice, local
+pointer luminance, and node influence fields. The motion study supplies visual reference. The implementation
+must be original.
 
-  ✅ **The title and the four control buttons landed too.** `detailLevel` is now on
-  `InfiniteCanvasWindowFrameRuntimeContextValue` — which is package-internal rather than a public
-  export, so this was additive and broke no consumer type; the earlier claim that it was a
-  "public-surface change" was wrong and is corrected here. At `summary` the title renders nothing
-  and the controls container renders no buttons.
+The selection work deferred shader sheen and additional input polish. This program includes that work.
 
-  Two lines drawn deliberately. **Consumer `children` on the title are left alone** — they were
-  passed on purpose, and deciding someone else's content is illegible is not the framework's call;
-  only the framework's own default drops out. And **the containers stay**, so a consumer's
-  `render` and styling still resolve against a real element.
+The token system requires a complete light theme. That theme proves that all visual values use tokens. The
+distribution must include the current dark theme and one different complete theme. It also requires theme
+documentation.
 
-  **The honest cost: those buttons leave the accessibility tree at far zoom.** A screen-reader
-  user who happens to be zoomed out loses the per-window buttons. It is recoverable — every
-  window verb has a keyboard chord and a palette entry — and it matches the precedent the body's
-  `renderSummary` lane already set, where zoom decides what is in the DOM. It is still a real
-  trade rather than a free win, and it is the half most worth a browser and a screen reader.
+Exit conditions:
 
-- ✅ **Landed (2026-07-08): low-zoom chrome strokes.** Chrome is drawn in world
-  units inside a zoom-scaled frame, so a 1px border rendered as `1 × zoom` screen
-  pixels — a tenth of a pixel at 10% zoom. Borders, the header rule, and the inner
-  frame all thinned to nothing exactly when the user zoomed out to see how their
-  windows relate. Strokes now read `--icx-chrome-stroke`, which the frame widens in
-  world units as zoom shrinks and never lets render below one screen pixel. Above
-  100% zoom it is inert. Simplified proxy chrome remains a P7 (semantic LOD) item —
-  a stroke that survives is not the same as chrome that is legible.
-- ✅ **Landed (2026-07-08): `window.data` generic threading.**
-  `defineInfiniteCanvasWindowRegistry<Kind, DataByKind>` types each kind's payload while the
-  registry literal is written, then erases it, so `renderBody({ window })` hands back
-  `window.data` typed by kind. This item stayed unticked for a month and asked for "the real
-  fix beyond the helper" — **that fix was considered and deliberately rejected**, which the
-  friction backlog records and this line did not. `renderBody` _takes_ a context, so
-  `InfiniteCanvasWindowDefinition<K, Data>` is contravariant in `Data`: threading `DataByKind`
-  onward would force a type parameter through `Desktop`, the viewport, the window layer, the
-  frame, and every slot — and would buy nothing, because `window.data` really is `unknown` at
-  runtime. It round-trips through `JSON.parse` on hydration, and a tampered `localStorage`
-  entry can put anything there. `getInfiniteCanvasWindowData(window, guard)` exists for
-  exactly that boundary.
-- Exit: a showcase embedding a non-trivial app (forms, popovers, scrolling
-  lists) in windows with zero consumer workarounds. **The pieces exist across two showcases
-  rather than one** — `/body-content` carries the forms, the scrolling list on
-  `wheelBehavior: "native-scroll"`, and selectable prose; `/portals` carries the popover that
-  escapes the zoom transform. What nobody has checked is the "zero consumer workarounds" half,
-  which is a claim about using them, not about their being there.
+- Consumers can replace an `@infinite-canvas` theme package or subpath.
+- A playground control demonstrates both complete themes.
 
-## P7 — Rasterization v2 & Semantic LOD (far-zoom readability)
+P3 has no hard dependency. It builds on the headless contract.
 
-**This is two programs wearing one number, and treating them as one held the
-unblocked half hostage to the blocked one.** Split them explicitly:
+## P4: undo, redo, transactions, and recipes
 
-- **P7a — capture-lane modernization.** Genuinely blocked: needs Chrome 148+
-  with the OT flag, which is the owner's browser or token. Nothing here is an
-  agent's to finish. _Status check, 2026-08-12: html-in-canvas is **not
-  leveraged at all**. `rasterization.tsx` types its adapter as the one-member
-  union `"snapdom"`, the single capture call is `import("@zumer/snapdom")`, and
-  the string "html-in-canvas" appears once in `src/` — in a comment saying the
-  lane will be rebuilt on it. R12 reads as though a decision were executed; it
-  was made, recorded, and never built._
-- **P7b — semantic LOD.** ✅ **Landed 2026-08-12 (`1545636`)**, and it was never
-  blocked on P7a. It could not have been: **rasterization cannot deliver
-  far-zoom readability, because a rasterized paragraph is still a paragraph.**
-  A snapshot at 15% zoom is the same unreadable text, blurrier and cheaper.
-  `detail-level.ts` + `renderSummary` on the window definition; thresholded on
-  effective screen size rather than zoom, with a hysteresis band because zoom is
-  continuous and a single threshold flickers.
+Status: undo, redo, and recipes implemented on 2026-07-08. Per-window history remains open.
 
-**P7a's remaining work**, restated after the split so this list no longer contradicts the
-entry above it — it described semantic LOD as pending while P7b records it landed:
+`history.ts` stores past and future arrays of `{ groups, windows }`. This is the editable document portion of
+the canvas. Camera pan is not a document edit. Undo thus does not move the view.
 
-- html-in-canvas capture adapter behind the existing raster contract
-  (`captureElementImage` primary, snapdom fallback, feature-detected;
-  captures land as ImageBitmaps/GPU textures — old slices 4+5 merged).
-  `onpaint` as the recapture signal replacing idle-callback heuristics.
-- `renderIcon` — the one piece of the LOD lane that is genuinely unbuilt.
-  `grep renderIcon src/` returns nothing; `renderSummary` shipped and this
-  did not. Whether an icon lane is wanted at all below the summary band is
-  an open question, not a scheduled task.
-- RENDER-003 as a test, which needs culling to exist first. RENDER-001's
-  far-card lane and RENDER-002's pause-during-interaction are both asserted
-  or reasoned in `acceptance-scenarios.md`.
-- Exit: a 12–25% zoom document where every window stays identifiable;
-  capture lane switches automatically per browser capability.
-- Dependencies: shares the capture plumbing with P2's texture mode —
-  whichever runs first builds it.
+`Mod+Z` and `Mod+Shift+Z` use `canUndoInfiniteCanvas` and `canRedoInfiniteCanvas`. They use the same command
+vocabulary as other mutations. History lives in `InfiniteCanvasState` so command state can include it.
 
-## P8 — Quality & Release Engineering (shippability)
+A transaction starts when a mutating drag starts. `interaction.step` does not record history. A drag with many
+frames creates one entry. A canceled drag can return to the initial document.
 
-- **Browser-mode interaction tests**: the acceptance-scenario suite as
-  executable Vitest browser tests (real pointer events), replacing
-  one-off live driving; the computed-style fingerprint harness productized
-  as a visual-regression tool (or port kek's visual-parity).
-- Perf benchmarks in CI (from P2's harness).
-- **Publishing pipeline**: the rename to `@infinite-canvas/*` is done, as are
-  README + API documentation and the root's contribution hygiene (LICENSE,
-  CONTRIBUTING, CODE_OF_CONDUCT, SECURITY). Still open: a changesets/version
-  flow, and the docs site seed in the `apps/website` slot, which does not exist.
+History keeps 100 entries. It removes the oldest entry after that limit. Hydration and reset clear history.
+History is session-scoped and is not serialized.
 
-  ✅ **The package now ships its licence (2026-08-12).** It did not. `files` is
-  `["dist"]`, and npm looks for LICENSE beside `package.json` rather than at the
-  repository root — where a monorepo naturally puts it — so the tarball would have
-  declared MIT in its manifest and carried no licence text. `npm pack --dry-run`
-  confirms both halves: `LICENSE README.md package.json` plus seven dist files now,
-  and no LICENSE before. `verify-artifact.mjs` asserts it, so it cannot regress
-  between here and a publish.
+The document called serialized history "put it in the envelope". The selected policy is to keep it out. The
+edit log is not part of a saved layout.
 
-- Exit: `npm install @hyphened/infinite-canvas` works for an external
-  consumer with documented quick-start; CI gates on tests + benchmarks +
-  visual checks.
-- Dependencies: none, but most valuable after P3 exists to show.
+`recipes.ts` stores named arrangements. A recipe can use the selection, a named set, or the complete canvas.
+The stored origin is `(0, 0)`. The stored `size` permits placement in another world region.
 
-## Sequencing posture
+A group enters a recipe only when every member enters. A partial group cannot preserve a valid tree.
+Application changes only windows that still exist. `reconcileInfiniteCanvasGroups` removes invalid group
+references.
 
-Recommended spine: **P2-tranche-1 (small, immediate) → P1 (grouping) →
-P4 (transactions/recipes, designed against the group model) → P5**, with
-**P3 (styled distribution)** running as the parallel creative track and
-**P6** slotted whenever body-content pain surfaces. P7 activates when the
-owner's Chrome (148+, OT flag) is available for capture work; P8
-crystallizes whenever external sharing becomes a goal. All programs write
-their acceptance scenarios into the test suite as they land — the
-acceptance doc is the shared checklist.
+Consumers own and store recipe values. `parseInfiniteCanvasRecipe` treats stored values as untrusted input.
+One recipe application creates one undo entry.
+
+Recipes translate without scaling. Scaling can put a window below its `minSize`. Placement into a `rect`
+centers the recipe at its natural size.
+
+Open work includes the last floating rectangle and last dock path for each window. The plan also records an
+open question about recipes and history in a future envelope.
+
+The planned persistence work covered PERSIST-001 through PERSIST-003. Later scenario work covered the
+applicable current behavior.
+
+Exit conditions:
+
+- Undo and redo cover all mutations.
+- The `/groups` route can save and apply recipes.
+- A remove, move, dock, and three-step undo sequence remains coherent.
+
+The implemented behavior covers each window and group mutation. Each drag is one transaction. The showcase
+contains recipe save and apply behavior. Later scenario work supplies transaction evidence.
+
+Recipes depended on the P1 group model. Window-only history did not require that model.
+
+## P5: keyboard, focus, and accessibility
+
+Status: partial.
+
+FOCUS-002, FOCUS-003, roving focus, and keyboard resize landed on 2026-07-08.
+
+Directional focus uses `Alt+Arrow`. It searches the current group first. A global geometry search is the
+fallback. Close and minimize restore focus. FOCUS-001 is done.
+
+FOCUS-002 defines a contextual parent. A floating-window center inside a group selects that group. The
+smallest containing group wins. An identifier breaks a tie. This rule closed risk R9.
+
+FOCUS-003 defines named placement. `Mod+Shift+Arrow` selects halves. `Mod+Shift+Enter` fills the viewport.
+Quarter and center commands have no default chord.
+
+The command surface calls `preventDefault()` for owned chords. Common unused chords belong to browser
+developer tools or tab navigation. `window-placement.ts` is the only module that defines a "left half" and other named rectangles.
+Named placement does not snap after calculation.
+
+Group tabs and accordions use roving focus. Accordion arrows use `container.axis`. ACC-001 covers this rule.
+
+Keyboard resize uses `Alt+Shift+Arrow`. It changes the east and south edges. The window origin stays fixed.
+The step is ten screen pixels at each zoom.
+
+The command calls `resizeRectFromHandle`. It does not duplicate resize rules. `interaction.startResize` and
+keyboard resize both reject a grouped window. A nudge on a grouped window moves its shell.
+
+The chord families are:
+
+- A bare arrow moves a window.
+- `Shift` increases the move distance.
+- `Alt` changes focus.
+- `Alt+Shift` changes window size.
+- `Mod+Shift` places a window.
+
+Focus trapping is implemented in `focus-trap.ts`. An older status said "still open". The frame calls `trapInfiniteCanvasTabKey`. Content entry
+calls `focusInfiniteCanvasContent`.
+
+Tabs use `role="tab"`. The active panel reference uses `aria-controls`. The `aria-controls` value points to
+the mounted panel. `getInfiniteCanvasWindowFrameElementId` supplies the frame `id`.
+
+FOCUS-004 permits selection without a pointer. Earlier commands only supported "clear" and "select all visible".
+`selection.extendDirection` adds the directional target.
+Arrange commands require two or more selected windows.
+
+`window.focusDirection` normally calls `focusWindow`. That mutation replaces the selection. The extension
+command adds the target before focus. `focusWindowPreservingSelection` then uses the selection anchor.
+
+Camera commands include `view.pan` and `view.zoomBy`. Earlier commands only fit all, fit selection, or reset
+zoom.
+
+Selection extension and the camera commands landed on 2026-08-12.
+
+Open work includes IME behavior, text selection, and a screen-reader review.
+
+The practical session must cover open, focus, move, resize, arrange, and close. Each listed action is
+available through a chord or palette except `open`. The consumer defines window kinds and their initial
+content.
+
+`accessibility-structure.test.tsx` is the structural checklist. It renders a real tab group.
+`accessibility.test.tsx` did not create that group.
+
+The structural test proves these facts:
+
+- Each ARIA identifier resolves.
+- No element has a positive `tabindex`.
+- Each tab belongs to a tab list.
+
+The first use found references from inactive tabs to absent panels. Only the active tab panel is mounted. A
+missing target makes `aria-controls` invalid. An absent `aria-controls` value is correct for an unmounted
+panel.
+
+The implementation adds the reference only when the panel exists.
+
+Some command families still have empty `hotkeys` arrays. These include arrange, dock, group shape, lifecycle,
+camera, and selection extension. All arrow combinations already have owners. The browser also owns common zoom
+chords.
+
+Palette access makes these commands reachable. A practical keyboard-only session still needs better default
+chord coverage.
+
+P1 supplied group-local focus. The remaining work is window-level.
+
+## P6: body content platform
+
+Status: partial. See [research/body-content-contract.md](research/body-content-contract.md).
+
+Portals, input ownership, chrome strokes, and typed window data landed on 2026-07-08. Proxy chrome was partial
+on 2026-08-12.
+
+`portal.tsx` creates two roots outside the zoom transform. One root belongs to the desktop. A window-local
+root follows a window screen rectangle.
+
+`<InfiniteCanvasPortal scope="window">` mounts into the local root. A popover then stays at natural size and
+remains next to its anchor. The root is optional for each window kind through `portalRoot: true`.
+
+A root for every window adds a style write after each camera change. The opt-in rule protects frame
+memoization. The `/portals` route compares transformed and untransformed popovers.
+
+Input ownership work is implemented. Wheel `deltaMode` normalization changed line mode from 16 pixels to 40
+pixels. Firefox and Chrome then produce closer movement for one notch.
+
+Modifier zoom over a window body controls the canvas. Plain wheel input can still scroll the body. Trackpad
+pinch uses the Ctrl-wheel path. Safari evidence remains open. See [zoom-policy.md](zoom-policy.md).
+
+Proxy chrome at far zoom is partly implemented. At `summary` detail, a frame removes resize handles. Each
+handle uses a constant screen size. At far zoom, eight constant-size handles can cover the window.
+
+This chrome rule is not optional for a window kind. The framework owns chrome. The consumer owns body content
+and its summary.
+
+Group shells also remove their eight handles at `summary`. Each handle extent uses `resizeHandleSize / scale`.
+The same far-zoom problem applies to shells and gutters.
+
+Tab strips and accordion headers remain visible at every zoom. Their world-unit sizes shrink with the group.
+They also provide roving `tabIndex` and the only tab or fold controls.
+
+The default title and four control buttons leave the frame at summary detail. `detailLevel` lives on
+`InfiniteCanvasWindowFrameRuntimeContextValue`. That type is internal, so the change did not change a public
+contract. The old "public-surface change" claim was false.
+
+Consumer `children` in the title stay visible. Only the framework default title changes. The title and control
+containers remain mounted. Consumer `render` functions and styles still have an element.
+
+Removing buttons also removes them from the accessibility tree at far zoom. Keyboard commands and the palette
+still provide each window action. The body `renderSummary` lane already changes DOM content by zoom. A browser
+and screen reader must examine this trade.
+
+Low-zoom chrome strokes are implemented. A world-unit border that uses `1 × zoom` becomes smaller than one
+screen pixel below full zoom. The variable `--icx-chrome-stroke` increases world width as zoom decreases. It
+never renders thinner than one screen pixel.
+
+The design record said "a stroke that survives is not the same as chrome that is legible".
+
+It does not change above 100 percent zoom.
+
+The registry types each kind payload through `defineInfiniteCanvasWindowRegistry<Kind, DataByKind>`. Inside
+`renderBody({ window })`, `window.data` uses the related kind type. The typed `window.data` value exists only
+at the registry boundary. The registry then removes that type information at runtime. The rejected request was
+"the real fix beyond the helper".
+
+The project rejected full generic propagation. `renderBody` accepts a context. Thus,
+`InfiniteCanvasWindowDefinition<K, Data>` is contravariant in `Data`.
+
+Passing `DataByKind` through `Desktop`, viewport, layers, frame, and slots adds no runtime safety. Hydration
+makes `window.data` an `unknown` value. It crosses `JSON.parse`. Modified `localStorage` can contain another
+value.
+
+`getInfiniteCanvasWindowData(window, guard)` validates this boundary.
+
+The body-content exit requires "zero consumer workarounds" for forms, popovers, scrolling lists, and selectable
+text. The `/body-content` route covers forms, selectable text, and a scrolling list. The list uses
+`wheelBehavior: "native-scroll"`. The `/portals` route covers a popover outside the zoom transform.
+
+Direct use must prove the absence of consumer workarounds.
+
+## P7: rasterization and semantic detail
+
+This program has two independent parts.
+
+### P7a: capture modernization
+
+Status: blocked on Chrome 148 or later with the Origin Trial flag.
+
+The current `rasterization.tsx` adapter type contains only `"snapdom"`. Its capture path calls
+`import("@zumer/snapdom")`. The string "html-in-canvas" appears once under `src/`. That source comment describes
+future work.
+
+Risk R12 records a decision that is not implemented. The remaining adapter must use `captureElementImage`
+first. Snapdom remains the detected fallback.
+
+Captures become ImageBitmaps or GPU textures. This combines old slices 4 and 5.
+
+The `onpaint` event must replace idle-callback recapture estimates.
+
+The `renderIcon` lane is not implemented. `grep renderIcon src/` returns no result. `renderSummary` is
+implemented. The project still needs a decision about an icon lane below the summary band.
+
+RENDER-003 needs the culling implementation. RENDER-001 covers the far-card lane. RENDER-002 covers pause
+during input. `acceptance-scenarios.md` records those states.
+
+### P7b: semantic detail
+
+Status: done on 2026-08-12 in commit `1545636`.
+
+Raster snapshots reduce cost but do not make small text readable. A paragraph at 15 percent zoom remains
+unreadable after capture.
+
+`detail-level.ts` and `renderSummary` provide semantic detail. The threshold uses effective screen size
+instead of zoom alone. A hysteresis band prevents changes near one continuous threshold.
+
+Exit conditions:
+
+- At 12 to 25 percent zoom, each window remains identifiable.
+- Capture changes automatically with browser capability.
+
+The capture condition remains open. P2 texture mode and P7a share capture code. The first program to start
+this work owns the shared path.
+
+## P8: quality and release engineering
+
+Status: partial.
+
+The remaining browser work includes Vitest interaction tests with real pointer input. These tests must replace
+one-time manual sessions. The computed-style fingerprint can become a visual-regression tool. The kek
+visual-parity tool is another option.
+
+P2 must supply performance benchmarks for CI.
+
+The package rename to `@infinite-canvas/*` is done. README and API documentation exist. The repository
+contains LICENSE, CONTRIBUTING, CODE_OF_CONDUCT, and SECURITY files.
+
+Open release work originally included a changeset or version flow. The project later adopted Bumpy. The
+documentation application slot at `apps/website` still does not exist.
+
+The package includes its license. The package manifest uses `files` with `["dist"]`. npm searches beside
+`package.json` for the license.
+
+`npm pack --dry-run` includes `LICENSE README.md package.json`. It also includes seven distribution files.
+The package previously omitted the license text. `verify-artifact.mjs` guards this requirement.
+
+Exit conditions:
+
+- `npm install @hyphened/infinite-canvas` works in an external consumer.
+- The quick start describes that installation.
+- CI starts tests, benchmarks, and visual evidence.
+
+P8 has no hard dependency. A complete P3 theme gives external users a better demonstration.
+
+## Recorded sequence
+
+The 2026-06-10 plan used this order:
+
+1. P2 tranche 1.
+2. P1 grouping.
+3. P4 transactions and recipes.
+4. P5 accessibility.
+
+P3 was the parallel visual program. P6 entered the order when body-content problems appeared. P7 required a
+compatible Chrome build and Origin Trial flag. P8 became urgent before external publication.
+
+Each program adds its acceptance scenarios to the test suite. The acceptance document is the shared list.

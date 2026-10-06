@@ -1,0 +1,672 @@
+/* Optional theme. Import `infinite-canvas/theme.css`. All rules use one cascade layer. */
+
+@layer infinite-canvas {
+  [data-slot="viewport"] {
+    --icx-layout-transition: initial;
+    --icx-content-layout-transition: initial;
+    /* These tokens match `DEFAULT_INFINITE_CANVAS_THEME`. */
+    --icx-active-accent: #b7f4ff;
+    --icx-active-border: #e8fbff;
+    --icx-background: #050607;
+    --icx-body-background: #07080b;
+    --icx-grid-major: rgba(61, 102, 112, 0.24);
+    --icx-grid-minor: rgba(38, 66, 74, 0.18);
+    --icx-header-active: #17262a;
+    --icx-header-idle: #101317;
+    --icx-idle-border: #273035;
+    --icx-selection-border: #5f858d;
+    --icx-revealed-change: rgba(160, 196, 204, 0.55);
+    --icx-selection-bounds: rgba(115, 157, 165, 0.38);
+
+    --icx-color-foreground: #ffffff;
+    --icx-color-accent: var(--icx-active-accent);
+    --icx-color-shadow: #000000;
+    --icx-color-surface-raised: rgb(12 16 22);
+    --icx-color-accent-muted: rgb(119 151 161);
+    --icx-color-accent-surface: rgb(20 33 38);
+
+    --icx-color-accent-bright: #d7fbff;
+    --icx-color-accent-soft: #bef4ff;
+    --icx-color-accent-dim: #94e0ec;
+    --icx-color-accent-faint: #a0d2dc;
+    --icx-color-surface-sunken: #06080b;
+
+    --icx-viewport-fg: var(--icx-color-foreground);
+    --icx-viewport-shadow: 0 36px 120px -64px
+      color-mix(in srgb, var(--icx-color-shadow) 92%, transparent);
+
+    --icx-frame-surface-bg: var(--icx-body-background);
+
+    --icx-title-fg: color-mix(in srgb, var(--icx-color-foreground) 58%, transparent);
+    --icx-title-font-size: 10px;
+
+    --icx-control-size: 24px;
+
+    --icx-control-fg: color-mix(in srgb, var(--icx-color-foreground) 46%, transparent);
+    --icx-control-bg: color-mix(in srgb, var(--icx-color-foreground) 3%, transparent);
+    --icx-control-border: color-mix(in srgb, var(--icx-color-foreground) 8%, transparent);
+    --icx-control-hover-fg: var(--icx-color-foreground);
+    --icx-control-hover-bg: color-mix(in srgb, var(--icx-color-foreground) 8%, transparent);
+    --icx-control-hover-border: color-mix(in srgb, var(--icx-color-foreground) 20%, transparent);
+
+    --icx-host-control-fg: color-mix(in srgb, var(--icx-color-foreground) 48%, transparent);
+    --icx-host-control-bg: color-mix(in srgb, var(--icx-color-foreground) 3.5%, transparent);
+    --icx-host-control-border: color-mix(in srgb, var(--icx-color-foreground) 10%, transparent);
+    --icx-host-control-hover-bg: color-mix(in srgb, var(--icx-color-foreground) 7.5%, transparent);
+    --icx-host-control-hover-border: color-mix(
+      in srgb,
+      var(--icx-color-foreground) 18%,
+      transparent
+    );
+
+    --icx-corner: color-mix(in srgb, var(--icx-color-foreground) 25%, transparent);
+
+    --icx-host-fill:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--icx-color-foreground) 1.8%, transparent),
+        transparent 34%
+      ),
+      var(--icx-color-surface-sunken);
+    --icx-host-idle-border: color-mix(in srgb, var(--icx-color-accent-muted) 56%, transparent);
+    --icx-host-inner-border-active: color-mix(
+      in srgb,
+      var(--icx-color-foreground) 14%,
+      transparent
+    );
+    --icx-host-inner-border-selected: color-mix(
+      in srgb,
+      var(--icx-color-accent-soft) 8%,
+      transparent
+    );
+    --icx-host-inner-border-idle: color-mix(in srgb, var(--icx-color-foreground) 4.5%, transparent);
+    --icx-host-shadow-active:
+      0 0 0 1px color-mix(in srgb, var(--icx-color-accent-bright) 10%, transparent),
+      0 18px 60px -44px color-mix(in srgb, var(--icx-color-accent) 70%, transparent);
+    --icx-host-shadow-selected:
+      0 0 0 1px color-mix(in srgb, var(--icx-color-accent-dim) 8%, transparent),
+      0 18px 54px -48px color-mix(in srgb, var(--icx-color-accent-dim) 50%, transparent);
+    --icx-host-shadow-idle: 0 14px 48px -44px
+      color-mix(in srgb, var(--icx-color-accent-faint) 45%, transparent);
+    --icx-host-surface-shadow: 0 20px 80px -56px
+      color-mix(in srgb, var(--icx-color-accent) 55%, transparent);
+
+    --icx-group-gutter: var(--icx-idle-border);
+    --icx-group-tab-fg: var(--icx-grid-major);
+    --icx-group-label-fg: var(--icx-group-tab-fg);
+    --icx-group-label-fg-active: var(--icx-color-accent);
+    --icx-group-label-text-scale: 0.62;
+    --icx-group-surface-radius: 2px;
+    --icx-group-surface-shadow: none;
+
+    --icx-snap-guide: color-mix(in srgb, var(--icx-color-accent) 55%, transparent);
+    --icx-snap-preview-border: color-mix(in srgb, var(--icx-color-accent) 45%, transparent);
+    --icx-snap-preview-bg: color-mix(in srgb, var(--icx-color-accent) 3.5%, transparent);
+
+    --icx-marquee-border: color-mix(in srgb, var(--icx-color-accent) 80%, transparent);
+    --icx-marquee-bg: color-mix(in srgb, var(--icx-color-accent) 10%, transparent);
+    --icx-marquee-inset-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--icx-color-accent) 16%, transparent);
+
+    /* Runtime sets --icx-hud-extent-top and --icx-hud-extent-bottom. */
+    --icx-hud-panel-bg: color-mix(in srgb, var(--icx-color-surface-raised) 92%, transparent);
+    --icx-transition-duration: 150ms;
+    --icx-transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
+    --icx-hud-blur: 8px;
+    --icx-hud-font-size: 11px;
+    --icx-hud-button-size: 40px;
+    --icx-hud-panel-border: color-mix(in srgb, var(--icx-color-foreground) 10%, transparent);
+    --icx-hud-panel-shadow: none;
+    --icx-hud-divider: color-mix(in srgb, var(--icx-color-foreground) 8%, transparent);
+    --icx-hud-button-fg: color-mix(in srgb, var(--icx-color-foreground) 68%, transparent);
+    --icx-hud-button-hover-fg: var(--icx-color-foreground);
+    --icx-hud-button-hover-bg: color-mix(in srgb, var(--icx-color-foreground) 8%, transparent);
+    --icx-hud-button-hover-border: color-mix(in srgb, var(--icx-color-foreground) 20%, transparent);
+    --icx-hud-button-active-bg: var(--icx-color-accent-surface);
+    --icx-hud-button-active-fg: var(--icx-color-accent-bright);
+    --icx-hud-button-disabled-fg: color-mix(in srgb, var(--icx-color-foreground) 20%, transparent);
+    --icx-hud-status-bg: color-mix(in srgb, var(--icx-color-shadow) 45%, transparent);
+    --icx-hud-status-fg: color-mix(in srgb, var(--icx-color-foreground) 56%, transparent);
+    --icx-hud-status-title-fg: color-mix(in srgb, var(--icx-color-foreground) 72%, transparent);
+    --icx-hud-status-subtitle-fg: color-mix(in srgb, var(--icx-color-foreground) 38%, transparent);
+    --icx-hud-dock-item-fg: color-mix(in srgb, var(--icx-color-foreground) 58%, transparent);
+    --icx-hud-zoom-readout-fg: color-mix(in srgb, var(--icx-color-foreground) 58%, transparent);
+  }
+
+  [data-slot="viewport"] {
+    background: var(--icx-background);
+    color: var(--icx-viewport-fg);
+    box-shadow: var(--icx-viewport-shadow);
+    outline: none;
+  }
+
+  /* Grid line geometry stays inline because it depends on camera state. */
+  [data-slot="grid"] {
+    background-color: var(--icx-background);
+  }
+
+  [data-slot="window-surface"] {
+    background: var(--icx-body-background, var(--icx-frame-surface-bg));
+    /* At least one screen pixel wide; a consumer's own surface keeps its own border. */
+    border-width: var(--icx-chrome-stroke);
+    border-style: solid;
+    border-color: var(--icx-idle-border);
+    border-radius: var(--icx-surface-radius, 0);
+    box-shadow: var(--icx-surface-shadow, none);
+  }
+
+  [data-slot="window"][data-selected]:not([data-active]) [data-slot="window-surface"] {
+    border-color: var(--icx-selection-border);
+  }
+
+  [data-slot="window"][data-active] [data-slot="window-surface"] {
+    border-color: var(--icx-active-border);
+  }
+
+  [data-slot="window"][data-frame-chrome="host"] [data-slot="window-surface"] {
+    box-shadow: var(--icx-host-surface-shadow);
+  }
+
+  /*
+   * Text the pointer can actually select says so.
+   *
+   * Only on the active window: a click on an inactive one focuses it rather than placing a caret,
+   * so an I-beam there would promise an edit the click does not make. The body carries this alone,
+   * never the frame or the header.
+   */
+  [data-slot="window"][data-active]
+    [data-slot="window-body"][data-infinite-canvas-native-text-selection] {
+    cursor: text;
+  }
+
+  [data-slot="window-header"] {
+    background: var(--icx-header-idle);
+    border-bottom-style: solid;
+    border-bottom-color: var(--icx-idle-border);
+    /* Consumers can override header child alignment in this layer. */
+    justify-content: space-between;
+  }
+
+  [data-slot="window"][data-active] [data-slot="window-header"] {
+    background: var(--icx-header-active);
+    border-bottom-color: var(--icx-active-accent);
+  }
+
+  [data-slot="window"][data-frame-chrome="host"] [data-slot="window-header"] {
+    background: transparent;
+    border-bottom-color: transparent;
+  }
+
+  [data-slot="window-title"] {
+    color: var(--icx-title-fg);
+    font-size: var(--icx-title-font-size);
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  [data-slot="window-control"] {
+    align-items: center;
+    cursor: pointer;
+    display: flex;
+    height: var(--icx-control-size);
+    justify-content: center;
+    width: var(--icx-control-size);
+
+    border: 1px solid var(--icx-control-border);
+    background: var(--icx-control-bg);
+    color: var(--icx-control-fg);
+    transition-property:
+      color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
+      opacity, box-shadow, transform, translate, scale, rotate, filter, backdrop-filter;
+    transition-duration: var(--icx-transition-duration);
+    transition-timing-function: var(--icx-transition-timing);
+  }
+
+  [data-slot="window-control"][data-action="pin"] svg {
+    transform: rotate(45deg);
+  }
+
+  [data-slot="window-control"][data-action="pin"][data-active] svg {
+    color: var(--icx-active-accent);
+  }
+
+  [data-slot="window"][data-frame-chrome="host"] [data-slot="window-control"] {
+    border-color: var(--icx-host-control-border);
+    background: var(--icx-host-control-bg);
+    color: var(--icx-host-control-fg);
+  }
+
+  [data-slot="window-control"]:hover {
+    border-color: var(--icx-control-hover-border);
+    background: var(--icx-control-hover-bg);
+    color: var(--icx-control-hover-fg);
+  }
+
+  [data-slot="window"][data-frame-chrome="host"] [data-slot="window-control"]:hover {
+    border-color: var(--icx-host-control-hover-border);
+    background: var(--icx-host-control-hover-bg);
+    /* Restate hover color because the host idle selector has higher specificity. */
+    color: var(--icx-control-hover-fg);
+  }
+
+  [data-slot="window-corner"] {
+    border: 0 solid var(--icx-corner);
+  }
+
+  [data-slot="window-corner"][data-corner="top-left"] {
+    border-top-width: 1px;
+    border-left-width: 1px;
+  }
+
+  [data-slot="window-corner"][data-corner="top-right"] {
+    border-top-width: 1px;
+    border-right-width: 1px;
+  }
+
+  [data-slot="window-corner"][data-corner="bottom-left"] {
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+  }
+
+  [data-slot="window-corner"][data-corner="bottom-right"] {
+    border-bottom-width: 1px;
+    border-right-width: 1px;
+  }
+
+  /* Host strokes use the zoom-adjusted `--icx-chrome-stroke` value. */
+  [data-slot="window-host-chrome"] [data-layer="fill"] {
+    background: var(--icx-host-fill);
+  }
+
+  [data-slot="window-host-chrome"] [data-layer="header"] {
+    background: var(--icx-header-idle);
+  }
+
+  [data-slot="window"][data-active] [data-slot="window-host-chrome"] [data-layer="header"] {
+    background: var(--icx-header-active);
+  }
+
+  [data-slot="window-host-chrome"] [data-layer="accent"] {
+    background: var(--icx-idle-border);
+    opacity: 0.78;
+  }
+
+  [data-slot="window"][data-selected]:not([data-active])
+    [data-slot="window-host-chrome"]
+    [data-layer="accent"] {
+    background: var(--icx-selection-border);
+    opacity: 0.58;
+  }
+
+  [data-slot="window"][data-active] [data-slot="window-host-chrome"] [data-layer="accent"] {
+    background: var(--icx-active-accent);
+    opacity: 0.9;
+  }
+
+  [data-slot="window-host-chrome"] [data-layer="frame"] {
+    border-style: solid;
+    border-color: var(--icx-host-idle-border);
+    box-shadow: var(--icx-host-shadow-idle);
+  }
+
+  [data-slot="window"][data-selected]:not([data-active])
+    [data-slot="window-host-chrome"]
+    [data-layer="frame"] {
+    border-color: var(--icx-selection-border);
+    box-shadow: var(--icx-host-shadow-selected);
+  }
+
+  [data-slot="window"][data-active] [data-slot="window-host-chrome"] [data-layer="frame"] {
+    border-color: var(--icx-active-border);
+    box-shadow: var(--icx-host-shadow-active);
+  }
+
+  /* This stroke scales with zoom inside the frame transform. */
+  [data-slot="window-host-chrome"] [data-layer="inner-frame"] {
+    border-width: var(--icx-chrome-stroke);
+    border-style: solid;
+    border-color: var(--icx-host-inner-border-idle);
+  }
+
+  [data-slot="window"][data-selected]:not([data-active])
+    [data-slot="window-host-chrome"]
+    [data-layer="inner-frame"] {
+    border-color: var(--icx-host-inner-border-selected);
+  }
+
+  [data-slot="window"][data-active] [data-slot="window-host-chrome"] [data-layer="inner-frame"] {
+    border-color: var(--icx-host-inner-border-active);
+  }
+
+  [data-slot="selection-bounds"] {
+    border: 1px dashed var(--icx-selection-bounds);
+  }
+
+  /* Marks what an undo restored. The element fades itself out and is never dismissed. */
+  [data-slot="revealed-change"] {
+    border: 2px solid var(--icx-revealed-change);
+    border-radius: 6px;
+  }
+
+  /* A mark that flashes and vanishes is worse than none for anyone sensitive to motion. */
+  @media (prefers-reduced-motion: reduce) {
+    [data-slot="revealed-change"] {
+      animation: none !important;
+      opacity: 0;
+    }
+  }
+
+  [data-slot="snap-preview"] {
+    border: 1px solid var(--icx-snap-preview-border);
+    background: var(--icx-snap-preview-bg);
+  }
+
+  [data-slot="snap-guide"] {
+    opacity: 0.72;
+  }
+
+  [data-slot="snap-guide"][data-axis="x"] {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      var(--icx-snap-guide) 0 4px,
+      transparent 4px 8px
+    );
+  }
+
+  [data-slot="snap-guide"][data-axis="y"] {
+    background-image: repeating-linear-gradient(
+      to right,
+      var(--icx-snap-guide) 0 4px,
+      transparent 4px 8px
+    );
+  }
+
+  [data-slot="marquee"] {
+    border: 1px solid var(--icx-marquee-border);
+    background: var(--icx-marquee-bg);
+    box-shadow: var(--icx-marquee-inset-shadow);
+  }
+
+  [data-slot="hud-status"] {
+    padding: 12px 16px;
+    border: 1px solid var(--icx-hud-panel-border);
+    background: var(--icx-hud-status-bg);
+    box-shadow: var(--icx-hud-panel-shadow);
+    color: var(--icx-hud-status-fg);
+    font-size: var(--icx-hud-font-size);
+    backdrop-filter: blur(var(--icx-hud-blur));
+  }
+
+  [data-slot="hud-title"] {
+    color: var(--icx-hud-status-title-fg);
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  [data-slot="hud-subtitle"] {
+    color: var(--icx-hud-status-subtitle-fg);
+  }
+
+  /* Dock item text preserves the case of window titles. */
+  [data-slot="hud-dock-item"] {
+    padding: 8px 12px;
+    border: 1px solid var(--icx-hud-panel-border);
+    background: var(--icx-hud-panel-bg);
+    box-shadow: var(--icx-hud-panel-shadow);
+    color: var(--icx-hud-dock-item-fg);
+    font-size: var(--icx-hud-font-size);
+    font-weight: 500;
+    transition-property:
+      color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
+      opacity, box-shadow, transform, translate, scale, rotate, filter, backdrop-filter;
+    transition-duration: var(--icx-transition-duration);
+    transition-timing-function: var(--icx-transition-timing);
+  }
+
+  [data-slot="hud-dock-item"]:hover {
+    border-color: var(--icx-hud-button-hover-border);
+    background: var(--icx-hud-button-hover-bg);
+    color: var(--icx-hud-button-hover-fg);
+  }
+
+  [data-slot="hud-group"] {
+    align-items: center;
+    display: flex;
+    overflow: hidden;
+
+    border: 1px solid var(--icx-hud-panel-border);
+    background: var(--icx-hud-panel-bg);
+    box-shadow: var(--icx-hud-panel-shadow);
+    backdrop-filter: blur(var(--icx-hud-blur));
+  }
+
+  [data-slot="hud-button"] {
+    align-items: center;
+    display: flex;
+    height: var(--icx-hud-button-size);
+    justify-content: center;
+    width: var(--icx-hud-button-size);
+
+    border: 1px solid var(--icx-hud-panel-border);
+    background: var(--icx-hud-panel-bg);
+    box-shadow: var(--icx-hud-panel-shadow);
+    color: var(--icx-hud-button-fg);
+    transition-property:
+      color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
+      opacity, box-shadow, transform, translate, scale, rotate, filter, backdrop-filter;
+    transition-duration: var(--icx-transition-duration);
+    transition-timing-function: var(--icx-transition-timing);
+  }
+
+  /* The group owns panel border, fill, and shadow. */
+  [data-slot="hud-group"] [data-slot="hud-button"] {
+    border-width: 0;
+    border-color: var(--icx-hud-divider);
+    background: transparent;
+    box-shadow: none;
+  }
+
+  [data-slot="hud-button"][data-action="center-active"],
+  [data-slot="hud-button"][data-action="fit-selection"],
+  [data-slot="hud-button"][data-action="zoom-out"],
+  [data-slot="hud-button"][data-action="pointer-marquee"] {
+    border-right-width: 1px;
+  }
+
+  [data-slot="hud-button"][data-action="zoom-in"] {
+    border-left-width: 1px;
+  }
+
+  [data-slot="hud-button"][data-action="zoom-reset"] {
+    color: var(--icx-hud-zoom-readout-fg);
+    font-size: var(--icx-hud-font-size);
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  [data-slot="hud-button"][data-action="pointer-marquee"],
+  [data-slot="hud-button"][data-action="pointer-pan"] {
+    color: var(--icx-hud-dock-item-fg);
+  }
+
+  [data-slot="hud-button"][data-active] {
+    background: var(--icx-hud-button-active-bg);
+    color: var(--icx-hud-button-active-fg);
+  }
+
+  [data-slot="hud-button"]:hover {
+    border-color: var(--icx-hud-button-hover-border);
+    background: var(--icx-hud-button-hover-bg);
+    color: var(--icx-hud-button-hover-fg);
+  }
+
+  /* Grouped buttons keep divider color on hover. */
+  [data-slot="hud-group"] [data-slot="hud-button"]:hover {
+    border-color: var(--icx-hud-divider);
+    background: var(--icx-hud-button-hover-bg);
+    color: var(--icx-hud-button-hover-fg);
+  }
+
+  [data-slot="hud-button"]:disabled {
+    color: var(--icx-hud-button-disabled-fg);
+    cursor: not-allowed;
+  }
+
+  /* Group chrome sizes come from the layout solver. */
+  [data-slot="group-shell"] {
+    background: var(--icx-body-background);
+    border: 1px solid var(--icx-idle-border);
+    border-radius: var(--icx-group-surface-radius, 2px);
+    box-shadow: var(--icx-group-surface-shadow, none);
+  }
+
+  [data-slot="group-shell"][data-selected] {
+    outline: var(--icx-group-selection-outline, 1px solid var(--icx-selection-border));
+  }
+
+  [data-slot="group-shell"][data-drop-target] {
+    outline: var(--icx-group-drop-outline, 2px dashed var(--icx-active-accent));
+  }
+
+  [data-slot="group-label-row"] {
+    display: flex;
+    align-items: center;
+    gap: var(--icx-group-actions-gap, 0.25em);
+  }
+
+  [data-slot="group-label-row"] [data-slot="group-label"] {
+    min-width: 0;
+  }
+
+  [data-slot="group-actions-trigger"] {
+    align-items: center;
+    aspect-ratio: 1;
+    background: transparent;
+    border: 0;
+    color: var(--icx-group-label-fg, var(--icx-color-accent));
+    cursor: pointer;
+    display: inline-flex;
+    flex-shrink: 0;
+    height: 100%;
+    justify-content: center;
+    opacity: 0;
+    padding: 0;
+    pointer-events: none;
+  }
+
+  [data-slot="group-actions-trigger"] svg {
+    width: 65%;
+    height: 65%;
+  }
+  [data-slot="group-label-row"]:hover [data-slot="group-actions-trigger"],
+  [data-slot="group-label-row"]:focus-within [data-slot="group-actions-trigger"],
+  [data-slot="group-actions-trigger"][data-popup-open] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  [data-slot="context-actions-positioner"] {
+    z-index: var(--icx-context-menu-z-index, 1000);
+  }
+  [data-slot="context-actions"] {
+    background: var(--icx-context-menu-background, var(--icx-body-background, #17191c));
+    border: 1px solid var(--icx-context-menu-border, var(--icx-idle-border, #40444b));
+    border-radius: var(--icx-context-menu-radius, 6px);
+    color: var(--icx-context-menu-color, #e5e7eb);
+    font-size: var(--icx-context-menu-font-size, 13px);
+    min-width: var(--icx-context-menu-min-width, 11rem);
+    outline: none;
+    padding: var(--icx-context-menu-padding, 4px);
+  }
+  [data-slot="context-actions"] [data-slot="command-menu-item"] {
+    border-radius: var(--icx-context-menu-item-radius, 3px);
+    cursor: pointer;
+    outline: none;
+    padding: var(--icx-context-menu-item-padding, 6px 10px);
+  }
+  [data-slot="context-actions"] [data-highlighted] {
+    background: var(--icx-context-menu-highlight, #343940);
+  }
+  [data-slot="context-actions"] [data-disabled] {
+    opacity: var(--icx-context-menu-disabled-opacity, 0.4);
+    cursor: default;
+  }
+
+  /* The gutter is a control, separate from window border color. */
+  [data-slot="group-gutter"] {
+    background: var(--icx-group-gutter, var(--icx-idle-border));
+  }
+
+  /* The label size is a world length that stays constant on screen. */
+  [data-slot="group-label"] {
+    color: var(--icx-group-label-fg, var(--icx-group-tab-fg, var(--icx-grid-major)));
+    /* Block layout lets `text-overflow` apply to the label text. */
+    display: block;
+    font-size: calc(var(--icx-group-label-size) * var(--icx-group-label-text-scale, 0.62));
+    line-height: var(--icx-group-label-size);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The active group uses its label as the state indicator. */
+  [data-slot="group-shell"][data-active] [data-slot="group-label"] {
+    color: var(--icx-group-label-fg-active, var(--icx-color-accent));
+  }
+
+  [data-slot="group-tab-strip"] {
+    background: var(--icx-header-idle);
+    border-bottom: 1px solid var(--icx-idle-border);
+    gap: 1px;
+  }
+
+  [data-slot="group-tab"],
+  [data-slot="group-accordion-header"] {
+    background: transparent;
+    border: 0;
+    color: var(--icx-group-tab-fg, var(--icx-grid-major));
+    cursor: pointer;
+    font: inherit;
+    overflow: hidden;
+    padding-inline: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Horizontal-axis accordion labels use vertical text. */
+  [data-slot="group-accordion-header"][data-axis="horizontal"] {
+    padding-block: 10px;
+    padding-inline: 0;
+    writing-mode: vertical-rl;
+  }
+
+  [data-slot="group-tab"][data-active],
+  [data-slot="group-accordion-header"][data-active] {
+    background: var(--icx-header-active);
+    box-shadow: inset 0 -2px 0 0 var(--icx-active-accent);
+    color: var(--icx-selection-border);
+  }
+
+  /* Shown only while dock intent is active. */
+  [data-slot="dock-region"] {
+    background: color-mix(in oklab, var(--icx-active-accent) 18%, transparent);
+    border: 1px solid var(--icx-active-accent);
+    border-radius: 2px;
+  }
+
+  [data-slot="dock-region"][data-edge="center"] {
+    background: color-mix(in oklab, var(--icx-selection-border) 22%, transparent);
+    border-color: var(--icx-selection-border);
+  }
+
+  /* Portal roots do not capture pointer events. Their children can. */
+  [data-slot="portal-root"],
+  [data-slot="window-portal-root"] {
+    pointer-events: none;
+  }
+
+  [data-slot="portal-root"] > *,
+  [data-slot="window-portal-root"] > * {
+    pointer-events: auto;
+  }
+}

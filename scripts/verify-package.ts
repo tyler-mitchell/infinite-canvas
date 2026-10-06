@@ -39,8 +39,11 @@ try {
     `${JSON.stringify({ name: "infinite-canvas-preflight", private: true, type: "module" })}\n`,
   );
   await run("npm", ["install", tarball, "--no-audit", "--no-fund"], { cwd: directory });
-  await copyFile(new URL("./verify-published.mjs", import.meta.url), join(directory, "probe.mjs"));
-  await run(process.execPath, ["probe.mjs"], { cwd: directory });
+  await copyFile(
+    new URL("../packages/infinite-canvas/scripts/verify-published.ts", import.meta.url),
+    join(directory, "probe.ts"),
+  );
+  await run(process.execPath, ["probe.ts"], { cwd: directory });
 } finally {
   await rm(directory, { recursive: true, force: true });
 }

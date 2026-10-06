@@ -1,0 +1,249 @@
+import { d, std, tgpu } from "typegpu";
+
+/** The values are reach, mass, and ceiling. */
+const GRAVITY = "gravity";
+
+const FieldUniforms = d.struct({
+  dotLift: d.vec3f,
+  dotRest: d.vec3f,
+  gravity: d.vec3f,
+  ground: d.vec3f,
+  hoverAnchor: d.vec2f,
+  hoverRadius: d.f32,
+  /** The channels are line, dot, grain, and vignette. */
+  intensity: d.vec4f,
+  latticeOffset: d.vec2f,
+  latticeStep: d.f32,
+  pointer: d.vec2f,
+  pointerActive: d.f32,
+  resolution: d.vec2f,
+  time: d.f32,
+});
+
+const RectMass = d.struct({ rect: d.vec4f, strength: d.f32 });
+
+// A uniform array holds at most eight rectangles.
+const MAX_RECTS = 8;
+
+const layout = tgpu.bindGroupLayout({
+  masses: { uniform: d.arrayOf(RectMass, MAX_RECTS) },
+  uniforms: { uniform: FieldUniforms },
+});
+
+// Read layout.$ only inside a shader body. A module read throws.
+
+const random = tgpu.fn(
+  [d.vec2f],
+  d.f32,
+)((st) => {
+  "use gpu";
+
+  return std.fract(std.sin(std.dot(st, d.vec2f(12.9898, 78.233))) * 43758.5453123);
+});
+
+const rectPull = tgpu.fn(
+  [d.vec2f, d.vec4f, d.f32],
+  d.vec2f,
+)((point, rect, strength) => {
+  "use gpu";
+  const uniforms = layout.$.uniforms;
+
+  if (strength <= 0.001 || rect.z <= 0) {
+    return d.vec2f();
+  }
+
+  const delta = std.sub(std.clamp(point, rect.xy, std.add(rect.xy, rect.zw)), point);
+  const distanceToRect = std.length(delta);
+
+  if (distanceToRect <= 0) {
+    return d.vec2f();
+  }
+
+  const mass = std.sqrt(rect.z * rect.w) / 265;
+  const pull =
+    (uniforms[GRAVITY].y * mass) / (1 + std.pow(distanceToRect / uniforms[GRAVITY].x, 2));
+
+  return std.mul(std.normalize(delta), pull * strength);
+});
+
+const fieldPull = tgpu.fn(
+  [d.vec2f],
+  d.vec2f,
+)((point) => {
+  "use gpu";
+  const uniforms = layout.$.uniforms;
+  const masses = layout.$.masses;
+  let total = d.vec2f();
+
+  for (let index = 0; index < MAX_RECTS; index++) {
+    total = std.add(total, rectPull(point, masses[index].rect, masses[index].strength));
+  }
+
+  const ceiling = uniforms[GRAVITY].z;
+
+  return std.select(total, std.mul(std.normalize(total), ceiling), std.length(total) > ceiling);
+});
+
+const lineMask = tgpu.fn(
+  [d.f32, d.f32],
+  d.f32,
+)((distanceToLine, width) => {
+  "use gpu";
+
+  return 1 - std.smoothstep(width, width + 1.1, distanceToLine);
+});
+
+const fieldFragment = tgpu["~unstable"].fragmentFn({
+  in: { uv: d.vec2f },
+  out: d.vec4f,
+})((input) => {
+  "use gpu";
+  const uniforms = layout.$.uniforms;
+  const frag = std.mul(input.uv, uniforms.resolution);
+  const gravity = uniforms[GRAVITY];
+  const intensity = uniforms.intensity;
+  const pointerActive = uniforms.pointerActive;
+  const hoverRadius = uniforms.hoverRadius;
+
+  const pull = fieldPull(frag);
+  const warped = std.sub(std.add(frag, uniforms.latticeOffset), pull);
+  const depth = std.clamp(std.length(pull) / gravity.z, 0, 1);
+
+  const step = uniforms.latticeStep;
+  const halfStep = step * 0.5;
+  const nearestLattice = std.mul(std.round(std.div(warped, step)), step);
+  const dotDistance = std.length(std.sub(warped, nearestLattice));
+  const lineDistance = std.min(
+    std.abs(warped.x - nearestLattice.x),
+    std.abs(warped.y - nearestLattice.y),
+  );
+  const nearestHalf = std.mul(std.round(std.div(warped, halfStep)), halfStep);
+  const halfLineDistance = std.min(
+    std.abs(warped.x - nearestHalf.x),
+    std.abs(warped.y - nearestHalf.y),
+  );
+
+  const wellCore = depth * depth;
+  const wellTail = depth;
+
+  const anchorScreen = std.sub(uniforms.hoverAnchor, uniforms.latticeOffset);
+  const anchorDistance = std.length(std.div(std.sub(frag, anchorScreen), d.vec2f(1.08, 0.9)));
+  const pointerDistance = std.length(std.sub(frag, uniforms.pointer));
+  const beam =
+    std.pow(1 - std.smoothstep(hoverRadius * 0.136, hoverRadius, anchorDistance), 1.62) *
+    pointerActive;
+  const core =
+    std.pow(1 - std.smoothstep(hoverRadius * 0.076, hoverRadius * 0.409, pointerDistance), 1.4) *
+    pointerActive;
+  const anchorCatch = (1 - std.smoothstep(0.8, 3, dotDistance)) * beam;
+  const hoverLine = std.clamp(beam * 0.78 + core * 0.12 + anchorCatch * 0.1, 0, 1);
+  const hoverDot =
+    (1 - std.smoothstep(0.58, 1.5, dotDistance)) *
+    std.pow(1 - std.smoothstep(hoverRadius * 0.152, hoverRadius * 0.955, anchorDistance), 1.45) *
+    pointerActive;
+
+  const radial = std.pow(
+    1 -
+      std.smoothstep(
+        hoverRadius * 0.152,
+        hoverRadius * 1.121,
+        std.length(std.div(std.sub(frag, uniforms.pointer), d.vec2f(1.1, 0.9))),
+      ),
+    1.74,
+  );
+  const glow = 1 - std.smoothstep(hoverRadius * 0.091, hoverRadius * 0.439, pointerDistance);
+  const spotlightLine = radial * (0.7 + glow * 0.3) * pointerActive;
+  const spotlightDot = std.pow(radial, 1.26) * (0.82 + glow * 0.2) * pointerActive;
+  const spotlightGlint = (std.pow(glow, 1.8) * 0.62 + std.pow(radial, 2.4) * 0.22) * pointerActive;
+
+  const hoverLineSignal = std.max(hoverLine * 0.88, spotlightLine * 0.18);
+  const hoverDotSignal = std.max(hoverDot * 0.86, spotlightDot);
+  const dynamic = std.max(hoverLine * 0.38, hoverDot * 0.28);
+
+  const largeCell = random(std.floor(std.div(std.add(frag, d.vec2f(31, 79)), 180)));
+  const mediumCell = random(std.floor(std.div(std.add(frag, d.vec2f(97, 17)), 80)));
+  const cellTexture = 0.72 + largeCell * 0.18 + mediumCell * 0.1;
+  const vignette = std.mix(
+    1,
+    std.smoothstep(1.05, 0.3, std.length(std.sub(input.uv, d.vec2f(0.5, 0.5)))),
+    intensity.w,
+  );
+  const visibility = std.clamp(cellTexture * (0.55 + vignette * 0.55) + dynamic * 0.46, 0, 1);
+
+  const sparseSeed = random(std.add(std.mul(nearestLattice, 0.037), d.vec2f(3.7, 8.1)));
+  const sparseDot = (0.58 + std.pow(sparseSeed, 0.72) * 0.42) * (0.86 + mediumCell * 0.22);
+  const shimmer =
+    0.9 + std.sin(uniforms.time * (0.74 + sparseSeed * 1.2) + sparseSeed * 6.2831853) * 0.1;
+  const rim = std.sin(depth * 3.14159265);
+  const dotRadius = std.max(
+    0.34,
+    std.mix(0.52, 0.42 + rim * 0.62, std.clamp(wellTail + dynamic, 0, 1)) - depth * 0.22,
+  );
+  const dotMask = 1 - std.smoothstep(dotRadius, dotRadius + 1, dotDistance);
+
+  const litLines = std.clamp(visibility + hoverLineSignal * 0.33, 0, 1);
+  const litDots = std.clamp(visibility + hoverDotSignal * 0.62, 0, 1);
+  const halfLineCore = lineMask(halfLineDistance, 0.08);
+  const majorLineCore = lineMask(lineDistance, 0.32 + dynamic * 0.5);
+  const baseLineAlpha = (0.0045 + wellTail * 0.028) * (0.82 + largeCell * 0.24);
+
+  const lineAlpha =
+    majorLineCore *
+    std.max(baseLineAlpha + hoverLineSignal * 0.041 + spotlightGlint * 0.011, dynamic * 0.18) *
+    litLines *
+    intensity.x;
+  const halfLineAlpha =
+    halfLineCore *
+    (0.005 + hoverLineSignal * 0.0034) *
+    (1 - dotMask * 0.78) *
+    litLines *
+    intensity.x;
+  const dotAlpha =
+    dotMask *
+    sparseDot *
+    (0.5 + wellCore * 0.5 + dynamic * 0.24 + hoverDotSignal * 0.64 + spotlightGlint * 0.2) *
+    shimmer *
+    litDots *
+    intensity.y;
+
+  const fine =
+    random(
+      std.add(
+        std.mul(std.div(frag, std.max(uniforms.resolution, d.vec2f(1, 1))), 1000),
+        d.vec2f(uniforms.time * 0.1, uniforms.time * 0.1),
+      ),
+    ) - 0.5;
+  const coarse =
+    random(std.floor(std.div(std.add(frag, d.vec2f(uniforms.time * 5, uniforms.time * 5)), 3))) -
+    0.5;
+  const grain = (fine * 0.019 + coarse * 0.006) * intensity.z;
+
+  const ground = std.mul(uniforms.ground, 0.86 + vignette * 0.18);
+  const lineColor = std.mix(
+    uniforms.dotRest,
+    uniforms.dotLift,
+    std.clamp(dynamic * 1.35 + hoverLineSignal * 1.44, 0, 1),
+  );
+  const dotColor = std.mix(
+    std.mix(uniforms.dotRest, d.vec3f(1, 1, 1), wellCore * 0.42),
+    uniforms.dotLift,
+    std.clamp(dynamic * 0.42 + hoverDotSignal * 0.7, 0, 1),
+  );
+
+  // TGSL does not permit a reference binding to let.
+  let color = d.vec3f(ground);
+
+  color = std.mix(color, uniforms.dotRest, std.clamp(halfLineAlpha, 0, 1));
+  color = std.mix(color, lineColor, std.clamp(lineAlpha, 0, 1));
+  color = std.mix(color, dotColor, std.clamp(dotAlpha, 0, 1));
+  color = std.add(
+    color,
+    std.mul(uniforms.dotLift, hoverLineSignal * std.max(majorLineCore, halfLineCore) * 0.09),
+  );
+  color = std.add(color, std.mul(uniforms.dotLift, hoverDot * 0.1));
+  color = std.add(color, d.vec3f(grain, grain, grain));
+
+  return d.vec4f(color.x, color.y, color.z, 1);
+});
+
+export { fieldFragment, FieldUniforms, layout, MAX_RECTS, RectMass };

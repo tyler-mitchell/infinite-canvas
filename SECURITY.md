@@ -1,63 +1,64 @@
-# Security Policy
+# Security policy
 
 ## Supported versions
 
-`@hyphened/infinite-canvas` is pre-1.0. Only the latest `0.1.x` release receives fixes.
+`@hyphened/infinite-canvas` is pre-1.0. Only the latest `0.2.x` release receives fixes.
 
 | Version | Supported |
 | ------- | --------- |
-| `0.1.x` | Yes       |
-| `< 0.1` | No        |
+| `0.2.x` | Yes       |
+| `< 0.2` | No        |
 
-There are no long-term support branches, and there will not be any before 1.0. Patches land on
-`main` and go out in the next release; older `0.1.x` patch releases are not backported to.
+There are no long-term support branches before version 1.0. Patches enter `main`. The next release includes them.
+
+The maintainer does not backport fixes to older `0.2.x` releases.
 
 ## Scope
 
-This is a client-side React library. It renders a canvas of windows in the browser, persists
-document-scoped state to browser storage, and — optionally — rasterizes DOM into WebGL/WebGPU
-textures. Things that are in scope:
+This client-side React library renders windows in a browser. It stores document-scoped state in browser storage.
 
-- Cross-site scripting or DOM-injection reachable through the library's own rendering or through the
-  serialized/persisted state it reads back,
-- Prototype pollution or unsafe deserialization in the persistence and validation layers,
-- Anything that lets untrusted persisted state escape the sandbox the consuming app expects.
+The optional rasterizer converts DOM content to WebGL or WebGPU textures.
 
-Out of scope: vulnerabilities in the playground app (`apps/playground`, private, never published),
-issues that require a consumer to deliberately render attacker-controlled markup they trust, and
-anything that only affects a browser or GPU driver rather than this code.
+These security problems are in scope:
 
-## Reporting a vulnerability
+- Cross-site scripting or DOM injection through library rendering
+- Cross-site scripting or DOM injection through restored state
+- Prototype pollution or unsafe deserialization in persistence and validation
+- Untrusted state that escapes the sandbox of the consumer application.
 
-**Please do not open a public GitHub issue for a security vulnerability.** Public issues are how a
-not-yet-fixed problem gets weaponized.
+These security problems are out of scope:
 
-Instead, email **tyler.davis.mitchell@gmail.com** with:
+- Vulnerabilities in private, unpublished workspace applications
+- Markup that a consumer deliberately accepts as trusted
+- Problems that affect only a browser or GPU driver.
 
-- a description of the issue and why you believe it's a security problem,
-- the affected version,
-- a minimal reproduction, or the steps to build one,
-- the impact you think it has.
+## Report a vulnerability
 
-If you'd rather use GitHub's private reporting flow, you can also open a draft advisory from the
-Security tab of <https://github.com/tyler-mitchell/infinite-canvas>.
+Do not open a public GitHub issue for a security vulnerability.
 
-## What to expect
+Email **tyler.davis.mitchell@gmail.com** with this information:
 
-Honest expectations, since a promise nobody can keep is worse than no promise:
+- A description of the problem and its security effect
+- The affected version
+- A minimal reproduction or reproduction steps
+- The expected impact.
 
-This is a pre-1.0 project maintained by one person in their spare time. Response is **best-effort**.
-There is no service-level agreement, no guaranteed acknowledgement window, and no bug bounty. In
-practice you can expect an acknowledgement within a couple of weeks; if you haven't heard anything
-after that, feel free to send a follow-up email — the first one probably got buried, not ignored.
+You can also submit a draft advisory from the Security tab of <https://github.com/tyler-mitchell/infinite-canvas>.
 
-When a report is confirmed:
+## Response
 
-1. The fix is developed privately.
-2. A patched `0.1.x` is published.
-3. A GitHub security advisory is filed, crediting you unless you'd rather stay anonymous.
+One person maintains this pre-1.0 project during spare time. The maintainer responds when time permits.
 
-If you disclose publicly before a fix ships, that's your call to make — but please give it a
-reasonable window first. Nobody is served by a working exploit and no patch.
+There is no service-level agreement, guaranteed response period, or bug bounty. An acknowledgment usually arrives within two weeks.
 
-Thank you for reporting responsibly.
+If no acknowledgment arrives after two weeks, send a follow-up email.
+
+After the maintainer confirms a report:
+
+1. The maintainer develops the fix privately.
+2. The maintainer publishes a patched `0.2.x` release.
+3. The maintainer files a GitHub security advisory.
+
+The advisory gives you credit unless you request anonymity.
+
+Before public disclosure, give the maintainer time to publish a fix. Public disclosure without a patch can expose users.

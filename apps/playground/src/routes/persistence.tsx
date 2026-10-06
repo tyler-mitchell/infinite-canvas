@@ -3,18 +3,17 @@ import {
   createInfiniteCanvasState,
   createInfiniteCanvasWindow,
   defineInfiniteCanvasWindowRegistry,
-  getInfiniteCanvasScopedStorageKey,
+  CommandTrigger,
   InfiniteCanvasDesktop,
-} from "@hyphened/infinite-canvas";
+} from "@hyphened/infinite-canvas/legacy";
 import { Button } from "ui";
 import { CommandPalette } from "../showcases/command-palette.tsx";
-import { exposeCanvasDevHandle } from "../showcases/dev-handle.ts";
 
 export const Route = createFileRoute("/persistence")({
   component: PersistenceShowcase,
   staticData: {
     showcase: {
-      description: "Versioned layouts survive reload; stale kinds are dropped.",
+      description: "Saved layouts survive reload; unavailable components retain their data.",
       order: 6,
       title: "Persistence",
     },
@@ -24,13 +23,6 @@ export const Route = createFileRoute("/persistence")({
 type Kind = "note";
 
 const STORAGE_KEY = "playground.persistence.v1";
-const DOCUMENT_KEY = "demo";
-
-/** The exact key the framework writes under — used by the reset button. */
-const scopedKey = getInfiniteCanvasScopedStorageKey({
-  documentKey: DOCUMENT_KEY,
-  storageKey: STORAGE_KEY,
-});
 
 const registry = defineInfiniteCanvasWindowRegistry<Kind>({
   note: {
@@ -43,8 +35,7 @@ const registry = defineInfiniteCanvasWindowRegistry<Kind>({
         </div>
         <p>Move or resize me, then reload the page. The layout is restored.</p>
         <p className="text-white/40">
-          State is written to <code>localStorage</code> under a key scoped by{" "}
-          <code>documentKey</code>, and structurally validated on read.
+          The configured storage key owns this document. Reset restores its starting layout.
         </p>
       </div>
     ),
@@ -75,10 +66,9 @@ function PersistenceShowcase() {
   return (
     <div className="absolute inset-0">
       <InfiniteCanvasDesktop
-        documentKey={DOCUMENT_KEY}
+        tools
         initialState={initialState}
-        renderOverlay={(context) => {
-          exposeCanvasDevHandle(context);
+        renderOverlay={() => {
           return (
             <>
               <CommandPalette />
@@ -87,19 +77,15 @@ function PersistenceShowcase() {
                   className="px-2 font-mono text-[10px] text-muted-foreground"
                   data-testid="storage-key"
                 >
-                  {scopedKey}
+                  {STORAGE_KEY}
                 </span>
-                <Button
+                <CommandTrigger
                   data-testid="reset-persisted"
-                  onClick={() => {
-                    globalThis.localStorage.removeItem(scopedKey);
-                    globalThis.location.reload();
-                  }}
-                  size="xs"
-                  variant="ghost"
+                  commandId="desktop.reset"
+                  render={<Button size="xs" variant="ghost" />}
                 >
-                  Clear + reload
-                </Button>
+                  Reset saved layout
+                </CommandTrigger>
               </div>
             </>
           );
